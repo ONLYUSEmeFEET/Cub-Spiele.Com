@@ -17,16 +17,16 @@ export interface LCDPalette {
 export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   original: {
     id: 'original',
-    name: 'Original Game.com (1997)',
-    description: 'Authentic passive-matrix STN greenish-olive reflective LCD',
-    colors: ['#c6cd9b', '#95a06e', '#5b673e', '#212a14'],
+    name: 'Original Game.com (1997 STN)',
+    description: 'Calibrated 1997 passive-matrix reflective olive-green STN LCD',
+    colors: ['#b9c48a', '#84915a', '#4c5931', '#192310'],
     rgbColors: [
-      [198, 205, 155],
-      [149, 160, 110],
-      [91, 103, 62],
-      [33, 42, 20]
+      [185, 196, 138],
+      [132, 145, 90],
+      [76, 89, 49],
+      [25, 35, 16]
     ],
-    bezelTint: '#9fa876'
+    bezelTint: '#a3ae76'
   },
   pocket_pro: {
     id: 'pocket_pro',

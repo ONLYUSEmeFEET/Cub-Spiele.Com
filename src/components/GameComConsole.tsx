@@ -1,348 +1,708 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
+import { GameComButtons } from '../emulator/types';
 import { LCDScreen } from './LCDScreen';
-import { Volume2, VolumeX, Power, RotateCcw, PenTool, Disc } from 'lucide-react';
+import { Disc, Volume2, VolumeX, RotateCcw } from 'lucide-react';
 
 interface GameComConsoleProps {
   system: GameComSystem;
-  onLoadRomFile: (file: File) => void;
+  scale?: number;
   onOpenLibrary: () => void;
+  onFpsUpdate?: (fps: number) => void;
+  onStateChange?: () => void;
 }
 
 export const GameComConsole: React.FC<GameComConsoleProps> = ({
   system,
-  onLoadRomFile,
-  onOpenLibrary
+  scale = 2.35,
+  onOpenLibrary,
+  onFpsUpdate,
+  onStateChange
 }) => {
-  const [isStylusUnholstered, setIsStylusUnholstered] = useState(false);
-  const [, forceUpdate] = useState({});
+  const [pressedButtons, setPressedButtons] = useState<Partial<GameComButtons>>({});
+  const [contrastValue, setContrastValue] = useState(system.settings.contrast);
 
-  const triggerUpdate = () => forceUpdate({});
+  // Keyboard bindings
+  useEffect(() => {
+    const keyMap: Record<string, keyof GameComButtons> = {
+      ArrowUp: 'up',
+      KeyW: 'up',
+      ArrowDown: 'down',
+      KeyS: 'down',
+      ArrowLeft: 'left',
+      KeyA: 'left',
+      ArrowRight: 'right',
+      KeyD: 'right',
+      KeyZ: 'a',
+      KeyJ: 'a',
+      Space: 'a',
+      KeyX: 'b',
+      KeyK: 'b',
+      KeyC: 'c',
+      KeyL: 'c',
+      KeyV: 'd',
+      KeyI: 'd',
+      Enter: 'menu',
+      KeyM: 'menu',
+      KeyP: 'pause',
+      Backspace: 'pause'
+    };
 
-  // Button handlers (both mouse and touch friendly)
-  const setBtn = (key: keyof typeof system.buttons, pressed: boolean) => {
-    system.buttons[key] = pressed;
-    if (pressed) {
-      system.sound.playButtonPress();
-    }
-    triggerUpdate();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === 'SELECT'
+      ) {
+        return;
+      }
+
+      const btn = keyMap[e.code];
+      if (btn) {
+        e.preventDefault();
+        if (!pressedButtons[btn]) {
+          setPressedButtons((prev) => ({ ...prev, [btn]: true }));
+          system.setButton(btn, true);
+          onStateChange?.();
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const btn = keyMap[e.code];
+      if (btn) {
+        e.preventDefault();
+        setPressedButtons((prev) => ({ ...prev, [btn]: false }));
+        system.setButton(btn, false);
+        onStateChange?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [system, pressedButtons, onStateChange]);
+
+  const handleBtnPress = (btn: keyof GameComButtons) => {
+    setPressedButtons((prev) => ({ ...prev, [btn]: true }));
+    system.setButton(btn, true);
+    onStateChange?.();
   };
 
-  const handlePower = () => {
-    system.powerToggle();
-    triggerUpdate();
+  const handleBtnRelease = (btn: keyof GameComButtons) => {
+    setPressedButtons((prev) => ({ ...prev, [btn]: false }));
+    system.setButton(btn, false);
+    onStateChange?.();
   };
 
-  const handleReset = () => {
-    system.resetSystem();
-    system.sound.playTone(600, 0.1, 'square', 0.2);
-    triggerUpdate();
-  };
-
-  const handleSoundToggle = () => {
-    system.soundToggle();
-    triggerUpdate();
-  };
-
-  const handlePause = () => {
-    system.pauseToggle();
-    triggerUpdate();
+  const handleContrastWheel = (delta: number) => {
+    const next = Math.max(0.65, Math.min(1.45, Number((contrastValue + delta).toFixed(2))));
+    setContrastValue(next);
+    system.settings.contrast = next;
+    onStateChange?.();
   };
 
   return (
-    <div className="relative mx-auto flex flex-col items-center">
-      {/* Handheld Plastic Chassis */}
-      <div className="relative bg-gradient-to-b from-[#2b2e38] via-[#1f222a] to-[#16181e] p-5 sm:p-7 md:p-8 rounded-[38px] md:rounded-[48px] shadow-2xl border-t border-slate-600/40 shadow-black/80 max-w-full">
-        {/* Subtle molded plastic texture overlay */}
-        <div className="absolute inset-0 rounded-[38px] md:rounded-[48px] pointer-events-none bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:12px_12px]" />
-
-        {/* TOP SECTION: Dual Cartridge Bays + Power LED */}
-        <div className="flex items-center justify-between mb-4 px-2">
-          {/* Dual Cartridge Slots Indicator */}
-          <div className="flex items-center gap-3">
-            {/* Slot 1 */}
-            <button
-              onClick={() => onOpenLibrary()}
-              title="Cartridge Slot 1 (Click to manage)"
-              className={`px-3 py-1 text-xs font-mono rounded flex items-center gap-2 border transition-colors cursor-pointer ${
-                system.slot1
-                  ? 'bg-slate-800 text-purple-300 border-purple-500/40 hover:border-purple-400'
-                  : 'bg-slate-900/60 text-slate-500 border-slate-700/50'
-              }`}
-            >
-              <Disc className="w-3.5 h-3.5 text-purple-400" />
-              <span>SLOT 1:</span>
-              <span className="font-semibold text-white truncate max-w-[110px]">
-                {system.slot1 ? system.slot1.title : '[EMPTY]'}
-              </span>
-            </button>
-
-            {/* Slot 2 */}
-            <button
-              onClick={() => onOpenLibrary()}
-              title="Cartridge Slot 2 (Click to manage)"
-              className={`hidden sm:flex px-3 py-1 text-xs font-mono rounded items-center gap-2 border transition-colors cursor-pointer ${
-                system.slot2
-                  ? 'bg-slate-800 text-blue-300 border-blue-500/40 hover:border-blue-400'
-                  : 'bg-slate-900/60 text-slate-500 border-slate-700/50'
-              }`}
-            >
-              <Disc className="w-3.5 h-3.5 text-blue-400" />
-              <span>SLOT 2:</span>
-              <span className="font-semibold text-white truncate max-w-[110px]">
-                {system.slot2 ? system.slot2.title : '[EMPTY]'}
-              </span>
-            </button>
-          </div>
-
-          {/* Right Header: Power LED + Stylus Dock Button */}
-          <div className="flex items-center gap-4">
-            {/* Stylus Holster Toggle */}
-            <button
-              onClick={() => {
-                setIsStylusUnholstered(!isStylusUnholstered);
-                system.sound.playTouchBeep();
-              }}
-              className={`px-2.5 py-1 text-xs rounded border transition-all flex items-center gap-1.5 cursor-pointer ${
-                isStylusUnholstered
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
-              }`}
-              title="Unholster / Holster Game.Com Stylus"
-            >
-              <PenTool className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-mono">
-                {isStylusUnholstered ? 'Stylus: In Hand' : 'Stylus Docked'}
-              </span>
-            </button>
-
-            {/* Power LED Indicator */}
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                  system.isPoweredOn
-                    ? 'bg-red-500 shadow-sm shadow-red-500/80 ring-2 ring-red-500/30'
-                    : 'bg-red-950'
-                }`}
-              />
-              <span className="text-[10px] tracking-wider text-slate-400 font-bold uppercase">
-                Power
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Brand Deboss Bar */}
-        <div className="flex items-center justify-between px-3 pb-2 text-slate-400">
-          <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-            Tiger Electronics
-          </span>
-          <span className="text-sm font-extrabold tracking-tight text-purple-400 drop-shadow-sm font-mono">
-            game·com
-          </span>
-          <span className="text-[10px] font-mono text-slate-400 tracking-wider">
-            TOUCH SCREEN HANDHELD
-          </span>
-        </div>
-
-        {/* CENTER: Recessed Screen Bezel */}
-        <div className="relative bg-[#1c1e24] p-3 sm:p-4 rounded-xl border border-slate-700/60 shadow-inner flex flex-col items-center">
-          <LCDScreen
-            system={system}
-            onFileDrop={onLoadRomFile}
-            isStylusActive={isStylusUnholstered}
-          />
-        </div>
-
-        {/* BOTTOM CONTROLS SECTION */}
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-6 px-3">
-          {/* LEFT: 8-Way Tactile Directional D-Pad */}
-          <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-            {/* D-Pad Background Wells */}
-            <div className="absolute w-32 h-11 bg-slate-900 rounded-md shadow-inner" />
-            <div className="absolute h-32 w-11 bg-slate-900 rounded-md shadow-inner" />
-
-            {/* D-Pad Cross Body */}
-            <div className="relative z-10 w-32 h-32">
-              {/* UP */}
-              <button
-                onPointerDown={() => setBtn('up', true)}
-                onPointerUp={() => setBtn('up', false)}
-                onPointerLeave={() => setBtn('up', false)}
-                className={`absolute top-0 left-11 w-10 h-11 bg-gradient-to-b from-slate-700 to-slate-800 hover:from-slate-600 rounded-t-md border-t border-slate-500 flex items-center justify-center shadow cursor-pointer active:scale-95 active:bg-slate-900 ${
-                  system.buttons.up ? 'bg-slate-900' : ''
-                }`}
-                title="D-Pad Up (Arrow Up / W)"
-              >
-                <span className="text-slate-400 text-xs font-bold">▲</span>
-              </button>
-
-              {/* DOWN */}
-              <button
-                onPointerDown={() => setBtn('down', true)}
-                onPointerUp={() => setBtn('down', false)}
-                onPointerLeave={() => setBtn('down', false)}
-                className={`absolute bottom-0 left-11 w-10 h-11 bg-gradient-to-b from-slate-800 to-slate-900 hover:from-slate-700 rounded-b-md border-b border-slate-950 flex items-center justify-center shadow cursor-pointer active:scale-95 active:bg-slate-950 ${
-                  system.buttons.down ? 'bg-slate-950' : ''
-                }`}
-                title="D-Pad Down (Arrow Down / S)"
-              >
-                <span className="text-slate-400 text-xs font-bold">▼</span>
-              </button>
-
-              {/* LEFT */}
-              <button
-                onPointerDown={() => setBtn('left', true)}
-                onPointerUp={() => setBtn('left', false)}
-                onPointerLeave={() => setBtn('left', false)}
-                className={`absolute top-11 left-0 w-11 h-10 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 rounded-l-md border-l border-slate-500 flex items-center justify-center shadow cursor-pointer active:scale-95 active:bg-slate-900 ${
-                  system.buttons.left ? 'bg-slate-900' : ''
-                }`}
-                title="D-Pad Left (Arrow Left / A)"
-              >
-                <span className="text-slate-400 text-xs font-bold">◀</span>
-              </button>
-
-              {/* RIGHT */}
-              <button
-                onPointerDown={() => setBtn('right', true)}
-                onPointerUp={() => setBtn('right', false)}
-                onPointerLeave={() => setBtn('right', false)}
-                className={`absolute top-11 right-0 w-11 h-10 bg-gradient-to-l from-slate-700 to-slate-800 hover:from-slate-600 rounded-r-md border-r border-slate-950 flex items-center justify-center shadow cursor-pointer active:scale-95 active:bg-slate-900 ${
-                  system.buttons.right ? 'bg-slate-900' : ''
-                }`}
-                title="D-Pad Right (Arrow Right / D)"
-              >
-                <span className="text-slate-400 text-xs font-bold">▶</span>
-              </button>
-
-              {/* Center thumb dish */}
-              <div className="absolute top-11 left-11 w-10 h-10 bg-slate-800 flex items-center justify-center pointer-events-none">
-                <div className="w-5 h-5 rounded-full bg-slate-900/80 shadow-inner" />
+    <div className="relative flex flex-col items-center select-none">
+      {/* Top Dual Cartridge Bay Assembly (Authentic 1997 Tiger Game.Com Dual Slot Ridges) */}
+      <div className="relative z-0 flex items-end justify-center gap-3 -mb-3 px-10">
+        {/* SLOT 1 CARTRIDGE */}
+        <div
+          onClick={() => {
+            if (system.slot1) {
+              system.launchCartridge(1);
+              onStateChange?.();
+            } else {
+              onOpenLibrary();
+            }
+          }}
+          title={system.slot1 ? `Click to Boot Slot 1: ${system.slot1.title}` : 'Insert Cartridge in Slot 1'}
+          className={`group cursor-pointer transition-all duration-200 w-52 h-12 rounded-t-[14px] border-t-2 border-x-2 px-3.5 pt-1.5 pb-3 flex items-center justify-between ${
+            system.activeSlot === 1 && system.activeApp === 'CARTRIDGE'
+              ? 'bg-gradient-to-b from-[#2c2f38] to-[#1b1d23] border-[#a3ae76]/60 -translate-y-1 shadow-[0_-4px_14px_rgba(163,174,118,0.2)]'
+              : 'bg-gradient-to-b from-[#252830] to-[#17191e] border-[#3a3e4a] hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="w-2.5 h-6 rounded-[2px] shrink-0 border border-black/40"
+              style={{ backgroundColor: system.slot1?.coverAccent || '#3f3f46' }}
+            />
+            <div className="truncate">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#9ca3af] font-bold">
+                  SLOT 1 {system.activeSlot === 1 && system.activeApp === 'CARTRIDGE' ? '• ACTIVE' : ''}
+                </span>
+              </div>
+              <div className="text-[11px] font-bold text-[#e5e7eb] truncate">
+                {system.slot1 ? system.slot1.title : 'Empty Slot 1'}
               </div>
             </div>
           </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenLibrary();
+            }}
+            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#14161b] hover:bg-[#323642] text-[#d1d5db] border border-[#3a3e4a] shrink-0"
+          >
+            SWAP
+          </button>
+        </div>
 
-          {/* CENTER: System Console Buttons (MENU, PAUSE, SOUND, POWER, RESET) */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2 sm:gap-3 bg-slate-900/70 p-2 rounded-xl border border-slate-800">
-              {/* MENU Button */}
-              <button
-                onClick={() => {
-                  setBtn('menu', true);
-                  setTimeout(() => setBtn('menu', false), 150);
-                }}
-                className="flex flex-col items-center px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded active:scale-95 transition-transform border-b border-slate-950 cursor-pointer"
-                title="Main Menu (Escape / M)"
-              >
-                <span className="text-[10px] font-bold text-slate-300 font-mono">MENU</span>
-              </button>
-
-              {/* PAUSE Button */}
-              <button
-                onClick={handlePause}
-                className="flex flex-col items-center px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded active:scale-95 transition-transform border-b border-slate-950 cursor-pointer"
-                title="Pause (P / Space)"
-              >
-                <span className="text-[10px] font-bold text-slate-300 font-mono">
-                  {system.isPaused ? 'RESUME' : 'PAUSE'}
+        {/* SLOT 2 CARTRIDGE (Default: Recompiled Frogger Slowdown-Fix ROM) */}
+        <div
+          onClick={() => {
+            if (system.slot2) {
+              system.launchCartridge(2);
+              onStateChange?.();
+            } else {
+              onOpenLibrary();
+            }
+          }}
+          title={system.slot2 ? `Click to Boot Slot 2: ${system.slot2.title}` : 'Insert Cartridge in Slot 2'}
+          className={`group cursor-pointer transition-all duration-200 w-56 h-12 rounded-t-[14px] border-t-2 border-x-2 px-3.5 pt-1.5 pb-3 flex items-center justify-between ${
+            system.activeSlot === 2 && system.activeApp === 'CARTRIDGE'
+              ? 'bg-gradient-to-b from-[#2c2f38] to-[#1b1d23] border-[#10b981]/70 -translate-y-1 shadow-[0_-4px_14px_rgba(16,185,129,0.22)]'
+              : 'bg-gradient-to-b from-[#252830] to-[#17191e] border-[#3a3e4a] hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="w-2.5 h-6 rounded-[2px] shrink-0 border border-black/40"
+              style={{ backgroundColor: system.slot2?.coverAccent || '#10b981' }}
+            />
+            <div className="truncate">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#a7f3d0] font-bold">
+                  SLOT 2 {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' ? '• ACTIVE' : '• PATCHED ROM'}
                 </span>
-              </button>
+              </div>
+              <div className="text-[11px] font-bold text-[#e5e7eb] truncate">
+                {system.slot2 ? system.slot2.title : 'Empty Slot 2'}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenLibrary();
+            }}
+            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#14161b] hover:bg-[#323642] text-[#d1d5db] border border-[#3a3e4a] shrink-0"
+          >
+            SWAP
+          </button>
+        </div>
+      </div>
 
-              {/* SOUND Button */}
-              <button
-                onClick={handleSoundToggle}
-                className="flex flex-col items-center px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded active:scale-95 transition-transform border-b border-slate-950 cursor-pointer"
-                title="Mute / Unmute Sound"
-              >
-                {system.settings.muted ? (
-                  <VolumeX className="w-3.5 h-3.5 text-red-400" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5 text-slate-300" />
-                )}
-                <span className="text-[9px] font-bold text-slate-400 font-mono mt-0.5">SOUND</span>
-              </button>
+      {/* ===================================================================== */}
+      {/* MAIN 1997 TIGER GAME.COM HANDHELD SHELL (AUTHENTIC CHARCOAL-SLATE ABS) */}
+      {/* ===================================================================== */}
+      <div
+        className="relative z-10 rounded-[48px] p-6 sm:p-8 border-[3px] border-[#3d414d] transition-all"
+        style={{
+          background:
+            'radial-gradient(120% 100% at 50% 8%, #343842 0%, #262931 48%, #1b1e24 100%)',
+          boxShadow:
+            '0 30px 70px -15px rgba(0, 0, 0, 0.92), inset 0 2px 3px rgba(255, 255, 255, 0.16), inset 0 -10px 22px rgba(0, 0, 0, 0.85), inset 4px 0 10px rgba(255, 255, 255, 0.04)'
+        }}
+      >
+        {/* Left & Right Molded Ergonomic Hand-Grip Contours & Rubberized Side Ribs */}
+        <div className="pointer-events-none absolute left-0 top-16 bottom-16 w-4 flex flex-col justify-center gap-3 pl-1">
+          <div className="w-2 h-8 rounded-r-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
+          <div className="w-2 h-8 rounded-r-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
+          <div className="w-2 h-8 rounded-r-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
+        </div>
+        <div className="pointer-events-none absolute right-0 top-16 bottom-16 w-4 flex flex-col justify-center gap-3 items-end pr-1">
+          <div className="w-2 h-8 rounded-l-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
+          <div className="w-2 h-8 rounded-l-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
+          <div className="w-2 h-8 rounded-l-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
+        </div>
+
+        {/* Top Embossed Mold Seam & TIGER ELECTRONICS Branding */}
+        <div className="flex items-center justify-between px-8 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black tracking-[0.28em] text-[#8d93a1]/80 uppercase drop-shadow-[0_1px_0_rgba(0,0,0,0.9)]">
+              TIGER ELECTRONICS, INC.
+            </span>
+          </div>
+          <div className="h-[2px] flex-1 mx-6 rounded-full bg-[#17191f] shadow-[0_1px_0_rgba(255,255,255,0.07)]" />
+          <div className="text-[9px] font-mono tracking-[0.2em] text-[#8d93a1]/75 uppercase">
+            MODEL NO. 71-000 • 1997
+          </div>
+        </div>
+
+        {/* ================================================================= */}
+        {/* MAIN HORIZONTAL CONSOLE DECK: LEFT WING | SCREEN BEZEL | RIGHT WING */}
+        {/* ================================================================= */}
+        <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-7">
+          {/* --------------------------------------------------------------- */}
+          {/* LEFT WING: POWER LED, SYSTEM PILL KEYS, 8-WAY DISH D-PAD, SPEAKER */}
+          {/* --------------------------------------------------------------- */}
+          <div className="flex flex-row lg:flex-col items-center justify-between w-full lg:w-44 gap-4 py-1">
+            {/* Top-Left System Button Column + Power LED */}
+            <div className="flex items-start justify-between w-full px-2 gap-3">
+              {/* Power Indicator LED & Contrast Thumbwheel Column */}
+              <div className="flex flex-col items-center gap-3 pt-1">
+                {/* Recessed Ruby Power LED */}
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-5 h-5 rounded-full bg-[#14161b] p-1 flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.9)] border border-[#343844]">
+                    <div
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                        system.isPoweredOn
+                          ? 'bg-[#ef4444] shadow-[0_0_10px_#ef4444,inset_0_1px_1px_#fecaca]'
+                          : 'bg-[#451a1c]'
+                      }`}
+                    />
+                  </div>
+                  <span className="text-[8px] font-black tracking-[0.16em] text-[#9ca3af] uppercase">
+                    POWER
+                  </span>
+                </div>
+
+                {/* Tactile Ribbed Contrast Wheel */}
+                <div className="flex flex-col items-center gap-1 mt-1" title="Adjust STN LCD Contrast">
+                  <div className="flex flex-col items-center bg-[#13151a] p-1 rounded-md border border-[#323641] shadow-inner">
+                    <button
+                      onClick={() => handleContrastWheel(0.08)}
+                      className="w-4 h-3 text-[8px] leading-none text-[#9ca3af] hover:text-white flex items-center justify-center"
+                      title="Increase Contrast"
+                    >
+                      ▲
+                    </button>
+                    <div className="w-3.5 h-6 rounded-[2px] bg-gradient-to-b from-[#3f4452] via-[#252830] to-[#3f4452] flex flex-col justify-between py-0.5 px-0.5 border border-black/60">
+                      <div className="h-[1px] bg-black/80" />
+                      <div className="h-[1px] bg-black/80" />
+                      <div className="h-[1px] bg-black/80" />
+                      <div className="h-[1px] bg-black/80" />
+                    </div>
+                    <button
+                      onClick={() => handleContrastWheel(-0.08)}
+                      className="w-4 h-3 text-[8px] leading-none text-[#9ca3af] hover:text-white flex items-center justify-center"
+                      title="Decrease Contrast"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                  <span className="text-[7px] font-mono tracking-wider text-[#8d93a1] uppercase">
+                    CONTRAST
+                  </span>
+                </div>
+              </div>
+
+              {/* Authentic Vertical Pill System Keys (ON/OFF, MENU, PAUSE, SOUND, RESET) */}
+              <div className="flex flex-col items-end gap-2">
+                {/* Crimson ON/OFF Key */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-black tracking-[0.14em] text-[#d1d5db] uppercase">
+                    ON/OFF
+                  </span>
+                  <button
+                    onClick={() => {
+                      system.powerToggle();
+                      onStateChange?.();
+                    }}
+                    className="w-11 h-5 rounded-full bg-gradient-to-b from-[#be123c] to-[#881337] hover:from-[#e11d48] hover:to-[#9f1239] active:translate-y-0.5 border border-[#4c0519] shadow-[0_2px_4px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.25)]"
+                    title="Power On / Off (Cold Boot)"
+                  />
+                </div>
+
+                {/* MENU Pill Button */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-black tracking-[0.14em] text-[#c4c9d4] uppercase">
+                    MENU
+                  </span>
+                  <button
+                    onPointerDown={() => handleBtnPress('menu')}
+                    onPointerUp={() => handleBtnRelease('menu')}
+                    onPointerLeave={() => pressedButtons.menu && handleBtnRelease('menu')}
+                    className={`w-11 h-4.5 rounded-full border border-[#14161b] transition-transform ${
+                      pressedButtons.menu
+                        ? 'translate-y-0.5 bg-[#252830] shadow-inner'
+                        : 'bg-gradient-to-b from-[#434857] to-[#2a2d37] shadow-[0_2px_3px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.2)]'
+                    }`}
+                    title="BIOS Main Menu (Enter / M)"
+                  />
+                </div>
+
+                {/* PAUSE Pill Button */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-black tracking-[0.14em] text-[#c4c9d4] uppercase">
+                    PAUSE
+                  </span>
+                  <button
+                    onClick={() => {
+                      system.pauseToggle();
+                      onStateChange?.();
+                    }}
+                    className={`w-11 h-4.5 rounded-full border border-[#14161b] transition-transform ${
+                      system.isPaused
+                        ? 'translate-y-0.5 bg-[#b45309] shadow-inner'
+                        : 'bg-gradient-to-b from-[#434857] to-[#2a2d37] shadow-[0_2px_3px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.2)]'
+                    }`}
+                    title="Pause System (P)"
+                  />
+                </div>
+
+                {/* SOUND Pill Button */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-black tracking-[0.14em] text-[#c4c9d4] uppercase">
+                    SOUND
+                  </span>
+                  <button
+                    onClick={() => {
+                      system.soundToggle();
+                      onStateChange?.();
+                    }}
+                    className={`w-11 h-4.5 rounded-full border border-[#14161b] flex items-center justify-center transition-transform ${
+                      system.settings.muted
+                        ? 'translate-y-0.5 bg-[#4b1d24] shadow-inner'
+                        : 'bg-gradient-to-b from-[#434857] to-[#2a2d37] shadow-[0_2px_3px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.2)]'
+                    }`}
+                    title="Toggle Internal Speaker Audio"
+                  >
+                    {system.settings.muted ? (
+                      <VolumeX className="w-2.5 h-2.5 text-rose-300" />
+                    ) : (
+                      <Volume2 className="w-2.5 h-2.5 text-[#cbd5e1]" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Recessed Pinhole RESET Button */}
+                <div className="flex items-center gap-2 pt-0.5">
+                  <span className="text-[7px] font-mono tracking-[0.16em] text-[#8d93a1] uppercase">
+                    RESET
+                  </span>
+                  <button
+                    onClick={() => {
+                      system.resetSystem('MAIN_MENU');
+                      onStateChange?.();
+                    }}
+                    className="w-4 h-4 rounded-full bg-[#15171c] border border-[#383c47] shadow-inner flex items-center justify-center hover:border-[#9ca3af]"
+                    title="Hardware Reset ($1020)"
+                  >
+                    <RotateCcw className="w-2 h-2 text-[#9ca3af]" />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Hardware Power & Reset Switches */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handlePower}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold font-mono tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-                  system.isPoweredOn
-                    ? 'bg-red-950/80 text-red-300 border border-red-800/60 hover:bg-red-900'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700'
-                }`}
-                title="Toggle System Power"
-              >
-                <Power className="w-3 h-3" />
-                <span>{system.isPoweredOn ? 'POWER ON' : 'POWER OFF'}</span>
-              </button>
+            {/* Authentic 1997 Tiger Game.Com Sculpted Circular-Dish 8-Way Cross D-Pad */}
+            <div className="relative w-36 h-36 rounded-full bg-gradient-to-b from-[#1a1c22] to-[#242730] p-2.5 shadow-[inset_0_4px_10px_rgba(0,0,0,0.85),0_1px_1px_rgba(255,255,255,0.08)] border border-[#14161b] flex items-center justify-center my-1">
+              {/* Inner recessed dish ring */}
+              <div className="relative w-full h-full rounded-full bg-gradient-to-br from-[#23262f] via-[#1b1d24] to-[#14161b] shadow-[0_4px_8px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.1)] border border-[#323642]">
+                {/* Horizontal & Vertical Cross Arms */}
+                <div className="pointer-events-none absolute left-1/2 top-2.5 bottom-2.5 -translate-x-1/2 w-10 rounded-[5px] bg-gradient-to-b from-[#2f333f] via-[#23262f] to-[#1c1f26] border border-[#111318] shadow-md" />
+                <div className="pointer-events-none absolute top-1/2 left-2.5 right-2.5 -translate-y-1/2 h-10 rounded-[5px] bg-gradient-to-r from-[#2f333f] via-[#23262f] to-[#1c1f26] border border-[#111318] shadow-md" />
 
-              <button
-                onClick={handleReset}
-                className="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono text-slate-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
-                title="Reboot Game.Com"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>RESET</span>
-              </button>
+                {/* UP */}
+                <button
+                  onPointerDown={() => handleBtnPress('up')}
+                  onPointerUp={() => handleBtnRelease('up')}
+                  onPointerLeave={() => pressedButtons.up && handleBtnRelease('up')}
+                  className={`absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-10 flex items-start justify-center pt-2 rounded-t-[5px] ${
+                    pressedButtons.up ? 'translate-y-[1px] brightness-125' : ''
+                  }`}
+                  aria-label="D-Pad Up"
+                >
+                  <span
+                    className={`w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[9px] ${
+                      pressedButtons.up ? 'border-b-[#e11d48]' : 'border-b-[#d1d5db]'
+                    }`}
+                  />
+                </button>
+
+                {/* DOWN */}
+                <button
+                  onPointerDown={() => handleBtnPress('down')}
+                  onPointerUp={() => handleBtnRelease('down')}
+                  onPointerLeave={() => pressedButtons.down && handleBtnRelease('down')}
+                  className={`absolute bottom-1.5 left-1/2 -translate-x-1/2 w-10 h-10 flex items-end justify-center pb-2 rounded-b-[5px] ${
+                    pressedButtons.down ? 'translate-y-[1px] brightness-125' : ''
+                  }`}
+                  aria-label="D-Pad Down"
+                >
+                  <span
+                    className={`w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[9px] ${
+                      pressedButtons.down ? 'border-t-[#e11d48]' : 'border-t-[#d1d5db]'
+                    }`}
+                  />
+                </button>
+
+                {/* LEFT */}
+                <button
+                  onPointerDown={() => handleBtnPress('left')}
+                  onPointerUp={() => handleBtnRelease('left')}
+                  onPointerLeave={() => pressedButtons.left && handleBtnRelease('left')}
+                  className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-start pl-2 rounded-l-[5px] ${
+                    pressedButtons.left ? 'translate-x-[1px] brightness-125' : ''
+                  }`}
+                  aria-label="D-Pad Left"
+                >
+                  <span
+                    className={`w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[9px] ${
+                      pressedButtons.left ? 'border-r-[#e11d48]' : 'border-r-[#d1d5db]'
+                    }`}
+                  />
+                </button>
+
+                {/* RIGHT */}
+                <button
+                  onPointerDown={() => handleBtnPress('right')}
+                  onPointerUp={() => handleBtnRelease('right')}
+                  onPointerLeave={() => pressedButtons.right && handleBtnRelease('right')}
+                  className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-end pr-2 rounded-r-[5px] ${
+                    pressedButtons.right ? '-translate-x-[1px] brightness-125' : ''
+                  }`}
+                  aria-label="D-Pad Right"
+                >
+                  <span
+                    className={`w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[9px] ${
+                      pressedButtons.right ? 'border-l-[#e11d48]' : 'border-l-[#d1d5db]'
+                    }`}
+                  />
+                </button>
+
+                {/* Center Concave Thumb Pivot */}
+                <div className="pointer-events-none absolute inset-0 m-auto w-7 h-7 rounded-full bg-gradient-to-br from-[#14161b] to-[#272b35] shadow-inner border border-black/40" />
+              </div>
+            </div>
+
+            {/* Bottom-Left Molded Acoustic Speaker Grille (28mm Internal Speaker Slots) */}
+            <div className="hidden lg:flex flex-col items-center gap-1.5 w-full pt-1">
+              <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181a20] border border-[#2c303b] shadow-[inset_0_2px_5px_rgba(0,0,0,0.85)]">
+                {[14, 20, 24, 24, 20, 14].map((h, i) => (
+                  <div
+                    key={i}
+                    style={{ height: `${h}px` }}
+                    className="w-1.5 rounded-full bg-[#090a0d] shadow-[inset_0_1px_2px_rgba(0,0,0,1),0_1px_0_rgba(255,255,255,0.06)]"
+                  />
+                ))}
+              </div>
+              <span className="text-[7px] font-mono tracking-[0.22em] text-[#7c8291] uppercase">
+                INTERNAL SPEAKER
+              </span>
             </div>
           </div>
 
-          {/* RIGHT: 4 Action Buttons (A, B, C, D) in Game.Com Diagonal Layout */}
-          <div className="grid grid-cols-2 gap-3 shrink-0">
-            {/* Button A */}
-            <button
-              onPointerDown={() => setBtn('a', true)}
-              onPointerUp={() => setBtn('a', false)}
-              onPointerLeave={() => setBtn('a', false)}
-              className={`w-12 h-12 rounded-full bg-gradient-to-b from-purple-700 to-purple-900 hover:from-purple-600 border-t border-purple-400 text-white font-extrabold text-base shadow-lg shadow-purple-950/60 flex items-center justify-center active:scale-90 active:bg-purple-950 cursor-pointer ${
-                system.buttons.a ? 'scale-95 bg-purple-950' : ''
-              }`}
-              title="Button A (Z / J / Enter)"
-            >
-              A
-            </button>
+          {/* --------------------------------------------------------------- */}
+          {/* CENTER: AUTHENTIC 1997 TIGER GAME.COM STEPPED SCREEN BEZEL      */}
+          {/* --------------------------------------------------------------- */}
+          <div
+            className="relative rounded-[22px] p-4 sm:p-5 border-[2.5px] border-[#111317]"
+            style={{
+              background:
+                'linear-gradient(180deg, #1b1d23 0%, #14161b 52%, #191c22 100%)',
+              boxShadow:
+                'inset 0 4px 12px rgba(0, 0, 0, 0.92), 0 2px 1px rgba(255, 255, 255, 0.12), 0 12px 28px rgba(0, 0, 0, 0.65)'
+            }}
+          >
+            {/* Top Inner Bezel Silk-Screened Header: Crimson Pinstripes & game·com Logo */}
+            <div className="flex items-center justify-between mb-2.5 px-2">
+              <div className="flex flex-col gap-0.5 flex-1">
+                <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#be123c] to-[#be123c]" />
+                <div className="h-[1px] w-3/4 self-end bg-gradient-to-r from-transparent to-[#64748b]/60" />
+              </div>
 
-            {/* Button B */}
-            <button
-              onPointerDown={() => setBtn('b', true)}
-              onPointerUp={() => setBtn('b', false)}
-              onPointerLeave={() => setBtn('b', false)}
-              className={`w-12 h-12 rounded-full bg-gradient-to-b from-slate-700 to-slate-900 hover:from-slate-600 border-t border-slate-500 text-white font-extrabold text-base shadow-lg shadow-black/60 flex items-center justify-center active:scale-90 active:bg-slate-950 cursor-pointer ${
-                system.buttons.b ? 'scale-95 bg-slate-950' : ''
-              }`}
-              title="Button B (X / K / Shift)"
-            >
-              B
-            </button>
+              {/* Iconic 1997 "game·com" Bezel Emblem */}
+              <div className="px-3.5 flex items-baseline gap-0.5 select-none">
+                <span
+                  className="text-lg sm:text-xl font-black italic tracking-tight text-[#f1f5f9]"
+                  style={{ textShadow: '0 2px 4px rgba(0,0,0,0.85)' }}
+                >
+                  game
+                </span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#e11d48] mx-0.5 shadow-[0_0_8px_rgba(225,29,72,0.75)] translate-y-[-2px]" />
+                <span
+                  className="text-lg sm:text-xl font-black italic tracking-tight text-[#cbd5e1]"
+                  style={{ textShadow: '0 2px 4px rgba(0,0,0,0.85)' }}
+                >
+                  com
+                </span>
+              </div>
 
-            {/* Button C */}
-            <button
-              onPointerDown={() => setBtn('c', true)}
-              onPointerUp={() => setBtn('c', false)}
-              onPointerLeave={() => setBtn('c', false)}
-              className={`w-12 h-12 rounded-full bg-gradient-to-b from-slate-700 to-slate-900 hover:from-slate-600 border-t border-slate-500 text-white font-extrabold text-base shadow-lg shadow-black/60 flex items-center justify-center active:scale-90 active:bg-slate-950 cursor-pointer ${
-                system.buttons.c ? 'scale-95 bg-slate-950' : ''
-              }`}
-              title="Button C (C / L)"
-            >
-              C
-            </button>
+              <div className="flex flex-col gap-0.5 flex-1">
+                <div className="h-[1.5px] w-full bg-gradient-to-l from-transparent via-[#be123c] to-[#be123c]" />
+                <div className="h-[1px] w-3/4 bg-gradient-to-l from-transparent to-[#64748b]/60" />
+              </div>
+            </div>
 
-            {/* Button D */}
-            <button
-              onPointerDown={() => setBtn('d', true)}
-              onPointerUp={() => setBtn('d', false)}
-              onPointerLeave={() => setBtn('d', false)}
-              className={`w-12 h-12 rounded-full bg-gradient-to-b from-slate-700 to-slate-900 hover:from-slate-600 border-t border-slate-500 text-white font-extrabold text-base shadow-lg shadow-black/60 flex items-center justify-center active:scale-90 active:bg-slate-950 cursor-pointer ${
-                system.buttons.d ? 'scale-95 bg-slate-950' : ''
-              }`}
-              title="Button D (V / ;)"
+            {/* Chamfered Inner Metallic-Graphite Frame Surrounding the Reflective STN LCD */}
+            <div
+              className="rounded-[10px] p-2.5 border border-[#2c303c]"
+              style={{
+                background: 'linear-gradient(145deg, #0d0f13 0%, #171a21 100%)',
+                boxShadow: 'inset 0 3px 8px rgba(0, 0, 0, 0.95)'
+              }}
             >
-              D
-            </button>
+              <LCDScreen system={system} scale={scale} onFpsUpdate={onFpsUpdate} />
+            </div>
+
+            {/* Bottom Inner Bezel Silk-Screened Legend */}
+            <div className="mt-2.5 flex items-center justify-between px-2 text-[8px] font-mono tracking-[0.2em] text-[#94a3b8] uppercase">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#a3ae76]" />
+                DOT MATRIX WITH TOUCH SCREEN
+              </span>
+              <span className="text-[#cbd5e1]/75 font-bold">
+                200 × 160 STN • 4-SHADE
+              </span>
+            </div>
+          </div>
+
+          {/* --------------------------------------------------------------- */}
+          {/* RIGHT WING: DIAMOND A/B/C/D CLUSTER & DOCKED TIGER STYLUS       */}
+          {/* --------------------------------------------------------------- */}
+          <div className="flex flex-row lg:flex-col items-center justify-between w-full lg:w-44 gap-4 py-1">
+            {/* Top-Right Cartridge Bay Quick-Select Switcher */}
+            <div className="flex flex-col items-center gap-1.5 w-full px-2">
+              <div className="text-[8px] font-mono tracking-[0.18em] text-[#9ca3af] uppercase">
+                DUAL SLOT SELECTOR
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 w-full bg-[#15171c] p-1 rounded-xl border border-[#2f333f] shadow-inner">
+                <button
+                  onClick={() => {
+                    if (system.slot1) {
+                      system.launchCartridge(1);
+                      onStateChange?.();
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[9px] font-mono font-bold transition-all ${
+                    system.activeSlot === 1 && system.activeApp === 'CARTRIDGE'
+                      ? 'bg-[#a3ae76] text-[#141a0c] shadow'
+                      : 'text-[#9ca3af] hover:text-white hover:bg-[#22252e]'
+                  }`}
+                >
+                  BAY 1
+                </button>
+                <button
+                  onClick={() => {
+                    if (system.slot2) {
+                      system.launchCartridge(2);
+                      onStateChange?.();
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[9px] font-mono font-bold transition-all ${
+                    system.activeSlot === 2 && system.activeApp === 'CARTRIDGE'
+                      ? 'bg-[#10b981] text-[#052e16] shadow'
+                      : 'text-[#9ca3af] hover:text-white hover:bg-[#22252e]'
+                  }`}
+                >
+                  BAY 2
+                </button>
+              </div>
+            </div>
+
+            {/* Authentic 1997 Tiger Game.Com 4-Button Diamond Cluster (A, B, C, D) */}
+            <div
+              className="relative w-40 h-40 rounded-full p-3 border border-[#14161b] flex items-center justify-center"
+              style={{
+                background: 'radial-gradient(circle, #181a21 0%, #22252e 100%)',
+                boxShadow:
+                  'inset 0 4px 10px rgba(0, 0, 0, 0.85), 0 1px 1px rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              {/* BUTTON C (Top — Deep Slate-Violet) */}
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                <span className="text-[9px] font-black text-[#cbd5e1] tracking-wider mb-0.5">
+                  C
+                </span>
+                <button
+                  onPointerDown={() => handleBtnPress('c')}
+                  onPointerUp={() => handleBtnRelease('c')}
+                  onPointerLeave={() => pressedButtons.c && handleBtnRelease('c')}
+                  className={`w-11 h-11 rounded-full font-black text-xs text-white border border-[#111318] transition-transform ${
+                    pressedButtons.c
+                      ? 'translate-y-0.5 scale-95 bg-[#3b3054] shadow-inner'
+                      : 'bg-gradient-to-b from-[#524373] to-[#34294a] shadow-[0_4px_6px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.28)]'
+                  }`}
+                  title="Button C (Key C / L)"
+                >
+                  C
+                </button>
+              </div>
+
+              {/* BUTTON D (Right — Deep Slate-Violet) */}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+                <button
+                  onPointerDown={() => handleBtnPress('d')}
+                  onPointerUp={() => handleBtnRelease('d')}
+                  onPointerLeave={() => pressedButtons.d && handleBtnRelease('d')}
+                  className={`w-11 h-11 rounded-full font-black text-xs text-white border border-[#111318] transition-transform ${
+                    pressedButtons.d
+                      ? 'translate-y-0.5 scale-95 bg-[#3b3054] shadow-inner'
+                      : 'bg-gradient-to-b from-[#524373] to-[#34294a] shadow-[0_4px_6px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.28)]'
+                  }`}
+                  title="Button D (Key V / I)"
+                >
+                  D
+                </button>
+              </div>
+
+              {/* BUTTON A (Left — Signature 1997 Tiger Burgundy-Plum Primary Action Button) */}
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center">
+                <button
+                  onPointerDown={() => handleBtnPress('a')}
+                  onPointerUp={() => handleBtnRelease('a')}
+                  onPointerLeave={() => pressedButtons.a && handleBtnRelease('a')}
+                  className={`w-12 h-12 rounded-full font-black text-sm text-white border border-[#2a081d] transition-transform ${
+                    pressedButtons.a
+                      ? 'translate-y-0.5 scale-95 bg-[#591643] shadow-inner'
+                      : 'bg-gradient-to-b from-[#832565] via-[#681b4f] to-[#471136] shadow-[0_4px_7px_rgba(0,0,0,0.85),inset_0_1px_2px_rgba(255,255,255,0.32)]'
+                  }`}
+                  title="Button A — Action / Keep / Confirm (Key Z / Space)"
+                >
+                  A
+                </button>
+              </div>
+
+              {/* BUTTON B (Bottom — Signature 1997 Tiger Burgundy-Plum Secondary Action Button) */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                <button
+                  onPointerDown={() => handleBtnPress('b')}
+                  onPointerUp={() => handleBtnRelease('b')}
+                  onPointerLeave={() => pressedButtons.b && handleBtnRelease('b')}
+                  className={`w-12 h-12 rounded-full font-black text-sm text-white border border-[#2a081d] transition-transform ${
+                    pressedButtons.b
+                      ? 'translate-y-0.5 scale-95 bg-[#591643] shadow-inner'
+                      : 'bg-gradient-to-b from-[#832565] via-[#681b4f] to-[#471136] shadow-[0_4px_7px_rgba(0,0,0,0.85),inset_0_1px_2px_rgba(255,255,255,0.32)]'
+                  }`}
+                  title="Button B — Back / Clear (Key X / K)"
+                >
+                  B
+                </button>
+              </div>
+            </div>
+
+            {/* Docked Original Tiger Game.Com Stylus & Cartridge Library Trigger */}
+            <div className="hidden lg:flex items-center justify-between w-full px-2 pt-1 gap-2">
+              <button
+                onClick={onOpenLibrary}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#181a20] hover:bg-[#23262f] border border-[#323642] text-[10px] font-mono font-bold text-[#d1d5db] transition-colors shadow-inner"
+              >
+                <Disc className="w-3.5 h-3.5 text-[#a3ae76]" />
+                CARTRIDGES
+              </button>
+
+              {/* Holstered Crimson-Tip Stylus */}
+              <div
+                onClick={() => {
+                  system.settings.stylusCursor = !system.settings.stylusCursor;
+                  onStateChange?.();
+                }}
+                title="Toggle Holstered Tiger Stylus Cursor"
+                className="cursor-pointer flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-[#14161b] border border-[#2c303c] hover:border-[#be123c]"
+              >
+                <div className="w-2 h-5 rounded-full bg-gradient-to-b from-[#e11d48] to-[#4c0519]" />
+                <span className="text-[8px] font-mono uppercase tracking-wider text-[#9ca3af]">
+                  STYLUS
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

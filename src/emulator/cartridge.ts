@@ -339,16 +339,16 @@ export const PRELOADED_CARTRIDGES: CartridgeInfo[] = [
   },
   {
     id: 'frogger',
-    title: 'Frogger (1999 TOSEC ROM)',
+    title: 'Frogger (Recompiled Slowdown-Fix)',
     publisher: 'Hasbro / Konami / Tiger',
     year: 1999,
     genre: 'Arcade Classic',
-    description: 'Official 1MB retail cartridge binary (Frogger (1999)(Tiger Electronics).bin). Executes natively on the cycle-accurate SM8521 CPU.',
+    description: 'Recompiled 1MB SM8521 cartridge binary (frogger_rebuilt.bin) with 9 assembly patches eliminating the $4BBB 98,304-cycle busy-wait loop, Timer 1 ISR DAC stall, and 15Hz frame divider.',
     sizeBytes: 1048576,
     isBuiltin: false,
     coverColor: '#064e3b',
     coverAccent: '#10b981',
-    romUrl: '/roms/frogger.bin'
+    romUrl: '/roms/frogger_rebuilt.bin'
   },
   {
     id: 'sonic',
@@ -362,6 +362,20 @@ export const PRELOADED_CARTRIDGES: CartridgeInfo[] = [
     coverColor: '#1e3a8a',
     coverAccent: '#38bdf8',
     romUrl: '/roms/sonicjam.bin'
+  },
+  {
+    id: 'frogger_orig',
+    title: 'Frogger (Unpatched 1999 TOSEC)',
+    publisher: 'Hasbro / Konami / Tiger',
+    year: 1999,
+    genre: 'Arcade Classic',
+    description: 'Unmodified 1MB retail cartridge binary (frogger_orig.bin) preserving the original 1999 busy-wait loops for side-by-side profiling comparison.',
+    sizeBytes: 1048576,
+    isBuiltin: false,
+    coverColor: '#134e4a',
+    coverAccent: '#14b8a6',
+    romUrl: '/roms/frogger_orig.bin'
   }
 ];
+
 

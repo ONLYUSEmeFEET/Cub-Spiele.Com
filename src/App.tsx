@@ -219,9 +219,16 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div
+      className="min-h-screen text-[#e5e7eb] flex flex-col font-sans"
+      style={{
+        background:
+          'radial-gradient(120% 90% at 50% 20%, #1c2028 0%, #111319 55%, #0a0b0f 100%)'
+      }}
+    >
       {/* Top Bar */}
       <TopBar
+        system={system}
         onLoadRomFile={(f) => handleLoadRomFile(f, 1)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
         onOpenAccuracy={() => setIsAccuracyOpen(true)}
@@ -229,8 +236,7 @@ export default function App() {
         onOpenControls={() => setIsControlsOpen(true)}
         onOpenDebugger={() => setIsDebuggerOpen(true)}
         onOpenHighScores={() => setIsHighScoresOpen(true)}
-        slot1Cart={system.slot1}
-        slot2Cart={system.slot2}
+        onUpdate={forceUpdate}
       />
 
       {/* Main Container */}
@@ -238,8 +244,8 @@ export default function App() {
         {/* Handheld Physical Console */}
         <GameComConsole
           system={system}
-          onLoadRomFile={(f) => handleLoadRomFile(f, 1)}
           onOpenLibrary={() => setIsLibraryOpen(true)}
+          onStateChange={forceUpdate}
         />
 
         {/* Toolbar Controls */}
@@ -255,33 +261,33 @@ export default function App() {
 
         {/* Quick Info & Features Bar */}
         <div className="w-full max-w-4xl mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="p-3.5 bg-slate-900/60 border border-slate-800/80 rounded-xl">
-            <span className="font-bold text-white block mb-0.5 flex items-center gap-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-purple-400" />
-              Cycle-Accurate SM8521 & BIOS
+          <div className="p-3.5 bg-[#151820]/90 border border-[#2a2e3a] rounded-xl">
+            <span className="font-bold text-[#f1f5f9] block mb-0.5 flex items-center gap-1.5">
+              <HardDrive className="w-3.5 h-3.5 text-[#a3ae76]" />
+              Slot 2 Recompiled Frogger ROM
             </span>
-            <p className="text-slate-400 leading-relaxed">
-              Executes the real TOSEC <code className="text-slate-300">internal.bin</code> &amp; <code className="text-slate-300">external.bin</code> firmware and commercial cartridge ROMs.
+            <p className="text-[#94a3b8] leading-relaxed">
+              Recompiled SM8521 binary (<code className="text-[#cbd590]">frogger_rebuilt.bin</code>) eliminating the <code className="text-[#cbd590]">$4BBB</code> 98,304-cycle spin &amp; Timer 1 ISR DAC stall.
             </p>
           </div>
 
-          <div className="p-3.5 bg-slate-900/60 border border-slate-800/80 rounded-xl">
-            <span className="font-bold text-white block mb-0.5 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              Single-Touch Resistive Grid
+          <div className="p-3.5 bg-[#151820]/90 border border-[#2a2e3a] rounded-xl">
+            <span className="font-bold text-[#f1f5f9] block mb-0.5 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#e11d48]" />
+              1997 Tiger Game.Com Bezel &amp; STN
             </span>
-            <p className="text-slate-400 leading-relaxed">
-              Authentic 12×10 hardware resistive touch matrix enforcing strictly one discrete touch pulse per press.
+            <p className="text-[#94a3b8] leading-relaxed">
+              Calibrated reflective olive-green STN substrate (<code className="text-[#cbd590]">#b9c48a</code>), 1×1 ITO electrode grid, and single-touch resistive matrix.
             </p>
           </div>
 
-          <div className="p-3.5 bg-slate-900/60 border border-slate-800/80 rounded-xl">
-            <span className="font-bold text-white block mb-0.5 flex items-center gap-1.5">
+          <div className="p-3.5 bg-[#151820]/90 border border-[#2a2e3a] rounded-xl">
+            <span className="font-bold text-[#f1f5f9] block mb-0.5 flex items-center gap-1.5">
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
               Expanded NVRAM High Scores (&gt;10)
             </span>
-            <p className="text-slate-400 leading-relaxed">
-              Saves High Scores directly to battery-backed NVRAM (<code className="text-slate-300">$FC60–$FEDF</code>) with unlimited 10-slot bank paging &amp; data import/export.
+            <p className="text-[#94a3b8] leading-relaxed">
+              Saves High Scores directly to battery-backed NVRAM (<code className="text-[#cbd590]">$FC60–$FEDF</code>) with unlimited 10-slot bank paging &amp; data import/export.
             </p>
           </div>
         </div>
@@ -289,13 +295,13 @@ export default function App() {
 
       {/* Floating Notification Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 bg-slate-900/95 border border-purple-500/50 shadow-2xl rounded-xl backdrop-blur-md animate-in slide-in-from-bottom-3 duration-200 max-w-sm">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 bg-[#161922]/95 border border-[#a3ae76]/50 shadow-2xl rounded-xl backdrop-blur-md animate-in slide-in-from-bottom-3 duration-200 max-w-sm">
           {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-          {toast.type === 'info' && <Info className="w-5 h-5 text-blue-400 shrink-0" />}
+          {toast.type === 'info' && <Info className="w-5 h-5 text-[#a3ae76] shrink-0" />}
           {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />}
           <div>
             <p className="text-xs font-bold text-white">{toast.message}</p>
-            {toast.sub && <p className="text-[11px] text-slate-400 mt-0.5">{toast.sub}</p>}
+            {toast.sub && <p className="text-[11px] text-[#94a3b8] mt-0.5">{toast.sub}</p>}
           </div>
         </div>
       )}
@@ -305,10 +311,7 @@ export default function App() {
         system={system}
         isOpen={isAccuracyOpen}
         onClose={() => setIsAccuracyOpen(false)}
-        onToggleFix={(key) => {
-          system.accuracyFixes[key] = !system.accuracyFixes[key];
-          forceUpdate();
-        }}
+        onUpdate={forceUpdate}
       />
 
       <RomLibraryModal

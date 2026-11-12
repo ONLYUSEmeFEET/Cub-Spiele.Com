@@ -180,11 +180,13 @@ export class SM8521CPU {
     sg0w: new Uint8Array(16),
     sg1w: new Uint8Array(16)
   };
-  public onDacSample?: (val: number) => void;
+  public onDacSample?: (val: number, sampleRate: number) => void;
+  public onDacStreamStart?: () => void;
   public onSoundRegWrite?: (sound: GameComAudioState) => void;
   public onBiosAudioClip?: (samples: Uint8Array, bank: number, addr: number) => void;
   public onNvramWrite?: (addr: number, data: number) => void;
   public allowDataFoundPrompt: boolean = false;
+  public lastDacCycle: number = 0;
 
   public get pc(): number {
     return this.m_PC;
@@ -232,6 +234,7 @@ export class SM8521CPU {
     this.m_IFLAGS = 0;
     this.m_CheckInterrupts = 0;
     this.cycles = 0;
+    this.lastDacCycle = 0;
     this.dmaCount = 0;
     this.m_scanline = 0;
     this.clockTimerAccumCycles = 0;
@@ -731,12 +734,31 @@ export class SM8521CPU {
             this.m_sound.sg2t = (this.m_sound.sg2t & 0xff00) | data;
             if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
             break;
-          case SM8521_SGDA:
+          case SM8521_SGDA: {
+            const prevSgda = this.m_sound.sgda;
             this.m_sound.sgda = data;
-            if ((this.m_sound.sgc & 0x8f) === 0x88 && this.onDacSample) {
-              this.onDacSample(data);
+            if ((this.m_sound.sgc & 0x88) === 0x88 && this.onDacSample) {
+              const deltaCycles = this.cycles - this.lastDacCycle;
+              this.lastDacCycle = this.cycles;
+              // Filter out the 18-cycle DC anti-pop ramp loops ($56E7 and $56F7) which occur < 64 cycles apart
+              if (deltaCycles >= 64) {
+                const tm1d = this.m_p_ram[SM8521_TM1D] || 208;
+                const prescale = this.m_timer[1].prescale_max || 1;
+                const div = this.m_p_ram[0xac] || 3;
+                const periodCycles = Math.max(128, tm1d * prescale * div);
+                const hwRate = Math.max(4000, Math.min(22050, Math.round(4915200 / periodCycles)));
+                // Emit latched Zero-Order Hold samples if Timer 1 ISR held the DAC output across multiple ticks
+                if (deltaCycles > periodCycles * 1.5 && deltaCycles <= periodCycles * 48) {
+                  const holdCount = Math.min(48, Math.round(deltaCycles / periodCycles)) - 1;
+                  for (let h = 0; h < holdCount; h++) {
+                    this.onDacSample(prevSgda, hwRate);
+                  }
+                }
+                this.onDacSample(data, hwRate);
+              }
             }
             break;
+          }
           default:
             if (addr >= SM8521_SG0W0 && addr < SM8521_SG0W0 + 16) {
               this.m_sound.sg0w[addr - SM8521_SG0W0] = data;
@@ -1056,7 +1078,14 @@ export class SM8521CPU {
         }
       }
 
-      // 2. Intercept BIOS Digitized Waveform Stream start ($2354 in Bank 2)
+      // 2. Intercept BIOS ADPCM DAC Stream start ($56A3 -> $56B4 in Bank 5)
+      if (this.m_PC === 0x56b4 && this.mmu[2] === 5) {
+        if (this.onDacStreamStart) {
+          this.onDacStreamStart();
+        }
+      }
+
+      // 3. Intercept BIOS Digitized Waveform Stream start ($2354 in Bank 2)
       //    Decodes the audio clip prepared by $233F -> $435B in Register Bank $38 and triggers Web Audio playback.
       if (this.m_PC === 0x2354 && this.mmu[1] === 2 && this.onBiosAudioClip) {
         const clipBank = this.m_register_ram[0x38 + 4];

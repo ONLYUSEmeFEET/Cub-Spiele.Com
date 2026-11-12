@@ -19,6 +19,11 @@ import {
   CPURegisters
 } from './types';
 import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
+import {
+  compileFroggerRom,
+  FroggerCompileResult,
+  isFroggerRomPatched
+} from './froggerSource';
 
 export interface EmulationAccuracyFixes {
   correctClockSpeed: boolean;      // Calibrated 4.9152 MHz SM8521 scanline cycle timing
@@ -27,6 +32,7 @@ export interface EmulationAccuracyFixes {
   stnGhostingAccurate: boolean;    // Authentic passive-matrix STN LCD decay persistence
   touchMatrixCalibrated: boolean;  // Discrete 13x10 single-touch resistive/capacitive matrix lock
   dualCartridgeSlotFix: boolean;   // Fixes Frogger/Centipede dual cartridge slot P3 bus contention & icon DMA bug
+  froggerSlowdownFix: boolean;     // Recompiled Frogger SM8521 ROM in Slot 2 ($4BBB/$4DB7/$4C50 slowdown fix)
 }
 
 export type FastBootTarget = 'NONE' | 'MAIN_MENU' | 'CART_1' | 'CART_2' | 'HIGH_SCORE' | 'KEEP_CLEAR_PROMPT';
@@ -85,8 +91,11 @@ export class GameComSystem {
     timerInterruptFix: true,
     stnGhostingAccurate: true,
     touchMatrixCalibrated: true,
-    dualCartridgeSlotFix: true
+    dualCartridgeSlotFix: true,
+    froggerSlowdownFix: true
   };
+
+  public froggerCompileResult: FroggerCompileResult | null = null;
 
   // Settings
   public settings: EmulatorSettings = {
@@ -114,9 +123,26 @@ export class GameComSystem {
     this.cpu = new SM8521CPU();
     this.highScores = new NvramHighScoreManager();
 
-    // Wire hardware sound generator & BIOS digitized waveform callbacks
+    // Wire hardware sound generator, 8-bit SGDA ($004E) DAC streamer, & BIOS digitized waveform callbacks
     this.cpu.onSoundRegWrite = (audioState) => {
       this.sound.updateFromHardwareRegisters(audioState);
+    };
+    this.cpu.onDacStreamStart = () => {
+      const isSkippingGlobeForCart =
+        (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') &&
+        this.bootFrameCounter >= 480;
+      this.sound.onDacStreamStart(isSkippingGlobeForCart);
+    };
+    this.cpu.onDacSample = (val, sampleRate) => {
+      // When fast-booting directly into a Cartridge (CART_1 / CART_2), skip buffering the
+      // fast-forwarded 3D Globe chime (frames < 495) so the Cartridge Launch Chime plays immediately
+      if (
+        (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') &&
+        this.bootFrameCounter < 495
+      ) {
+        return;
+      }
+      this.sound.pushDacSample(val, sampleRate);
     };
     this.cpu.onBiosAudioClip = (samples, bank, addr) => {
       this.sound.playBiosAudioClip(samples, bank, addr);
@@ -147,7 +173,8 @@ export class GameComSystem {
   }
 
   /**
-   * Asynchronously fetches the real TOSEC ROM binaries for Slot 1 & Slot 2
+   * Asynchronously fetches the real TOSEC ROM binaries for Slot 1 & Slot 2,
+   * compiling the SM8521 slowdown-fix patches into the Slot 2 Frogger ROM.
    */
   private async loadPreloadedCartridges() {
     for (const cart of PRELOADED_CARTRIDGES) {
@@ -156,7 +183,15 @@ export class GameComSystem {
           const res = await fetch(cart.romUrl);
           if (res.ok) {
             const buf = await res.arrayBuffer();
-            cart.romData = new Uint8Array(buf);
+            let romBytes: Uint8Array = new Uint8Array(buf);
+            if (cart.id === 'frogger') {
+              const compiled = compileFroggerRom(romBytes);
+              this.froggerCompileResult = compiled;
+              if (this.accuracyFixes.froggerSlowdownFix) {
+                romBytes = new Uint8Array(compiled.rom);
+              }
+            }
+            cart.romData = romBytes;
             if (this.slot1?.id === cart.id) {
               this.cpu.loadCartridgeROM(cart.romData, 1);
             }
@@ -171,12 +206,55 @@ export class GameComSystem {
     }
   }
 
+  /**
+   * Recompiles Frogger from its SM8521 assembly patch specs and mounts the newly built ROM in Slot 2.
+   */
+  public async recompileFroggerSlot2(autoBoot: boolean = true): Promise<FroggerCompileResult | null> {
+    let baseRom: Uint8Array | null = null;
+    try {
+      const res = await fetch('/roms/frogger_orig.bin');
+      if (res.ok) {
+        baseRom = new Uint8Array(await res.arrayBuffer());
+      }
+    } catch {
+      // Fallback to existing Frogger ROM bytes
+    }
+    if (!baseRom) {
+      const froggerCart = PRELOADED_CARTRIDGES.find((c) => c.id === 'frogger');
+      if (froggerCart?.romData) {
+        baseRom = froggerCart.romData;
+      }
+    }
+    if (!baseRom) return null;
+
+    const compiled = compileFroggerRom(baseRom);
+    this.froggerCompileResult = compiled;
+    this.accuracyFixes.froggerSlowdownFix = true;
+
+    const froggerCart = PRELOADED_CARTRIDGES.find((c) => c.id === 'frogger');
+    if (froggerCart) {
+      froggerCart.romData = compiled.rom;
+      froggerCart.title = 'Frogger (Recompiled Slowdown-Fix)';
+      this.slot2 = froggerCart;
+      this.cpu.loadCartridgeROM(compiled.rom, 2);
+      this.highScores.ensureBankForCartridge(compiled.rom, this.cpu.nvram);
+      if (autoBoot) {
+        this.launchCartridge(2);
+      }
+    }
+    return compiled;
+  }
+
+  public isSlot2FroggerPatched(): boolean {
+    return isFroggerRomPatched(this.slot2?.romData);
+  }
+
   public powerToggle() {
     this.isPoweredOn = !this.isPoweredOn;
     if (this.isPoweredOn) {
-      this.sound.playBootJingle();
-      this.resetSystem('NONE'); // Cold power-on plays full 3D Tiger globe animation
+      this.resetSystem('NONE'); // Cold power-on plays full 3D Tiger globe animation & hardware DAC boot chime
     } else {
+      this.sound.clearScheduledDacStream();
       this.highScores.syncFromNvram(this.cpu.nvram);
       this.sound.playTone(150, 0.1, 'sawtooth', 0.2);
     }
@@ -186,6 +264,7 @@ export class GameComSystem {
    * Resets the SM8521 CPU to vector $1020 while preserving battery-backed NVRAM ($E000-$FFFF)
    */
   public resetSystem(target: FastBootTarget = 'NONE') {
+    this.sound.clearScheduledDacStream();
     this.syncBiosToMemory();
     if (this.slot1?.romData) {
       this.cpu.loadCartridgeROM(this.slot1.romData, 1);
@@ -384,7 +463,7 @@ export class GameComSystem {
           this.cpu.stylusPressed = false;
         }
         // Finish fast-boot once cartridge starts executing or after cartridge load animation completes
-        if ((this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) || f >= 760) {
+        if ((this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) || f >= 820) {
           this.cpu.stylusPressed = false;
           this.fastBootTarget = 'NONE';
           this.activeApp = 'CARTRIDGE';
@@ -410,6 +489,7 @@ export class GameComSystem {
     }
 
     this.cpu.runFrame(speedMult);
+    this.sound.endFrameDacCheck();
 
     // Track whether a cartridge bank (>= 0x20) is actively executing in MMU1/MMU2
     if (this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) {
@@ -531,6 +611,21 @@ export class GameComSystem {
   public handlePointerUp() {
     this.touch.isDown = false;
     this.touchLockedUntilRelease = false;
+  }
+
+  public setButton(btn: keyof GameComButtons, isDown: boolean) {
+    this.buttons[btn] = isDown;
+    if (isDown) {
+      this.sound.playButtonPress();
+    }
+  }
+
+  public setTouch(x: number, y: number, isDown: boolean) {
+    if (isDown) {
+      this.handlePointerDown(x / SCREEN_WIDTH, y / SCREEN_HEIGHT);
+    } else {
+      this.handlePointerUp();
+    }
   }
 
   public getCPURegisters(): CPURegisters {

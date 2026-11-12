@@ -340,27 +340,43 @@ export class LCDSubsystem {
       targetCanvas.height
     );
 
-    // Draw subtle passive-matrix pixel grid overlay if enabled
-    if (this.pixelGrid && targetCanvas.width > SCREEN_WIDTH * 1.5) {
+    // Draw authentic 1997 passive-matrix STN 1x1 ITO electrode pixel grid & recessed polarizer shadow
+    if (this.pixelGrid && targetCanvas.width >= SCREEN_WIDTH * 2) {
       const scaleX = targetCanvas.width / SCREEN_WIDTH;
       const scaleY = targetCanvas.height / SCREEN_HEIGHT;
 
-      targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
-      targetCtx.lineWidth = 0.5;
+      targetCtx.strokeStyle =
+        this.paletteId === 'original'
+          ? 'rgba(28, 38, 14, 0.13)'
+          : 'rgba(0, 0, 0, 0.10)';
+      targetCtx.lineWidth = 0.65;
       targetCtx.beginPath();
-      // Vertical grid
-      for (let x = 0; x <= SCREEN_WIDTH; x += 2) {
-        const px = Math.floor(x * scaleX);
+      // Every column (200 columns)
+      for (let x = 0; x <= SCREEN_WIDTH; x++) {
+        const px = Math.floor(x * scaleX) + 0.5;
         targetCtx.moveTo(px, 0);
         targetCtx.lineTo(px, targetCanvas.height);
       }
-      // Horizontal grid
-      for (let y = 0; y <= SCREEN_HEIGHT; y += 2) {
-        const py = Math.floor(y * scaleY);
+      // Every scanline row (160 rows)
+      for (let y = 0; y <= SCREEN_HEIGHT; y++) {
+        const py = Math.floor(y * scaleY) + 0.5;
         targetCtx.moveTo(0, py);
         targetCtx.lineTo(targetCanvas.width, py);
       }
       targetCtx.stroke();
     }
+
+    // Subtle recessed bezel cast shadow onto the reflective STN glass substrate
+    const topGrad = targetCtx.createLinearGradient(0, 0, 0, 14);
+    topGrad.addColorStop(0, 'rgba(12, 16, 6, 0.22)');
+    topGrad.addColorStop(1, 'rgba(12, 16, 6, 0)');
+    targetCtx.fillStyle = topGrad;
+    targetCtx.fillRect(0, 0, targetCanvas.width, 14);
+
+    const leftGrad = targetCtx.createLinearGradient(0, 0, 12, 0);
+    leftGrad.addColorStop(0, 'rgba(12, 16, 6, 0.18)');
+    leftGrad.addColorStop(1, 'rgba(12, 16, 6, 0)');
+    targetCtx.fillStyle = leftGrad;
+    targetCtx.fillRect(0, 0, 12, targetCanvas.height);
   }
 }
