@@ -1,0 +1,19 @@
+{
+  "antigravity.project.name": "cub-spiele-com-emulator",
+  "antigravity.agent.strictMode": false,
+  "antigravity.sandboxProxy": {
+    "enabled": true,
+    "allowTerminalAutoExecution": true
+  },
+  "antigravity.permissions": {
+    "fileSystemAccess": "workspace-strict",
+    "terminalSandboxing": true
+  },
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": false
+  }
+}

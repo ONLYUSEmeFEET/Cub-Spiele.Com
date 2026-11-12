@@ -1,7 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { LCDPaletteId, PALETTES, RecentGameEntry } from '../emulator/types';
-import { downloadWindowsPortableZip } from '../utils/windowsReleasePackager';
+import {
+  downloadWindowsPortableZip,
+  downloadAntigravityWorkspaceZip
+} from '../utils/windowsReleasePackager';
 import {
   Disc,
   Trophy,
@@ -23,7 +26,8 @@ import {
   RotateCcw,
   Pause,
   Camera,
-  Download
+  Download,
+  Code2
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -280,6 +284,30 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
 
                 <div className="my-1 border-t border-[#292e3b]" />
+
+                <button
+                  onClick={async () => {
+                    setOpenMenu(null);
+                    onNotify?.(
+                      'Packaging Google Antigravity Workspace (.zip)...',
+                      'Bundling full source, GEMINI.md, .agents/, .vscode/, and cub-spiele-com.code-workspace',
+                      'info'
+                    );
+                    const bytes = await downloadAntigravityWorkspaceZip();
+                    onNotify?.(
+                      'Downloaded CubSpieleCom-Antigravity-Workspace.zip',
+                      `Verified ${(bytes / (1024 * 1024)).toFixed(2)} MB Google Antigravity Desktop Workspace`,
+                      'success'
+                    );
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-[#d9e3b1] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Code2 className="w-3.5 h-3.5 text-[#a3ae76]" />
+                    Download Antigravity Workspace (.zip)
+                  </span>
+                  <span className="text-[10px] font-mono text-[#a3ae76]">IDE</span>
+                </button>
 
                 <button
                   onClick={async () => {
@@ -678,6 +706,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                         setOpenMenu(null);
                         onOpenReleases();
                       }}
+                      className="w-full px-3 py-1.5 text-left text-[#d9e3b1] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
+                    >
+                      <span>Google Antigravity Desktop IDE...</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpenMenu(null);
+                        onOpenReleases();
+                      }}
                       className="w-full px-3 py-1.5 text-left text-[#38bdf8] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
                     >
                       <span>Windows x64 App &amp; GitHub Releases...</span>
@@ -900,10 +937,10 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               onClick={onOpenReleases}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#38bdf8]/15 hover:bg-[#38bdf8]/25 text-[#bae6fd] border border-[#38bdf8]/40 text-xs font-semibold transition-colors"
-              title="Download Cub Spiele.Com Windows x64 App & Manage GitHub Releases"
+              title="Open in Google Antigravity Desktop IDE & Download Cub Spiele.Com Windows x64 App"
             >
               <Monitor className="w-3.5 h-3.5 text-[#38bdf8]" />
-              <span className="hidden sm:inline">Win64 / Releases</span>
+              <span className="hidden sm:inline">Antigravity / Win64</span>
             </button>
           )}
 

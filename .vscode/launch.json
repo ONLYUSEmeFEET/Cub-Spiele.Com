@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Cub Spiele.Com (Web Dev Server)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "Cub Spiele.Com: Start Dev Server (Port 3000)"
+    },
+    {
+      "name": "Launch Cub Spiele.Com (Electron Native Desktop)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "args": ["${workspaceFolder}/electron/main.cjs"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "VITE_DEV_SERVER_URL": "http://localhost:3000"
+      }
+    }
+  ]
+}

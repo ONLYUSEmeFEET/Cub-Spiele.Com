@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   downloadWindowsPortableZip,
   downloadStandaloneWindowsExe,
+  downloadAntigravityWorkspaceZip,
   buildCubSpielePe64Exe
 } from '../utils/windowsReleasePackager';
 import {
@@ -22,7 +23,10 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Loader2
+  Loader2,
+  Code2,
+  Cpu,
+  FolderGit2
 } from 'lucide-react';
 
 export interface ReleaseAsset {
@@ -55,11 +59,12 @@ interface WindowsReleaseModalProps {
 const DEFAULT_RELEASES: ProjectRelease[] = [
   {
     tag: 'v1.2.0',
-    title: 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator (Windows x64)',
+    title: 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator & Google Antigravity Desktop Workspace',
     publishedAt: '2026-11-12T07:10:00Z',
     isLatest: true,
     commitRef: 'HEAD (tag: v1.2.0)',
     highlights: [
+      'Added full Google Antigravity Desktop IDE workspace (cub-spiele-com.code-workspace, GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/tasks.json, Open-in-Antigravity.bat)',
       'Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)',
       'mGBA / melonDS-inspired standalone desktop layout with native Menu Bar (File, Emulation, Audio/Video, View, Tools)',
       'Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Full Handheld Bezel Mode',
@@ -82,6 +87,14 @@ const DEFAULT_RELEASES: ProjectRelease[] = [
         sizeBytes: 7168,
         sha256: 'Verified PE32+ x64 GUI',
         architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
+      },
+      {
+        name: 'CubSpieleCom-Antigravity-Workspace.zip',
+        label: 'Google Antigravity Desktop IDE Project Workspace (.zip)',
+        url: './releases/CubSpieleCom-Antigravity-Workspace.zip',
+        sizeBytes: 1624000,
+        sha256: 'Verified Antigravity Desktop IDE Source + .agents Workspace',
+        architecture: 'Google Antigravity IDE (Windows / macOS / Linux)'
       }
     ]
   },
@@ -118,10 +131,11 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({
   onClose,
   onNotify
 }) => {
-  const [activeTab, setActiveTab] = useState<'windows' | 'releases' | 'publish'>('windows');
+  const [activeTab, setActiveTab] = useState<'antigravity' | 'windows' | 'releases' | 'publish'>('antigravity');
   const [releases, setReleases] = useState<ProjectRelease[]>(DEFAULT_RELEASES);
   const [copiedSha, setCopiedSha] = useState<string | null>(null);
   const [isDownloadingZip, setIsDownloadingZip] = useState<boolean>(false);
+  const [isDownloadingAntigravity, setIsDownloadingAntigravity] = useState<boolean>(false);
 
   // GitHub Publisher form state
   const [repoSlug, setRepoSlug] = useState<string>(
@@ -176,8 +190,49 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({
     return `${bytes} B`;
   };
 
+  const handleDownloadAntigravityWorkspace = async () => {
+    try {
+      setIsDownloadingAntigravity(true);
+      onNotify(
+        'Packaging Google Antigravity Workspace...',
+        'Bundling full source tree, GEMINI.md, .agents/, .vscode/, and cub-spiele-com.code-workspace',
+        'info'
+      );
+      const size = await downloadAntigravityWorkspaceZip();
+      onNotify(
+        'Downloaded CubSpieleCom-Antigravity-Workspace.zip',
+        `Saved ${formatBytes(size)} Google Antigravity Desktop IDE Workspace`,
+        'success'
+      );
+    } catch (err) {
+      onNotify('Antigravity Workspace Error', (err as Error).message, 'error');
+    } finally {
+      setIsDownloadingAntigravity(false);
+    }
+  };
+
+  const handleLaunchAntigravityProtocol = () => {
+    const cleanSlug = repoSlug.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '');
+    const gitUrl = `https://github.com/${cleanSlug}.git`;
+    const protocolUri = `antigravity://vscode.git/clone?url=${encodeURIComponent(gitUrl)}`;
+    const a = document.createElement('a');
+    a.href = protocolUri;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    onNotify(
+      'Triggered Google Antigravity Desktop URI',
+      `Invoked ${protocolUri} (or extract CubSpieleCom-Antigravity-Workspace.zip and run Open-in-Antigravity.bat)`,
+      'info'
+    );
+  };
+
   const handleDownloadAsset = async (asset: ReleaseAsset) => {
     try {
+      if (asset.name.toLowerCase().includes('antigravity')) {
+        await handleDownloadAntigravityWorkspace();
+        return;
+      }
       if (asset.name.toLowerCase().endsWith('.exe')) {
         onNotify('Downloading CubSpieleCom.exe...', 'Standalone 64-bit Windows PE32+ GUI Executable', 'info');
         const size = await downloadStandaloneWindowsExe(asset.name);
@@ -425,14 +480,14 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-white tracking-tight">
-                  Cub Spiele.Com — Native Windows x64 &amp; GitHub Releases
+                  Cub Spiele.Com — Google Antigravity Desktop IDE &amp; Windows x64 Releases
                 </h2>
                 <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-md">
-                  {latestRelease?.tag || 'v1.2.0'} READY
+                  ANTIGRAVITY + WIN64 READY
                 </span>
               </div>
               <p className="text-xs text-[#94a3b8]">
-                mGBA / melonDS-Style Standalone Windows x64 Executable (<code className="text-[#38bdf8]">CubSpieleCom.exe</code>) &amp; Release Manager
+                Google Antigravity Desktop Workspace (<code className="text-[#a3ae76]">cub-spiele-com.code-workspace</code>), <code className="text-[#38bdf8]">CubSpieleCom.exe</code> &amp; GitHub Release Manager
               </p>
             </div>
           </div>
@@ -446,7 +501,19 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="px-6 pt-3 bg-[#161922] border-b border-[#262b38] flex gap-2">
+        <div className="px-6 pt-3 bg-[#161922] border-b border-[#262b38] flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveTab('antigravity')}
+            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'antigravity'
+                ? 'border-[#a3ae76] text-[#d9e3b1] bg-[#1d222e]'
+                : 'border-transparent text-[#94a3b8] hover:text-white'
+            }`}
+          >
+            <Code2 className="w-4 h-4 text-[#a3ae76]" />
+            <span>Google Antigravity IDE</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('windows')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl border-b-2 transition-colors flex items-center gap-2 ${
@@ -486,6 +553,143 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {activeTab === 'antigravity' && (
+            <>
+              {/* Google Antigravity Desktop Hero Card */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#1f261d] via-[#171b24] to-[#12151e] border border-[#a3ae76]/45 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#a3ae76]/20 border border-[#a3ae76]/40 text-[#d9e3b1] text-[11px] font-mono">
+                      <Code2 className="w-3.5 h-3.5 text-[#a3ae76]" />
+                      <span>GOOGLE ANTIGRAVITY DESKTOP IDE WORKSPACE READY</span>
+                    </div>
+                    <h3 className="text-lg font-extrabold text-white">
+                      Open Cub Spiele.Com in Google Antigravity on Your Desktop
+                    </h3>
+                    <p className="text-xs text-[#cbd5e1] leading-relaxed max-w-xl">
+                      This project is fully configured for <strong>Google Antigravity Desktop IDE</strong> (<code className="text-[#d9e3b1]">antigravity.google</code>) with <code className="text-[#d9e3b1]">GEMINI.md</code>, <code className="text-[#d9e3b1]">AGENTS.md</code>, SM8521 hardware accuracy rules (<code className="text-[#d9e3b1]">.agents/rules/</code>), turbo slash workflows (<code className="text-[#d9e3b1]">/build-windows-release</code>), MCP filesystem config, and <code className="text-[#d9e3b1]">cub-spiele-com.code-workspace</code>.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5 shrink-0">
+                    <button
+                      onClick={handleDownloadAntigravityWorkspace}
+                      disabled={isDownloadingAntigravity}
+                      className="flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-[#a3ae76] hover:bg-[#b5c088] disabled:opacity-60 text-[#0f130d] font-extrabold text-xs shadow-lg shadow-[#a3ae76]/20 transition-all cursor-pointer"
+                    >
+                      {isDownloadingAntigravity ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileArchive className="w-4 h-4" />
+                      )}
+                      <span>Download Antigravity Workspace (.zip)</span>
+                    </button>
+
+                    <button
+                      onClick={handleLaunchAntigravityProtocol}
+                      className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#222836] hover:bg-[#2c3344] text-[#e2e8f0] border border-[#384152] font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      <FolderGit2 className="w-3.5 h-3.5 text-[#38bdf8]" />
+                      <span>Launch via antigravity:// Desktop URI</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick CLI Launch Bar */}
+                <div className="mt-4 pt-3.5 border-t border-[#2b3346] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#94a3b8]">
+                  <div className="flex items-center gap-2 truncate">
+                    <Terminal className="w-4 h-4 text-[#a3ae76] shrink-0" />
+                    <span className="text-[#cbd5e1] font-bold">Desktop CLI / Launcher:</span>
+                    <span className="truncate text-[#d9e3b1]">
+                      antigravity cub-spiele-com.code-workspace &nbsp;|&nbsp; Open-in-Antigravity.bat
+                    </span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      handleCopy(
+                        'antigravity cub-spiele-com.code-workspace',
+                        'agy-cli'
+                      )
+                    }
+                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#232938] hover:bg-[#2d3548] text-[#cbd5e1] text-[10px]"
+                  >
+                    {copiedSha === 'agy-cli' ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span>Copied CLI Command</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy Command</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* 3-Step Desktop Workflow & Included Antigravity Files */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-[#181c26] border border-[#2a3040] space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white">
+                    <Cpu className="w-4 h-4 text-[#a3ae76]" />
+                    <span>Included Google Antigravity IDE Configuration</span>
+                  </div>
+                  <ul className="space-y-1.5 text-xs text-[#94a3b8]">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong><code className="text-[#d9e3b1]">cub-spiele-com.code-workspace</code> &amp; <code className="text-[#d9e3b1]">Open-in-Antigravity.bat</code>:</strong> Double-click on Windows to open the workspace in Google Antigravity Desktop IDE.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong><code className="text-[#d9e3b1]">GEMINI.md</code> &amp; <code className="text-[#d9e3b1]">AGENTS.md</code>:</strong> Pre-indexed architectural context so Antigravity&apos;s Manager &amp; Editor agents understand the SM8521 CPU, LCD, MMU, and Sound engine immediately.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong><code className="text-[#d9e3b1]">.agents/rules/sm8521-hardware-accuracy.md</code>:</strong> Workspace rule protecting 16-bit <code className="text-[#cbd590]">w(r)</code> addressing, ALU <code className="text-[#cbd590]">FLAG_V</code>/<code className="text-[#cbd590]">FLAG_S</code> formulas, and Lights Out 64-byte NVRAM level progress.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>
+                        <strong><code className="text-[#d9e3b1]">.agents/workflows/build-windows-release.md</code>:</strong> Slash command (<code className="text-[#cbd590]">/build-windows-release</code>) with <code className="text-[#cbd590]">// turbo</code> steps for 1-prompt Win64 builds.
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#181c26] border border-[#2a3040] space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white">
+                    <Terminal className="w-4 h-4 text-[#38bdf8]" />
+                    <span>How to Work on Your Desktop in Antigravity</span>
+                  </div>
+                  <ol className="space-y-1.5 text-xs text-[#94a3b8] list-decimal list-inside">
+                    <li>
+                      Click <strong>Download Antigravity Workspace (.zip)</strong> above and extract it to any folder on your PC (e.g. <code className="text-[#38bdf8]">C:\Projects\CubSpieleCom</code>).
+                    </li>
+                    <li>
+                      Double-click <code className="text-[#d9e3b1]">Open-in-Antigravity.bat</code> or open <code className="text-[#d9e3b1]">cub-spiele-com.code-workspace</code> inside Google Antigravity.
+                    </li>
+                    <li>
+                      Run the terminal commands below or invoke <code className="text-[#d9e3b1]">/build-windows-release</code> in the Antigravity Agent chat:
+                    </li>
+                  </ol>
+                  <div className="p-3 rounded-lg bg-[#0e1017] border border-[#252a38] font-mono text-[11px] text-[#cbd5e1] space-y-1">
+                    <div className="text-[#64748b]"># 1. Install dependencies &amp; launch live dev server (port 3000)</div>
+                    <div className="text-[#a3ae76]">npm install &amp;&amp; npm run dev</div>
+                    <div className="text-[#64748b] pt-1"># 2. Rebuild CubSpieleCom.exe &amp; Win64 Portable ZIP</div>
+                    <div className="text-[#38bdf8]">npm run release:win</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
           {activeTab === 'windows' && (
             <>
               {/* Hero Download Card */}

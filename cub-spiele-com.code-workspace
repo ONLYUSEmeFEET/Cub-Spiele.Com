@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "Cub Spiele.Com — SM8521 Standalone Emulator",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "antigravity.project.name": "cub-spiele-com-emulator",
+    "antigravity.agent.strictMode": false,
+    "antigravity.permissions": {
+      "fileSystemAccess": "workspace-strict",
+      "terminalSandboxing": true
+    },
+    "editor.tabSize": 2,
+    "typescript.tsdk": "node_modules/typescript/lib"
+  }
+}

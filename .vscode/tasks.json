@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Cub Spiele.Com: Start Dev Server (Port 3000)",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Cub Spiele.Com: Build Win64 Portable & CubSpieleCom.exe",
+      "type": "npm",
+      "script": "release:win",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Cub Spiele.Com: Build Electron Windows NSIS Installer",
+      "type": "npm",
+      "script": "dist:win",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Cub Spiele.Com: TypeScript Check (tsc --noEmit)",
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}

@@ -457,6 +457,57 @@ STANDALONE HANDHELD EMULATOR FEATURES (mGBA / melonDS DESIGN):
                 zf.write(full_p, f'src-desktop/{extra_rel}')
 
 
+def build_antigravity_workspace_zip(zip_path: str):
+    """
+    Packages the complete unminified source repository + Google Antigravity IDE configurations
+    (.agents/, .vscode/, GEMINI.md, AGENTS.md, cub-spiele-com.code-workspace, Open-in-Antigravity.bat)
+    so the user can extract and open the project directly in Google Antigravity on their desktop.
+    """
+    open_bat = """@echo off
+title Open Cub Spiele.Com in Google Antigravity IDE
+cd /d "%~dp0"
+where antigravity >nul 2>nul
+if %errorlevel%==0 (
+  start "" antigravity cub-spiele-com.code-workspace
+  exit /b 0
+)
+where agy >nul 2>nul
+if %errorlevel%==0 (
+  start "" agy cub-spiele-com.code-workspace
+  exit /b 0
+)
+if exist "%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe" (
+  start "" "%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe" "%~dp0cub-spiele-com.code-workspace"
+  exit /b 0
+)
+echo Launching cub-spiele-com.code-workspace...
+start "" "%~dp0cub-spiele-com.code-workspace"
+"""
+    exclude_dirs = {'node_modules', 'dist', 'release', '.git', '.aistudio', '__pycache__'}
+
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        zf.writestr('Open-in-Antigravity.bat', open_bat)
+
+        for root, dirs, files in os.walk(ROOT_DIR):
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            rel_root = os.path.relpath(root, ROOT_DIR)
+            # Avoid recursive inclusion of the workspace zip itself inside public/releases
+            if rel_root.replace('\\', '/').startswith('public/releases'):
+                for file in files:
+                    if file == 'CubSpieleCom.exe' or file == 'releases-manifest.json':
+                        full_p = os.path.join(root, file)
+                        arc_p = os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
+                        zf.write(full_p, arc_p)
+                continue
+
+            for file in files:
+                if file == 'bun.lock' or file == 'package-lock.json':
+                    continue
+                full_p = os.path.join(root, file)
+                arc_p = file if rel_root == '.' else os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
+                zf.write(full_p, arc_p)
+
+
 def main():
     os.makedirs(RELEASES_DIR, exist_ok=True)
     os.makedirs(ASSETS_DIR, exist_ok=True)
@@ -487,10 +538,14 @@ def main():
     zip_v110_path = os.path.join(RELEASES_DIR, zip_v110_name)
     build_zip_bundle(zip_v110_path, exe_bytes, 'v1.1.0')
 
+    ag_zip_name = 'CubSpieleCom-Antigravity-Workspace.zip'
+    ag_zip_path = os.path.join(RELEASES_DIR, ag_zip_name)
+    build_antigravity_workspace_zip(ag_zip_path)
+
     if os.path.exists(DIST_DIR):
         dist_rel = os.path.join(DIST_DIR, 'releases')
         os.makedirs(dist_rel, exist_ok=True)
-        for fname in ['CubSpieleCom.exe', zip_v120_name, zip_v110_name]:
+        for fname in ['CubSpieleCom.exe', zip_v120_name, zip_v110_name, ag_zip_name]:
             src = os.path.join(RELEASES_DIR, fname)
             dst = os.path.join(dist_rel, fname)
             with open(src, 'rb') as sf, open(dst, 'wb') as df:
@@ -503,17 +558,17 @@ def main():
         "releases": [
             {
                 "tag": "v1.2.0",
-                "title": "Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator (Windows x64)",
-                "publishedAt": "2026-11-12T07:10:00Z",
+                "title": "Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator & Google Antigravity Desktop Workspace",
+                "publishedAt": "2026-11-12T07:30:00Z",
                 "isLatest": True,
                 "Prerelease": False,
                 "commitRef": "HEAD (tag: v1.2.0)",
                 "highlights": [
+                    "Added full Google Antigravity Desktop IDE Workspace (cub-spiele-com.code-workspace, GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/)",
                     "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
                     "mGBA / melonDS-inspired standalone desktop layout with native Menu Bar (File, Emulation, Audio/Video, View, Tools)",
                     "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Full Handheld Bezel Mode",
-                    "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)",
-                    "Removed frontend onclick/onpress UI sound effects and touch pulse animation while preserving 100% of original SM8521 hardware audio"
+                    "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)"
                 ],
                 "assets": [
                     {
@@ -531,6 +586,14 @@ def main():
                         "sizeBytes": os.path.getsize(exe_path),
                         "sha256": sha256_file(exe_path),
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    },
+                    {
+                        "name": ag_zip_name,
+                        "label": "Google Antigravity Desktop IDE Project Workspace (.zip)",
+                        "url": f"./releases/{ag_zip_name}",
+                        "sizeBytes": os.path.getsize(ag_zip_path),
+                        "sha256": sha256_file(ag_zip_path),
+                        "architecture": "Google Antigravity IDE (Full Source + .agents + .vscode)"
                     }
                 ]
             },
@@ -571,7 +634,7 @@ def main():
 
     print(f"Built Windows x64 EXE: {exe_path} ({os.path.getsize(exe_path)} bytes)")
     print(f"Built v1.2.0 Win64 ZIP: {zip_v120_path} ({os.path.getsize(zip_v120_path)} bytes)")
-    print(f"Built v1.1.0 Win64 ZIP: {zip_v110_path} ({os.path.getsize(zip_v110_path)} bytes)")
+    print(f"Built Antigravity Workspace ZIP: {ag_zip_path} ({os.path.getsize(ag_zip_path)} bytes)")
 
 
 if __name__ == '__main__':

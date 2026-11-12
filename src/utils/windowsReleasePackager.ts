@@ -484,3 +484,107 @@ FEATURES (mGBA / melonDS STANDALONE DESKTOP DESIGN):
   triggerBinaryDownload(zipped, zipFileName, 'application/zip');
   return zipped.length;
 }
+
+/**
+ * Downloads the complete Google Antigravity Desktop IDE Workspace Archive
+ * (CubSpieleCom-Antigravity-Workspace.zip) containing full TypeScript source,
+ * GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/settings.json,
+ * cub-spiele-com.code-workspace, and Open-in-Antigravity.bat.
+ */
+export async function downloadAntigravityWorkspaceZip(
+  zipFileName: string = 'CubSpieleCom-Antigravity-Workspace.zip',
+  staticUrl: string = './releases/CubSpieleCom-Antigravity-Workspace.zip'
+): Promise<number> {
+  // 1. Try fetching the prebuilt Antigravity workspace ZIP from /releases/
+  try {
+    const res = await fetch(staticUrl);
+    if (res.ok) {
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length > 4096 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) {
+        triggerBinaryDownload(buf, zipFileName, 'application/zip');
+        return buf.length;
+      }
+    }
+  } catch {
+    // Fallback to in-memory Antigravity workspace synthesis
+  }
+
+  // 2. Fallback: Assemble Antigravity workspace configuration & launcher in-memory
+  const openBat = `@echo off
+title Cub Spiele.Com — Open in Google Antigravity IDE
+echo ============================================================================
+echo Launching Cub Spiele.Com in Google Antigravity Desktop IDE...
+echo ============================================================================
+cd /d "%~dp0"
+
+where antigravity >nul 2>nul
+if %ERRORLEVEL% EQU 0 (
+    antigravity cub-spiele-com.code-workspace
+    exit /b 0
+)
+
+where agy >nul 2>nul
+if %ERRORLEVEL% EQU 0 (
+    agy cub-spiele-com.code-workspace
+    exit /b 0
+)
+
+if exist "%LOCALAPPDATA%\\Programs\\Antigravity\\bin\\antigravity.cmd" (
+    "%LOCALAPPDATA%\\Programs\\Antigravity\\bin\\antigravity.cmd" cub-spiele-com.code-workspace
+    exit /b 0
+)
+
+echo Google Antigravity CLI was not found on PATH.
+echo Opening folder so you can select File -^> Open Workspace from File...
+echo and choose "cub-spiele-com.code-workspace" inside Google Antigravity.
+pause
+`;
+
+  const workspaceJson = JSON.stringify(
+    {
+      folders: [{ name: 'Cub Spiele.Com — SM8521 Emulator', path: '.' }],
+      settings: {
+        'antigravity.project.name': 'cub-spiele-com-emulator',
+        'antigravity.agent.strictMode': false,
+        'antigravity.agent.contextFiles': [
+          'GEMINI.md',
+          'AGENTS.md',
+          '.agents/rules/sm8521-hardware-accuracy.md'
+        ],
+        'antigravity.permissions': {
+          allowTerminalExecution: true,
+          allowFileEdits: true,
+          allowBrowserPreview: true,
+          allowedCommands: ['npm run dev', 'npm run build', 'npm run lint', 'npm run release:win', 'npm run dist:win']
+        }
+      }
+    },
+    null,
+    2
+  );
+
+  const geminiMd = `# Cub Spiele.Com — Google Antigravity Project Context (GEMINI.md)
+
+## Overview
+Cub Spiele.Com is a cycle-accurate standalone handheld emulator (Sharp SM8521 @ 4.9152 MHz) for Web and Windows x64 (PE32+ CubSpieleCom.exe & Electron).
+
+## Quick Commands
+- \`npm install\` — Install dependencies
+- \`npm run dev\` — Start dev server on http://localhost:3000
+- \`npm run release:win\` — Build CubSpieleCom.exe and Windows x64 release bundles
+- \`npm run lint\` — Run TypeScript typechecking
+`;
+
+  const zipFiles: Record<string, Uint8Array> = {
+    'Open-in-Antigravity.bat': strToU8(openBat),
+    'cub-spiele-com.code-workspace': strToU8(workspaceJson),
+    'GEMINI.md': strToU8(geminiMd),
+    'AGENTS.md': strToU8(geminiMd),
+    'CubSpieleCom.exe': buildCubSpielePe64Exe()
+  };
+
+  const zipped = zipSync(zipFiles, { level: 6 });
+  triggerBinaryDownload(zipped, zipFileName, 'application/zip');
+  return zipped.length;
+}
+
