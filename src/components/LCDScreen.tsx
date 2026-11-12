@@ -17,7 +17,6 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
     visible: false,
     isDown: false
   });
-  const [touchRipple, setTouchRipple] = useState<{ x: number; y: number; key: number } | null>(null);
 
   const canvasWidth = Math.round(SCREEN_WIDTH * scale);
   const canvasHeight = Math.round(SCREEN_HEIGHT * scale);
@@ -67,7 +66,6 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
     const { x, y } = getLogicalCoords(e.clientX, e.clientY);
     system.setTouch(x, y, true);
     setCursorPos({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, visible: true, isDown: true });
-    setTouchRipple({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, key: Date.now() });
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -103,6 +101,10 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
       : system.settings.palette === 'original'
       ? '#adb87f'
       : activePalette.colors[0];
+
+  const effectiveGridOpacity = system.settings.showTouchGrid
+    ? Math.max(0.05, system.settings.touchGridOpacity || 0.45)
+    : system.settings.touchGridOpacity;
 
   return (
     <div
@@ -142,18 +144,21 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
           }}
         />
 
-        {/* Touch Screen Resistive/Capacitive 13x10 Matrix Overlay */}
-        {system.settings.showTouchGrid && (
-          <div className="pointer-events-none absolute inset-0 grid grid-cols-13 grid-rows-10">
+        {/* Touch Screen Resistive/Capacitive 13x10 Matrix Overlay with Visibility Slider */}
+        {effectiveGridOpacity > 0 && (
+          <div
+            className="pointer-events-none absolute inset-0 grid grid-cols-13 grid-rows-10"
+            style={{ opacity: effectiveGridOpacity }}
+          >
             {Array.from({ length: 130 }).map((_, idx) => {
               const col = idx % 13;
               const row = Math.floor(idx / 13);
               return (
                 <div
                   key={idx}
-                  className="border-[0.5px] border-[#192310]/30 flex items-start justify-start p-[1px]"
+                  className="border-[0.5px] border-[#192310]/65 flex items-start justify-start p-[1px]"
                 >
-                  <span className="text-[6px] font-mono leading-none text-[#192310]/65 font-bold select-none">
+                  <span className="text-[6px] font-mono leading-none text-[#192310] font-bold select-none">
                     {col.toString(16).toUpperCase()}
                     {row.toString(16).toUpperCase()}
                   </span>
@@ -173,16 +178,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         }}
       />
 
-      {/* Touch ripple feedback */}
-      {touchRipple && (
-        <span
-          key={touchRipple.key}
-          className="pointer-events-none absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full border border-[#192310]/50 animate-ping"
-          style={{ left: touchRipple.x + 7, top: touchRipple.y + 7, animationDuration: '350ms' }}
-        />
-      )}
-
-      {/* Custom Tiger Game.Com Stylus Cursor */}
+      {/* Custom Stylus Cursor */}
       {system.settings.stylusCursor && cursorPos.visible && (
         <div
           className="pointer-events-none absolute z-30 transition-transform duration-75"

@@ -46,7 +46,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
   const handlePaletteSelect = (palId: LCDPaletteId) => {
     system.settings.palette = palId;
-    system.sound.playTouchBeep();
     onSettingsChange();
   };
 
@@ -64,14 +63,25 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   };
 
   const handleToggleTouchGrid = () => {
-    system.settings.showTouchGrid = !system.settings.showTouchGrid;
-    system.sound.playTouchBeep();
+    const nextShow = !system.settings.showTouchGrid;
+    system.settings.showTouchGrid = nextShow;
+    if (nextShow && system.settings.touchGridOpacity <= 0) {
+      system.settings.touchGridOpacity = 0.45;
+    } else if (!nextShow) {
+      system.settings.touchGridOpacity = 0.0;
+    }
+    onSettingsChange();
+  };
+
+  const handleTouchGridOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    system.settings.touchGridOpacity = val;
+    system.settings.showTouchGrid = val > 0;
     onSettingsChange();
   };
 
   const handleSpeedSelect = (spd: number) => {
     system.settings.speed = spd;
-    system.sound.playTouchBeep();
     onSettingsChange();
   };
 

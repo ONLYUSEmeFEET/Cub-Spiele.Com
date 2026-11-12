@@ -1,0 +1,64 @@
+{
+  "project": "cub-spiele-com-emulator",
+  "latestVersion": "v1.2.0",
+  "generatedAt": "2026-11-12T15:20:26.488654+00:00",
+  "releases": [
+    {
+      "tag": "v1.2.0",
+      "title": "Cub Spiele.Com v1.2.0 \u2014 Standalone Handheld Emulator (Windows x64)",
+      "publishedAt": "2026-11-12T07:10:00Z",
+      "isLatest": true,
+      "Prerelease": false,
+      "commitRef": "HEAD (tag: v1.2.0)",
+      "highlights": [
+        "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
+        "mGBA / melonDS-inspired standalone desktop layout with native Menu Bar (File, Emulation, Audio/Video, View, Tools)",
+        "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Full Handheld Bezel Mode",
+        "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)",
+        "Removed frontend onclick/onpress UI sound effects and touch pulse animation while preserving 100% of original SM8521 hardware audio"
+      ],
+      "assets": [
+        {
+          "name": "CubSpieleCom-v1.2.0-win64.zip",
+          "label": "Windows x64 Portable Release Bundle (.zip)",
+          "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
+          "sizeBytes": 1428829,
+          "sha256": "8db4ab9021cf1739e138fc602a4aee4f4d5381c646825394ebd481b5cd948512",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+        },
+        {
+          "name": "CubSpieleCom.exe",
+          "label": "Standalone Windows x64 GUI Executable (.exe)",
+          "url": "./releases/CubSpieleCom.exe",
+          "sizeBytes": 7168,
+          "sha256": "8d2b2d6e5f734a3f6107d2c1c4ea0ab406efd9b3f2265720b1d551dc114c3a7c",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+        }
+      ]
+    },
+    {
+      "tag": "v1.1.0",
+      "title": "Cub Spiele.Com v1.1.0 \u2014 SM8521 ALU Verification & Lights Out NVRAM Fix",
+      "publishedAt": "2026-11-12T06:00:00Z",
+      "isLatest": false,
+      "Prerelease": false,
+      "commitRef": "tag: v1.1.0",
+      "highlights": [
+        "Preloaded Slot 1 (Lights Out) & Slot 2 (Sonic Jam) with hardware P3 chip-select isolation",
+        "Fixed Lights Out '1?5' starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM",
+        "Verified Sharp SM8521 CPU ALU against official datasheet (8-bit ADC & 16-bit ADDW/ADCW signed overflow V flag, 16-bit ANDW/ORW/XORW S/V flags, PS0 $001E mirror)",
+        "Calibrated default audio volume to 20% with internal speaker band-pass filter (380 Hz - 3.6 kHz)"
+      ],
+      "assets": [
+        {
+          "name": "CubSpieleCom-v1.1.0-win64.zip",
+          "label": "Windows x64 Portable Release Bundle (.zip)",
+          "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
+          "sizeBytes": 1428829,
+          "sha256": "e00ad1c94f690ccf98ceb28c9dec6b1f372e27863b4c6fd29c4f05e0c93ad335",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+        }
+      ]
+    }
+  ]
+}

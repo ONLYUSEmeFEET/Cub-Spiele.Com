@@ -153,7 +153,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           </button>
         </div>
 
-        {/* SLOT 2 CARTRIDGE (Default: Recompiled Frogger Slowdown-Fix ROM) */}
+        {/* SLOT 2 CARTRIDGE (Default: Sonic Jam TOSEC ROM) */}
         <div
           onClick={() => {
             if (system.slot2) {
@@ -166,19 +166,19 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           title={system.slot2 ? `Click to Boot Slot 2: ${system.slot2.title}` : 'Insert Cartridge in Slot 2'}
           className={`group cursor-pointer transition-all duration-200 w-56 h-12 rounded-t-[14px] border-t-2 border-x-2 px-3.5 pt-1.5 pb-3 flex items-center justify-between ${
             system.activeSlot === 2 && system.activeApp === 'CARTRIDGE'
-              ? 'bg-gradient-to-b from-[#2c2f38] to-[#1b1d23] border-[#10b981]/70 -translate-y-1 shadow-[0_-4px_14px_rgba(16,185,129,0.22)]'
+              ? 'bg-gradient-to-b from-[#2c2f38] to-[#1b1d23] border-[#38bdf8]/70 -translate-y-1 shadow-[0_-4px_14px_rgba(56,189,248,0.22)]'
               : 'bg-gradient-to-b from-[#252830] to-[#17191e] border-[#3a3e4a] hover:-translate-y-0.5'
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
             <div
               className="w-2.5 h-6 rounded-[2px] shrink-0 border border-black/40"
-              style={{ backgroundColor: system.slot2?.coverAccent || '#10b981' }}
+              style={{ backgroundColor: system.slot2?.coverAccent || '#38bdf8' }}
             />
             <div className="truncate">
               <div className="flex items-center gap-1.5">
-                <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#a7f3d0] font-bold">
-                  SLOT 2 {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' ? '• ACTIVE' : '• PATCHED ROM'}
+                <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#9ca3af] font-bold">
+                  SLOT 2 {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' ? '• ACTIVE' : ''}
                 </span>
               </div>
               <div className="text-[11px] font-bold text-[#e5e7eb] truncate">
@@ -222,16 +222,16 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           <div className="w-2 h-8 rounded-l-full bg-[#15171c] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.07)]" />
         </div>
 
-        {/* Top Embossed Mold Seam & TIGER ELECTRONICS Branding */}
+        {/* Top Embossed Mold Seam & CUB SPIELE.COM Branding */}
         <div className="flex items-center justify-between px-8 mb-3">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black tracking-[0.28em] text-[#8d93a1]/80 uppercase drop-shadow-[0_1px_0_rgba(0,0,0,0.9)]">
-              TIGER ELECTRONICS, INC.
+              CUB SPIELE.COM • SM8521
             </span>
           </div>
           <div className="h-[2px] flex-1 mx-6 rounded-full bg-[#17191f] shadow-[0_1px_0_rgba(255,255,255,0.07)]" />
           <div className="text-[9px] font-mono tracking-[0.2em] text-[#8d93a1]/75 uppercase">
-            MODEL NO. 71-000 • 1997
+            MODEL NO. CS-8521 • 1997
           </div>
         </div>
 
@@ -508,13 +508,19 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                 <div className="h-[1px] w-3/4 self-end bg-gradient-to-r from-transparent to-[#64748b]/60" />
               </div>
 
-              {/* Iconic 1997 "game·com" Bezel Emblem */}
+              {/* "cub spiele·com" Bezel Emblem */}
               <div className="px-3.5 flex items-baseline gap-0.5 select-none">
+                <span
+                  className="text-base sm:text-lg font-black italic tracking-tight text-[#a3ae76] mr-1"
+                  style={{ textShadow: '0 2px 4px rgba(0,0,0,0.85)' }}
+                >
+                  cub
+                </span>
                 <span
                   className="text-lg sm:text-xl font-black italic tracking-tight text-[#f1f5f9]"
                   style={{ textShadow: '0 2px 4px rgba(0,0,0,0.85)' }}
                 >
-                  game
+                  spiele
                 </span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#e11d48] mx-0.5 shadow-[0_0_8px_rgba(225,29,72,0.75)] translate-y-[-2px]" />
                 <span

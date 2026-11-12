@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { GameComSystem } from './emulator/gamecomSystem';
 import { TopBar } from './components/TopBar';
 import { GameComConsole } from './components/GameComConsole';
+import { ScreenOnlyView } from './components/ScreenOnlyView';
 import { ControlToolbar } from './components/ControlToolbar';
 import { AccuracyFixesModal } from './components/AccuracyFixesModal';
 import { RomLibraryModal } from './components/RomLibraryModal';
@@ -9,7 +10,8 @@ import { DebuggerModal } from './components/DebuggerModal';
 import { KeybindsModal } from './components/KeybindsModal';
 import { HighScoreVaultModal } from './components/HighScoreVaultModal';
 import { BiosManagerModal } from './components/BiosManagerModal';
-import { CheckCircle2, AlertCircle, Info, Sparkles, HardDrive, Trophy } from 'lucide-react';
+import { WindowsReleaseModal } from './components/WindowsReleaseModal';
+import { CheckCircle2, AlertCircle, Info, Sparkles, HardDrive, Trophy, Monitor } from 'lucide-react';
 
 export default function App() {
   const system = useMemo(() => new GameComSystem(), []);
@@ -23,6 +25,7 @@ export default function App() {
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isHighScoresOpen, setIsHighScoresOpen] = useState(false);
   const [isBiosOpen, setIsBiosOpen] = useState(false);
+  const [isReleasesOpen, setIsReleasesOpen] = useState(false);
 
   // Notification Toast state
   const [toast, setToast] = useState<{ message: string; sub?: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -35,7 +38,7 @@ export default function App() {
   }, []);
 
   // ROM File Loader handler
-  const handleLoadRomFile = async (file: File, slot: 1 | 2 = 1) => {
+  const handleLoadRomFile = useCallback(async (file: File, slot: 1 | 2 = 1) => {
     try {
       showToast('Extracting & Loading ROM...', file.name, 'info');
       const cart = await system.loadRomFromFile(file, slot);
@@ -48,7 +51,60 @@ export default function App() {
     } catch (err) {
       showToast('Failed to load ROM', (err as Error).message, 'error');
     }
-  };
+  }, [system, showToast, forceUpdate]);
+
+  // Native Windows Desktop Bridge (Electron / Win64 Menu & File Associations)
+  useEffect(() => {
+    const desktop = (window as any).gamecomDesktop;
+    if (!desktop) return;
+
+    const unsubMenu = desktop.onMenuAction
+      ? desktop.onMenuAction((action: string) => {
+          if (action === 'boot-slot-1') {
+            system.launchCartridge(1);
+            forceUpdate();
+          } else if (action === 'boot-slot-2') {
+            system.launchCartridge(2);
+            forceUpdate();
+          } else if (action === 'save-state') {
+            system.saveState(0);
+            showToast('State Saved to Slot 0', 'CPU registers, VRAM, and NVRAM recorded', 'success');
+          } else if (action === 'load-state') {
+            if (system.loadState(0)) {
+              showToast('State Loaded from Slot 0', 'Restored hardware CPU, VRAM, and NVRAM state', 'success');
+              forceUpdate();
+            }
+          } else if (action === 'reset-menu') {
+            system.resetSystem('MAIN_MENU');
+            forceUpdate();
+          } else if (action === 'cold-boot') {
+            system.resetSystem('NONE');
+            forceUpdate();
+          } else if (action === 'open-debugger') {
+            setIsDebuggerOpen(true);
+          } else if (action === 'open-vault') {
+            setIsHighScoresOpen(true);
+          } else if (action === 'open-accuracy') {
+            setIsAccuracyOpen(true);
+          } else if (action === 'open-releases') {
+            setIsReleasesOpen(true);
+          }
+        })
+      : undefined;
+
+    const unsubRom = desktop.onRomLoaded
+      ? desktop.onRomLoaded((payload: { name: string; slot?: 1 | 2; bytes: number[] }) => {
+          const uint8 = new Uint8Array(payload.bytes);
+          const file = new File([uint8], payload.name, { type: 'application/octet-stream' });
+          handleLoadRomFile(file, payload.slot === 2 ? 2 : 1);
+        })
+      : undefined;
+
+    return () => {
+      if (typeof unsubMenu === 'function') unsubMenu();
+      if (typeof unsubRom === 'function') unsubRom();
+    };
+  }, [system, forceUpdate, showToast, handleLoadRomFile]);
 
   // Keyboard Event Listeners
   useEffect(() => {
@@ -127,7 +183,6 @@ export default function App() {
         e.preventDefault();
         if (!system.buttons[btn]) {
           system.buttons[btn] = true;
-          system.sound.playButtonPress();
           forceUpdate();
         }
       }
@@ -213,7 +268,7 @@ export default function App() {
     const url = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gamecom_screenshot_${Date.now()}.png`;
+    a.download = `cub_spiele_com_${Date.now()}.png`;
     a.click();
     showToast('Screenshot Captured', 'Saved 200x160 native PNG image', 'success');
   };
@@ -226,27 +281,36 @@ export default function App() {
           'radial-gradient(120% 90% at 50% 20%, #1c2028 0%, #111319 55%, #0a0b0f 100%)'
       }}
     >
-      {/* Top Bar */}
+      {/* Top Bar (mGBA / melonDS Menu Bar + Toolbar) */}
       <TopBar
         system={system}
-        onLoadRomFile={(f) => handleLoadRomFile(f, 1)}
+        onLoadRomFile={(f, slot = 1) => handleLoadRomFile(f, slot)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
         onOpenAccuracy={() => setIsAccuracyOpen(true)}
+        onOpenReleases={() => setIsReleasesOpen(true)}
         onOpenBios={() => setIsBiosOpen(true)}
         onOpenControls={() => setIsControlsOpen(true)}
         onOpenDebugger={() => setIsDebuggerOpen(true)}
         onOpenHighScores={() => setIsHighScoresOpen(true)}
+        onSaveState={handleSaveState}
+        onLoadState={handleLoadState}
+        onTakeScreenshot={handleTakeScreenshot}
+        onNotify={showToast}
         onUpdate={forceUpdate}
       />
 
       {/* Main Container */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
-        {/* Handheld Physical Console */}
-        <GameComConsole
-          system={system}
-          onOpenLibrary={() => setIsLibraryOpen(true)}
-          onStateChange={forceUpdate}
-        />
+        {/* Viewport Mode: Screen-Only (mGBA/melonDS style) OR Full Handheld Console Bezel */}
+        {system.settings.viewMode === 'screen-only' ? (
+          <ScreenOnlyView system={system} onStateChange={forceUpdate} />
+        ) : (
+          <GameComConsole
+            system={system}
+            onOpenLibrary={() => setIsLibraryOpen(true)}
+            onStateChange={forceUpdate}
+          />
+        )}
 
         {/* Toolbar Controls */}
         <ControlToolbar
@@ -260,34 +324,47 @@ export default function App() {
         />
 
         {/* Quick Info & Features Bar */}
-        <div className="w-full max-w-4xl mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+        <div className="w-full max-w-4xl mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="p-3.5 bg-[#151820]/90 border border-[#2a2e3a] rounded-xl">
             <span className="font-bold text-[#f1f5f9] block mb-0.5 flex items-center gap-1.5">
               <HardDrive className="w-3.5 h-3.5 text-[#a3ae76]" />
-              Slot 2 Recompiled Frogger ROM
+              Dual Cartridge Bays
             </span>
             <p className="text-[#94a3b8] leading-relaxed">
-              Recompiled SM8521 binary (<code className="text-[#cbd590]">frogger_rebuilt.bin</code>) eliminating the <code className="text-[#cbd590]">$4BBB</code> 98,304-cycle spin &amp; Timer 1 ISR DAC stall.
+              Preloaded with <code className="text-[#cbd590]">Lights Out</code> in Slot 1 and <code className="text-[#cbd590]">Sonic Jam</code> in Slot 2 with hardware P3 chip-select isolation.
             </p>
           </div>
 
           <div className="p-3.5 bg-[#151820]/90 border border-[#2a2e3a] rounded-xl">
             <span className="font-bold text-[#f1f5f9] block mb-0.5 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#e11d48]" />
-              1997 Tiger Game.Com Bezel &amp; STN
+              Screen-Only &amp; Bezel Modes
             </span>
             <p className="text-[#94a3b8] leading-relaxed">
-              Calibrated reflective olive-green STN substrate (<code className="text-[#cbd590]">#b9c48a</code>), 1×1 ITO electrode grid, and single-touch resistive matrix.
+              Switch between <strong>mGBA / melonDS Screen-Only view</strong> (<code className="text-[#cbd590]">2×/3×/4×</code>) and the full handheld shell.
             </p>
           </div>
 
           <div className="p-3.5 bg-[#151820]/90 border border-[#2a2e3a] rounded-xl">
             <span className="font-bold text-[#f1f5f9] block mb-0.5 flex items-center gap-1.5">
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              Expanded NVRAM High Scores (&gt;10)
+              Expanded NVRAM (&gt;10)
             </span>
             <p className="text-[#94a3b8] leading-relaxed">
-              Saves High Scores directly to battery-backed NVRAM (<code className="text-[#cbd590]">$FC60–$FEDF</code>) with unlimited 10-slot bank paging &amp; data import/export.
+              Saves High Scores &amp; binary level data to battery-backed NVRAM (<code className="text-[#cbd590]">$FC60–$FEDF</code>) with unlimited bank paging.
+            </p>
+          </div>
+
+          <div
+            onClick={() => setIsReleasesOpen(true)}
+            className="p-3.5 bg-[#151a26]/95 hover:bg-[#1a2130] border border-[#38bdf8]/40 rounded-xl cursor-pointer transition-colors"
+          >
+            <span className="font-bold text-[#bae6fd] block mb-0.5 flex items-center gap-1.5">
+              <Monitor className="w-3.5 h-3.5 text-[#38bdf8]" />
+              Cub Spiele.Com Win64
+            </span>
+            <p className="text-[#94a3b8] leading-relaxed">
+              Download <code className="text-[#38bdf8]">CubSpieleCom.exe</code> (<code className="text-[#cbd590]">v1.2.0</code> Win64 ZIP) or publish tagged GitHub Releases.
             </p>
           </div>
         </div>
@@ -353,6 +430,12 @@ export default function App() {
           showToast('Official BIOS Updated', 'System microcode and vectors refreshed', 'success');
           forceUpdate();
         }}
+      />
+
+      <WindowsReleaseModal
+        isOpen={isReleasesOpen}
+        onClose={() => setIsReleasesOpen(false)}
+        onNotify={showToast}
       />
     </div>
   );

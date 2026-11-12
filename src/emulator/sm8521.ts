@@ -812,8 +812,11 @@ export class SM8521CPU {
       case 0x1a: this.m_CKC = data; break;
       case 0x1c:
       case 0x1d: this.get_sp(); break;
+      case 0x1b:
       case 0x1e:
         this.m_PS0 = data;
+        this.m_p_ram[0x1b] = data;
+        this.m_p_ram[0x1e] = data;
         for (let i = 0; i < 16; i++) {
           this.program_write_byte(i, this.mem_readbyte(i));
         }
@@ -1228,7 +1231,7 @@ case 0x12:  /* SUB Rr,Rs - 5 cycles - Flags affected: CZSV1H-- */
 	break;
 case 0x13:  /* ADC Rr,Rs - 5 cycles - Flags affected: CZSV0H-- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r2 = 0x00;                  switch( r1 & 0xC0 ) {                  case 0x00:                          r2 = r1 & 0x07;                          r1 = ( r1 >> 3 ) & 0x07;                          break;                  case 0x40:                  case 0x80:                  case 0xC0:                          break;                  };
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( r2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( r2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x80 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	mycycles += 5;
 	break;
@@ -1411,7 +1414,7 @@ case 0x22:  /* SUB r,@r / SUB r,(r)+ / SUB r,@w / SUB r,w(r) / SUB r,-(r) - 7,8,
 	break;
 case 0x23:  /* ADC r,@r / ADC r,(r)+ / ADC r,@w / ADC r,w(r) / ADC r,-(r) - 7,8,10,8,9 cycles - Flags affected: CZSV0H-- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = 0;                  switch( r1 & 0xC0 ) {                  case 0x00:                          s2 = this.mem_readbyte( r1 & 0x07 );                          break;                  case 0x40:                          s2 = this.mem_readbyte( r1 & 0x07 );                          this.mem_writebyte( r1 & 0x07, (s2 + 1) & 0xFF );                          break;                  case 0x80:                          s2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                          if ( r1 & 0x07 ) {                                  s2 = (s2 + this.mem_readbyte( r1 & 0x07 )) & 0xFFFF;                          }                          break;                  case 0xC0:                          s2 = this.mem_readbyte( r1 & 0x07 );                          this.mem_writebyte( r1 & 0x07, (s2 - 1) & 0xFF );                          break;                  }                  r2 = r1;                  r1 = ( r1 >> 3 ) & 0x07;;
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( s2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( s2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x80 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	switch( r2 & 0xC0 ) {
 	case 0x00:  mycycles += 7; break;
@@ -1572,7 +1575,7 @@ case 0x32:  /* SUB r,@rr / SUB r,(rr)+ / SUB r,@ww / SUB r,ww(rr) / SUB r,-(rr) 
 	break;
 case 0x33:  /* ADC r,@rr / ADC r,(rr)+ / ADC r,@ww / ADC r,ww(rr) / ADC r,-(rr) - 8,13,11,15,13 cycles - Flags affected: CZSV0H-- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = 0;                  switch( r1 & 0xC0 ) {                  case 0x00:                          s2 = this.mem_readword( sm8500_b2w[r1 & 0x07] );                          break;                  case 0x40:                          s2 = this.mem_readword( sm8500_b2w[r1 & 0x07] );                          this.mem_writeword( sm8500_b2w[r1 & 0x07], (s2 + 1) & 0xFFFF );                          break;                  case 0x80:                          s2 = this.mem_readword( this.m_PC ); this.m_PC = (this.m_PC + 2) & 0xFFFF;                          if ( r1 & 0x07 ) {                                  s2 = (s2 + this.mem_readword( sm8500_b2w[r1 & 0x07] )) & 0xFFFF;                          }                          break;                  case 0xC0:                          s2 = (this.mem_readword( sm8500_b2w[r1 & 0x07] ) - 1) & 0xFFFF;                          this.mem_writeword( sm8500_b2w[r1 & 0x07], s2 );                          break;                  }                  r2 = r1;                  r1 = ( r1 >> 3 ) & 0x07;;
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( s2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( s2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x80 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	switch( r2 & 0xC0 ) {
 	case 0x00:  mycycles += 8; break;
@@ -1713,7 +1716,7 @@ case 0x42:  /* SUB Rr,Rs - 6 cycles - Flags affected: CZSV1H-- */
 	break;
 case 0x43:  /* ADC Rr,Rs - 6 cycles - Flags affected: CZSV0H-- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( r2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (this.mem_readbyte( r2 )) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x80 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	mycycles += 6;
 	break;
@@ -1860,7 +1863,7 @@ case 0x52:  /* SUB Rr,i - 6 cycles - Flags affected: CZSV1H-- */
 	break;
 case 0x53:  /* ADC Rr,i - 6 cycles - Flags affected: CZSV0H-- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (r2) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          d2 = (r2) & 0xFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0);                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x80 ) & (res ^ d1) ) & 0x80 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	mycycles += 6;
 	break;
@@ -2016,7 +2019,7 @@ case 0x60:  /* CMPW RRr,RRs - 9 cycles - Flags affected: CZSV---- */
 	break;
 case 0x61:  /* ADDW RRr,RRs - 10 cycles - Flags affected: CZSV0H-- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = (d1 + d2) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & ( res ^ d1 ) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d2 ^ d1 ^ res ) & 0x0010 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = (d1 + d2) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x8000 ) & ( res ^ d1 ) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d2 ^ d1 ^ res ) & 0x0010 ) ? FLAG_H : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 10;
 	break;
@@ -2028,7 +2031,7 @@ case 0x62:  /* SUBW RRr,RRs - 10 cycles - Flags affected: CZSV1H-- */
 	break;
 case 0x63:  /* ADCW RRr,RRs - 10 cycles - Flags affected: CZSV0H-- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & ( res ^ d1) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x8000 ) & ( res ^ d1) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 10;
 	break;
@@ -2038,21 +2041,21 @@ case 0x64:  /* SBCW RRr,RRs - 10 cycles - Flags affected: CZSV1H-- */
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 10;
 	break;
-case 0x65:  /* ANDW RRr,RRs - 14 cycles - Flags affected: -Z-0---- */
+case 0x65:  /* ANDW RRr,RRs - 14 cycles - Flags affected: -ZS0---- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = d1 & d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_S | FLAG_B | FLAG_I | FLAG_H | FLAG_D );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = d1 & d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_B | FLAG_I | FLAG_H | FLAG_D );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 14;
 	break;
-case 0x66:  /* ORW RRr,RRs - 14 cycles - Flags affected: -Z-0---- */
+case 0x66:  /* ORW RRr,RRs - 14 cycles - Flags affected: -ZS0---- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = d1 | d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C | FLAG_S );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = d1 | d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 14;
 	break;
-case 0x67:  /* XORW RRr,RRs - 14 cycles - Flags affected: -Z-0---- */
+case 0x67:  /* XORW RRr,RRs - 14 cycles - Flags affected: -ZS0---- */
 	r2 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = d1 ^ d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C | FLAG_S );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (this.mem_readword( r2 )) & 0xFFFF;                          res = d1 ^ d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 14;
 	break;
@@ -2063,7 +2066,7 @@ case 0x68:  /* CMPW RRr,w - 9 cycles - Flags affected: CZSV---- */
 	break;
 case 0x69:  /* ADDW RRr,w - 10 cycles - Flags affected: CZSV0H-- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = this.mem_readword( this.m_PC ); this.m_PC = (this.m_PC + 2) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = (d1 + d2) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & ( res ^ d1 ) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d2 ^ d1 ^ res ) & 0x0010 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = (d1 + d2) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x8000 ) & ( res ^ d1 ) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d2 ^ d1 ^ res ) & 0x0010 ) ? FLAG_H : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 10;
 	break;
@@ -2075,7 +2078,7 @@ case 0x6A:  /* SUBW RRr,w - 10 cycles - Flags affected: CZSV1H-- */
 	break;
 case 0x6B:  /* ADCW RRr,w - 10 cycles - Flags affected: CZSV0H-- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = this.mem_readword( this.m_PC ); this.m_PC = (this.m_PC + 2) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ) & ( res ^ d1) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = (d1 + d2 + ((this.m_PS1 & FLAG_C) ? 1 : 0)) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( res > 0xFFFF ) ? FLAG_C : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d2 ^ d1 ^ 0x8000 ) & ( res ^ d1) ) & 0x8000 ) ? FLAG_V : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( d1 ^ d2 ^ res ) & 0x10 ) ? FLAG_H : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 10;
 	break;
@@ -2085,21 +2088,21 @@ case 0x6C:  /* SBCW RRr,w - 10 cycles - Flags affected: CZSV1H-- */
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 10;
 	break;
-case 0x6D:  /* ANDW RRr,w - 13 cycles - Flags affected: -Z-0---- */
+case 0x6D:  /* ANDW RRr,w - 13 cycles - Flags affected: -ZS0---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = this.mem_readword( this.m_PC ); this.m_PC = (this.m_PC + 2) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = d1 & d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_S | FLAG_B | FLAG_I | FLAG_H | FLAG_D );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = d1 & d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_B | FLAG_I | FLAG_H | FLAG_D );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 13;
 	break;
-case 0x6E:  /* ORW RRr,w - 13 cycles - Flags affected: -Z-0---- */
+case 0x6E:  /* ORW RRr,w - 13 cycles - Flags affected: -ZS0---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = this.mem_readword( this.m_PC ); this.m_PC = (this.m_PC + 2) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = d1 | d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C | FLAG_S );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = d1 | d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 13;
 	break;
-case 0x6F:  /* XORW RRr,w - 13 cycles - Flags affected: -Z-0---- */
+case 0x6F:  /* XORW RRr,w - 13 cycles - Flags affected: -ZS0---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;                  s2 = this.mem_readword( this.m_PC ); this.m_PC = (this.m_PC + 2) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = d1 ^ d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C | FLAG_S );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          d2 = (s2) & 0xFFFF;                          res = d1 ^ d2;                          this.m_PS1 = this.m_PS1 & ( FLAG_B | FLAG_I | FLAG_H | FLAG_D | FLAG_C );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF);
 	mycycles += 13;
 	break;

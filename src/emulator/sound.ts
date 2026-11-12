@@ -22,7 +22,7 @@ export class SoundEngine {
   private lowPassFilter: BiquadFilterNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
 
-  private volume: number = 0.7;
+  private volume: number = 0.2;
   private isMuted: boolean = false;
   private lastCh0Time: number = 0;
   private lastCh1Time: number = 0;
@@ -541,30 +541,24 @@ export class SoundEngine {
   }
 
   /**
-   * Stylus Tap / Screen Click Sound
+   * Stylus Tap — Emulator UI sound effects removed for pure SM8521 hardware audio accuracy.
    */
   public playTouchBeep() {
-    this.playTone(1800, 0.03, 'sine', 0.15);
+    this.initContext();
   }
 
   /**
-   * Button Press Click (Mechanical / Electronic Beep)
+   * Button Press — Emulator UI sound effects removed for pure SM8521 hardware audio accuracy.
    */
   public playButtonPress() {
-    this.playTone(950, 0.04, 'square', 0.12);
+    this.initContext();
   }
 
   /**
-   * Cartridge Insert / Eject Click
+   * Cartridge Insert / Eject — Emulator UI sound effects removed for pure SM8521 hardware audio accuracy.
    */
   public playCartridgeClick() {
     this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-
-    this.playNoise(0.06, 0.25);
-    setTimeout(() => {
-      this.playTone(400, 0.05, 'triangle', 0.2);
-    }, 60);
   }
 
   /**

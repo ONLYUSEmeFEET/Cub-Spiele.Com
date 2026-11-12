@@ -119,11 +119,26 @@ export interface CartridgeInfo {
   romUrl?: string;
 }
 
+export interface RecentGameEntry {
+  id: string;
+  title: string;
+  publisher: string;
+  year: number;
+  slot: 1 | 2;
+  lastPlayedAt: number;
+  playCount: number;
+  sizeBytes: number;
+  isPreloaded?: boolean;
+}
+
 export interface EmulatorSettings {
   palette: LCDPaletteId;
   ghosting: number; // 0.0 to 0.9 (STN LCD response blur)
   pixelGrid: boolean; // render pixel grid lines
   showTouchGrid: boolean; // render 13x10 hardware resistive touch matrix overlay
+  touchGridOpacity: number; // 0.0 to 1.0 visibility slider for touch grid
+  viewMode: 'screen-only' | 'console'; // mGBA/melonDS screen-only mode vs full handheld shell
+  screenScale: number; // 2, 3, or 4 integer scale in screen-only mode
   contrast: number; // 0.5 to 1.5
   volume: number; // 0.0 to 1.0
   muted: boolean;

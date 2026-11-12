@@ -22,11 +22,12 @@
  */
 
 export interface HighScoreRecord {
-  gameId: number;       // 16-bit Game ID (e.g. 0x001A = Frogger, 0x0008 = Lights Out)
+  gameId: number;       // 16-bit Game ID (e.g. 0x0917 = Lights Out, 0x2201 = Sonic Jam)
   title: string;        // Up to 11 ASCII characters displayed by BIOS High Score screen
   scoreText: string;    // Score or level string displayed by BIOS High Score screen
   numericScore: number; // Parsed numeric value for sorting/comparison
   updatedAt: number;
+  rawSlot?: number[];   // Full 64-byte hardware slot snapshot (preserves binary progress bytes after $00 terminator)
 }
 
 const NVRAM_RAW_STORAGE_KEY = 'gamecom_nvram_8k_v3';
@@ -42,6 +43,51 @@ export class NvramHighScoreManager {
 
   constructor() {
     this.loadVault();
+  }
+
+  /**
+   * Sanitizes a 64-byte hardware NVRAM slot ($FC60 + slot * $40).
+   * Specifically fixes the Lights Out (Game ID $0917) "1?5" starting level bug:
+   * Lights Out stores "Lights Out\x01xxx\x00" at +$03..+$11 and 6 raw binary level
+   * progress bytes (1..100 for each of the 6 game modes, loaded into $01BC..$01C2)
+   * at slot offsets +$12..+$17 immediately after the $00 string terminator.
+   * If +$12..+$17 contain 0xFF (255), Lights Out's BCD routine at $5655 computes
+   * 255 = 100 + 15*10 + 5 -> '1', (0x30 + 15 = '?'), '5' = "1?5".
+   */
+  public static sanitizeSlot64(slot: Uint8Array): void {
+    if (slot.length < 0x40) return;
+    const gameId = (slot[0] << 8) | slot[1];
+    if (gameId === 0x0917) {
+      // Ensure exact "Lights Out" mixed-case 10-byte title at +$03..+$0C and $01 separator at +$0D
+      const expectedTitle = 'Lights Out';
+      for (let i = 0; i < expectedTitle.length; i++) {
+        slot[0x03 + i] = expectedTitle.charCodeAt(i);
+      }
+      slot[0x0d] = 0x01;
+
+      // Ensure 3-byte ASCII highest level string at +$0E..+$10 has no '?' (0x3F) or 0xFF
+      let badAscii = false;
+      for (let i = 0x0e; i <= 0x10; i++) {
+        const b = slot[i];
+        if (b === 0x3f || b < 0x20 || b > 0x39) {
+          badAscii = true;
+        }
+      }
+      if (badAscii) {
+        slot[0x0e] = 0x20; // ' '
+        slot[0x0f] = 0x20; // ' '
+        slot[0x10] = 0x31; // '1'
+      }
+      slot[0x11] = 0x00;
+
+      // Sanitize the 6 binary starting-level progress bytes at +$12..+$17 ($01BC..$01C2)
+      // Valid levels in Lights Out are 1..50 (or 1..100 in 2000-puzzle mode).
+      for (let i = 0x12; i <= 0x17; i++) {
+        if (slot[i] === 0x00 || slot[i] > 100) {
+          slot[i] = 0x01;
+        }
+      }
+    }
   }
 
   /**
@@ -111,13 +157,39 @@ export class NvramHighScoreManager {
       return slot;
     }
 
-    slot.fill(0xff);
+    // Restore full raw 64-byte slot if captured from hardware NVRAM (preserves trailing binary progress data)
+    if (rec.rawSlot && rec.rawSlot.length === 0x40) {
+      for (let i = 0; i < 0x40; i++) {
+        slot[i] = rec.rawSlot[i] & 0xff;
+      }
+    } else {
+      slot.fill(0x00);
+    }
+
     slot[0] = (rec.gameId >> 8) & 0xff;
     slot[1] = rec.gameId & 0xff;
     slot[2] = 0x00;
 
-    // 11-character padded or exact game title
-    const cleanTitle = rec.title.toUpperCase().slice(0, 11);
+    if (rec.gameId === 0x0917) {
+      // Lights Out ($0917) requires exact 10-char "Lights Out", $01, 3-char right-padded level, $00,
+      // followed by 6 binary level progress bytes at +$12..+$17
+      const loTitle = 'Lights Out';
+      for (let i = 0; i < loTitle.length; i++) {
+        slot[3 + i] = loTitle.charCodeAt(i);
+      }
+      slot[0x0d] = 0x01;
+      const lvlNum = Math.max(1, Math.min(100, rec.numericScore || 1));
+      const lvlStr = String(lvlNum).padStart(3, ' ');
+      slot[0x0e] = lvlStr.charCodeAt(0);
+      slot[0x0f] = lvlStr.charCodeAt(1);
+      slot[0x10] = lvlStr.charCodeAt(2);
+      slot[0x11] = 0x00;
+      NvramHighScoreManager.sanitizeSlot64(slot);
+      return slot;
+    }
+
+    // Preserve original title case (up to 11 chars)
+    const cleanTitle = rec.title.slice(0, 11);
     let pos = 3;
     for (let i = 0; i < cleanTitle.length; i++) {
       slot[pos++] = cleanTitle.charCodeAt(i) & 0x7f;
@@ -125,12 +197,13 @@ export class NvramHighScoreManager {
 
     // $01 separator followed by score text and $00 terminator
     slot[pos++] = 0x01;
-    const cleanScore = rec.scoreText.toUpperCase().slice(0, 16);
+    const cleanScore = rec.scoreText.slice(0, 16);
     for (let i = 0; i < cleanScore.length && pos < 0x3e; i++) {
       slot[pos++] = cleanScore.charCodeAt(i) & 0x7f;
     }
     slot[pos] = 0x00;
 
+    NvramHighScoreManager.sanitizeSlot64(slot);
     return slot;
   }
 
@@ -142,12 +215,15 @@ export class NvramHighScoreManager {
     const gameId = (slot[0] << 8) | slot[1];
     if (gameId === 0x0000 || gameId === 0xffff) return null;
 
+    const cleanSlot = new Uint8Array(slot.subarray(0, 0x40));
+    NvramHighScoreManager.sanitizeSlot64(cleanSlot);
+
     let title = '';
     let scoreText = '';
     let inScore = false;
 
     for (let i = 3; i < 0x40; i++) {
-      const b = slot[i];
+      const b = cleanSlot[i];
       if (b === 0x00 || b === 0xff) {
         break;
       }
@@ -176,7 +252,8 @@ export class NvramHighScoreManager {
       title,
       scoreText: scoreText || '0',
       numericScore,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      rawSlot: Array.from(cleanSlot)
     };
   }
 
@@ -213,16 +290,23 @@ export class NvramHighScoreManager {
 
     for (let slotIdx = 0; slotIdx < 10; slotIdx++) {
       const slotBytes = nvram.subarray(baseOffset + slotIdx * 0x40, baseOffset + (slotIdx + 1) * 0x40);
+      // Sanitize in-place in live NVRAM if Lights Out ($0917) had any 0xFF corrupt bytes
+      NvramHighScoreManager.sanitizeSlot64(slotBytes);
       const decoded = NvramHighScoreManager.decodeSlot64(slotBytes);
       const vaultIdx = startIdx + slotIdx;
 
       if (decoded) {
         const existing = this.records[vaultIdx];
+        const rawChanged =
+          !existing?.rawSlot ||
+          !decoded.rawSlot ||
+          existing.rawSlot.some((b, i) => b !== decoded.rawSlot![i]);
         if (
           !existing ||
           existing.gameId !== decoded.gameId ||
           existing.title !== decoded.title ||
-          existing.scoreText !== decoded.scoreText
+          existing.scoreText !== decoded.scoreText ||
+          rawChanged
         ) {
           this.records[vaultIdx] = decoded;
           changed = true;
@@ -485,7 +569,13 @@ export class NvramHighScoreManager {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed.records)) {
-          this.records = parsed.records;
+          this.records = parsed.records
+            .map((r: HighScoreRecord) => {
+              if (!r || !r.gameId) return null;
+              const encoded = NvramHighScoreManager.encodeSlot64(r);
+              return NvramHighScoreManager.decodeSlot64(encoded);
+            })
+            .filter(Boolean) as HighScoreRecord[];
           this.solitaireScore = typeof parsed.solitaireScore === 'number' ? parsed.solitaireScore : 0;
           return;
         }

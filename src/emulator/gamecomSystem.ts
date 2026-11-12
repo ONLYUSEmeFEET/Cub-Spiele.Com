@@ -16,14 +16,12 @@ import {
   TouchPoint,
   CartridgeInfo,
   EmulatorSettings,
-  CPURegisters
+  CPURegisters,
+  RecentGameEntry
 } from './types';
 import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
-import {
-  compileFroggerRom,
-  FroggerCompileResult,
-  isFroggerRomPatched
-} from './froggerSource';
+
+const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v1';
 
 export interface EmulationAccuracyFixes {
   correctClockSpeed: boolean;      // Calibrated 4.9152 MHz SM8521 scanline cycle timing
@@ -32,7 +30,6 @@ export interface EmulationAccuracyFixes {
   stnGhostingAccurate: boolean;    // Authentic passive-matrix STN LCD decay persistence
   touchMatrixCalibrated: boolean;  // Discrete 13x10 single-touch resistive/capacitive matrix lock
   dualCartridgeSlotFix: boolean;   // Fixes Frogger/Centipede dual cartridge slot P3 bus contention & icon DMA bug
-  froggerSlowdownFix: boolean;     // Recompiled Frogger SM8521 ROM in Slot 2 ($4BBB/$4DB7/$4C50 slowdown fix)
 }
 
 export type FastBootTarget = 'NONE' | 'MAIN_MENU' | 'CART_1' | 'CART_2' | 'HIGH_SCORE' | 'KEEP_CLEAR_PROMPT';
@@ -48,6 +45,10 @@ export class GameComSystem {
   public slot1: CartridgeInfo | null = null;
   public slot2: CartridgeInfo | null = null;
   public activeSlot: 1 | 2 = 1;
+
+  // Recently played ROMs list (mGBA / melonDS style)
+  public recentGames: RecentGameEntry[] = [];
+  private loadedCartridgeCache: Map<string, CartridgeInfo> = new Map();
 
   // System states
   public isPoweredOn: boolean = true;
@@ -91,11 +92,8 @@ export class GameComSystem {
     timerInterruptFix: true,
     stnGhostingAccurate: true,
     touchMatrixCalibrated: true,
-    dualCartridgeSlotFix: true,
-    froggerSlowdownFix: true
+    dualCartridgeSlotFix: true
   };
-
-  public froggerCompileResult: FroggerCompileResult | null = null;
 
   // Settings
   public settings: EmulatorSettings = {
@@ -103,13 +101,19 @@ export class GameComSystem {
     ghosting: 0.40,
     pixelGrid: true,
     showTouchGrid: false,
+    touchGridOpacity: 0.0,
+    viewMode:
+      typeof window !== 'undefined' && (window as any).gamecomDesktop?.defaultScreenOnly
+        ? 'screen-only'
+        : 'console',
+    screenScale: 3,
     contrast: 1.0,
-    volume: 0.7,
+    volume: 0.2,
     muted: false,
     speed: 1.0,
     showFps: true,
     smoothMode: false,
-    stylusCursor: true
+    stylusCursor: false
   };
 
   // Timing
@@ -164,17 +168,94 @@ export class GameComSystem {
     this.syncBiosToMemory();
     this.highScores.initializeNvramSignatures(this.cpu.nvram);
 
-    // Preload Slot 1 (Lights Out TOSEC ROM) & Slot 2 (Frogger TOSEC ROM)
+    // Preload Slot 1 (Lights Out TOSEC ROM) & Slot 2 (Sonic Jam TOSEC ROM)
     this.slot1 = PRELOADED_CARTRIDGES[0] || null;
     this.slot2 = PRELOADED_CARTRIDGES[1] || null;
+    for (const c of PRELOADED_CARTRIDGES) {
+      this.loadedCartridgeCache.set(c.id, c);
+    }
+    this.loadRecentGamesFromStorage();
     this.loadPreloadedCartridges();
 
     this.resetSystem('MAIN_MENU');
   }
 
+  private loadRecentGamesFromStorage() {
+    try {
+      const raw = localStorage.getItem(RECENT_GAMES_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          this.recentGames = parsed;
+          return;
+        }
+      }
+    } catch {
+      // Ignore storage error
+    }
+    // Seed initial preloaded cartridges in Recently Played list if empty
+    this.recentGames = PRELOADED_CARTRIDGES.map((c, idx) => ({
+      id: c.id,
+      title: c.title,
+      publisher: c.publisher,
+      year: c.year,
+      slot: (idx === 0 ? 1 : 2) as 1 | 2,
+      lastPlayedAt: Date.now() - idx * 60000,
+      playCount: 1,
+      sizeBytes: c.sizeBytes,
+      isPreloaded: true
+    }));
+  }
+
+  private saveRecentGamesToStorage() {
+    try {
+      localStorage.setItem(RECENT_GAMES_STORAGE_KEY, JSON.stringify(this.recentGames.slice(0, 15)));
+    } catch {
+      // Ignore storage error
+    }
+  }
+
+  public recordRecentGame(cart: CartridgeInfo, slot: 1 | 2) {
+    this.loadedCartridgeCache.set(cart.id, cart);
+    const existingIdx = this.recentGames.findIndex(
+      (g) => g.id === cart.id || g.title.toLowerCase() === cart.title.toLowerCase()
+    );
+    const prevCount = existingIdx >= 0 ? this.recentGames[existingIdx].playCount : 0;
+    const entry: RecentGameEntry = {
+      id: cart.id,
+      title: cart.title,
+      publisher: cart.publisher,
+      year: cart.year,
+      slot,
+      lastPlayedAt: Date.now(),
+      playCount: prevCount + 1,
+      sizeBytes: cart.sizeBytes,
+      isPreloaded: PRELOADED_CARTRIDGES.some((p) => p.id === cart.id)
+    };
+    const filtered = this.recentGames.filter((_, idx) => idx !== existingIdx);
+    this.recentGames = [entry, ...filtered].slice(0, 15);
+    this.saveRecentGamesToStorage();
+  }
+
+  public clearRecentGames() {
+    this.recentGames = [];
+    this.saveRecentGamesToStorage();
+  }
+
+  public async launchRecentGame(entry: RecentGameEntry, targetSlot?: 1 | 2): Promise<boolean> {
+    const slot = targetSlot || entry.slot || 1;
+    const cached =
+      this.loadedCartridgeCache.get(entry.id) ||
+      PRELOADED_CARTRIDGES.find((p) => p.id === entry.id || p.title === entry.title);
+    if (!cached) {
+      return false;
+    }
+    await this.insertCartridge(cached, slot, true);
+    return true;
+  }
+
   /**
-   * Asynchronously fetches the real TOSEC ROM binaries for Slot 1 & Slot 2,
-   * compiling the SM8521 slowdown-fix patches into the Slot 2 Frogger ROM.
+   * Asynchronously fetches the real TOSEC ROM binaries for Slot 1 (Lights Out) & Slot 2 (Sonic Jam).
    */
   private async loadPreloadedCartridges() {
     for (const cart of PRELOADED_CARTRIDGES) {
@@ -183,15 +264,7 @@ export class GameComSystem {
           const res = await fetch(cart.romUrl);
           if (res.ok) {
             const buf = await res.arrayBuffer();
-            let romBytes: Uint8Array = new Uint8Array(buf);
-            if (cart.id === 'frogger') {
-              const compiled = compileFroggerRom(romBytes);
-              this.froggerCompileResult = compiled;
-              if (this.accuracyFixes.froggerSlowdownFix) {
-                romBytes = new Uint8Array(compiled.rom);
-              }
-            }
-            cart.romData = romBytes;
+            cart.romData = new Uint8Array(buf);
             if (this.slot1?.id === cart.id) {
               this.cpu.loadCartridgeROM(cart.romData, 1);
             }
@@ -206,49 +279,6 @@ export class GameComSystem {
     }
   }
 
-  /**
-   * Recompiles Frogger from its SM8521 assembly patch specs and mounts the newly built ROM in Slot 2.
-   */
-  public async recompileFroggerSlot2(autoBoot: boolean = true): Promise<FroggerCompileResult | null> {
-    let baseRom: Uint8Array | null = null;
-    try {
-      const res = await fetch('/roms/frogger_orig.bin');
-      if (res.ok) {
-        baseRom = new Uint8Array(await res.arrayBuffer());
-      }
-    } catch {
-      // Fallback to existing Frogger ROM bytes
-    }
-    if (!baseRom) {
-      const froggerCart = PRELOADED_CARTRIDGES.find((c) => c.id === 'frogger');
-      if (froggerCart?.romData) {
-        baseRom = froggerCart.romData;
-      }
-    }
-    if (!baseRom) return null;
-
-    const compiled = compileFroggerRom(baseRom);
-    this.froggerCompileResult = compiled;
-    this.accuracyFixes.froggerSlowdownFix = true;
-
-    const froggerCart = PRELOADED_CARTRIDGES.find((c) => c.id === 'frogger');
-    if (froggerCart) {
-      froggerCart.romData = compiled.rom;
-      froggerCart.title = 'Frogger (Recompiled Slowdown-Fix)';
-      this.slot2 = froggerCart;
-      this.cpu.loadCartridgeROM(compiled.rom, 2);
-      this.highScores.ensureBankForCartridge(compiled.rom, this.cpu.nvram);
-      if (autoBoot) {
-        this.launchCartridge(2);
-      }
-    }
-    return compiled;
-  }
-
-  public isSlot2FroggerPatched(): boolean {
-    return isFroggerRomPatched(this.slot2?.romData);
-  }
-
   public powerToggle() {
     this.isPoweredOn = !this.isPoweredOn;
     if (this.isPoweredOn) {
@@ -256,7 +286,6 @@ export class GameComSystem {
     } else {
       this.sound.clearScheduledDacStream();
       this.highScores.syncFromNvram(this.cpu.nvram);
-      this.sound.playTone(150, 0.1, 'sawtooth', 0.2);
     }
   }
 
@@ -302,7 +331,6 @@ export class GameComSystem {
    */
   public recordHighScore(gameTitle: string, score: number | string, gameId: number = 0x1a18): boolean {
     this.highScores.upsertScore(gameId, gameTitle, String(score), this.cpu.nvram);
-    this.sound.playTone(1046.5, 0.2, 'sine', 0.3);
     return true;
   }
 
@@ -332,7 +360,6 @@ export class GameComSystem {
 
   public pauseToggle() {
     this.isPaused = !this.isPaused;
-    this.sound.playTone(this.isPaused ? 400 : 800, 0.08, 'triangle', 0.2);
   }
 
   public soundToggle() {
@@ -365,7 +392,7 @@ export class GameComSystem {
     }
 
     this.activeSlot = slot;
-    this.sound.playCartridgeClick();
+    this.recordRecentGame(cart, slot);
 
     if (autoBoot) {
       this.launchCartridge(slot);
@@ -380,7 +407,6 @@ export class GameComSystem {
       this.slot2 = null;
       this.cpu.loadCartridgeROM(null, 2);
     }
-    this.sound.playCartridgeClick();
     this.resetSystem('MAIN_MENU');
   }
 
@@ -398,7 +424,7 @@ export class GameComSystem {
     if (!cart) return;
 
     this.activeSlot = slot;
-    this.sound.playCartridgeClick();
+    this.recordRecentGame(cart, slot);
 
     if (cart.romData) {
       this.cpu.loadCartridgeROM(cart.romData, slot);

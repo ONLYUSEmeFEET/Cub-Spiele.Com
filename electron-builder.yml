@@ -1,0 +1,46 @@
+appId: com.cubspiele.sm8521.emulator
+productName: Cub Spiele.Com
+copyright: Copyright © 1997-2026 Cub Spiele.Com SM8521 Preservation Project
+directories:
+  output: release
+  buildResources: public/assets
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+extraMetadata:
+  main: electron/main.cjs
+win:
+  icon: public/assets/icon.ico
+  artifactName: "CubSpieleCom-${version}-${arch}.${ext}"
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  fileAssociations:
+    - ext: tgc
+      name: Handheld Cartridge ROM
+      description: SM8521 Cartridge ROM Image
+      role: Viewer
+    - ext: bin
+      name: SM8521 Binary ROM
+      description: SM8521 Binary ROM Image
+      role: Viewer
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Cub Spiele.Com"
+  artifactName: "CubSpieleCom-Setup-${version}-${arch}.${ext}"
+portable:
+  artifactName: "CubSpieleCom-Portable-${version}-${arch}.${ext}"
+publish:
+  provider: github
+  releaseType: release

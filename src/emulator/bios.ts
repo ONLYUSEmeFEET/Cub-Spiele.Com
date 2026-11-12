@@ -80,8 +80,8 @@ export class BiosSubsystem {
   public async loadExternalBiosFromPublic() {
     try {
       const [intRes, extRes] = await Promise.all([
-        fetch('/bios/internal.bin'),
-        fetch('/bios/external.bin')
+        fetch('./bios/internal.bin'),
+        fetch('./bios/external.bin')
       ]);
       if (intRes.ok) {
         const intData = new Uint8Array(await intRes.arrayBuffer());
