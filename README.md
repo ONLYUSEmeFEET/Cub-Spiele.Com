@@ -1,0 +1,1 @@
+Vibe-coded, feature-complete Tiger Game.Com handheld emulator featuring SM8521 architecture, dual cartridge bays, authentic STN passive-matrix LCD simulation with ghosting, built-in PDA apps. Web enabled. Saves high scores!! In progress.
