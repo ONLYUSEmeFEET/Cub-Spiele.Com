@@ -2,7 +2,7 @@
   "project": "cub-spiele-com-emulator",
   "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
   "latestVersion": "v1.2.0",
-  "generatedAt": "2026-11-12T17:10:31.971018+00:00",
+  "generatedAt": "2026-11-12T18:14:53.551425+00:00",
   "releases": [
     {
       "tag": "v1.2.0",
@@ -24,16 +24,16 @@
           "name": "CubSpieleCom-v1.2.0-win64.zip",
           "label": "Windows x64 Portable Release Bundle (.zip)",
           "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
-          "sizeBytes": 1380064,
-          "sha256": "87163c10d68e3973526c4c467b062fa098ea4695587c2d20e6f12f8df10e2e32",
+          "sizeBytes": 1382498,
+          "sha256": "8844e2d3596049910cf0db7c07b18275b3d3805ccdd55e0b515a3cfd1e29ddd7",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         },
         {
           "name": "CubSpieleCom-v1.2.0-dist.zip",
           "label": "Production Web & Desktop Dist Bundle (dist.zip)",
           "url": "./releases/CubSpieleCom-v1.2.0-dist.zip",
-          "sizeBytes": 982869,
-          "sha256": "ac5d5da0cd10c8ae7a81ea9804217bca3155b5aa65ad3ddd30f3fc982bd2f12c",
+          "sizeBytes": 985231,
+          "sha256": "bb87f56d413557db933e2a74cbe86bcfa09467a1716530944f5f13446a470218",
           "architecture": "Production dist/ Assets (HTML5 / JS / CSS / BIOS / ROMs)"
         },
         {
@@ -48,8 +48,8 @@
           "name": "CubSpieleCom-Antigravity-Workspace.zip",
           "label": "Google Antigravity Desktop IDE Project Workspace (.zip)",
           "url": "./releases/CubSpieleCom-Antigravity-Workspace.zip",
-          "sizeBytes": 973914,
-          "sha256": "db624a646fe80c2e661d39a4f8d821a5e8a88103c70e1f83c508f19429a3917a",
+          "sizeBytes": 977856,
+          "sha256": "8f584e9e07f4339d4ec29a55d35ef88115f884c2ad9ab793088180dd84ac258e",
           "architecture": "Google Antigravity IDE (Full Source + .agents + .vscode)"
         }
       ]
@@ -72,8 +72,8 @@
           "name": "CubSpieleCom-v1.1.0-win64.zip",
           "label": "Windows x64 Portable Release Bundle (.zip)",
           "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
-          "sizeBytes": 1380064,
-          "sha256": "5fa0ea9df8b0dba214588a3390bbfbd6e310eb8f77f85716d0836c0065e329a3",
+          "sizeBytes": 1382498,
+          "sha256": "5d1730dcc11d22a1d22cda16096ffa6e41ccc624c78cf1f13654caea13728c24",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         }
       ]

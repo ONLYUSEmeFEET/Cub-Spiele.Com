@@ -84,7 +84,10 @@ const FLAG_B = 0x02;
 const FLAG_I = 0x01;
 
 const sm8500_b2w = [0, 8, 2, 10, 4, 12, 6, 14];
-const gamecom_timer_limit = [2, 1024, 2048, 4096, 8192, 16384, 32768, 65536];
+// Hardware Timer 0/1 prescaler dividers:
+// Index 0 ($80): fck/1 (1 cycle/count, used with TM1D=208 for 41.6us / 7,877 Hz ADPCM speech ISR)
+// Index 1 ($81): fck/1024 (1024 cycles/count, used with TM1D=24 for 4.9152ms / 5.0ms system tick)
+const gamecom_timer_limit = [1, 1024, 2048, 4096, 8192, 16384, 32768, 65536];
 
 export const ILL_INT = 0;
 export const WDT_INT = 1;
@@ -408,93 +411,86 @@ export class SM8521CPU {
       this.m_PS0 = this.m_p_ram[0x1e];
       this.m_PS1 = this.m_p_ram[0x1f];
 
-      // Even if PS1.I == 0 (DI), an enabled interrupt (such as DMA_INT) wakes the CPU from HALT
+      const nmiMask = (1 << WDT_INT) | (1 << ILL_INT) | (1 << NMI_INT);
+      if (
+        (this.m_IFLAGS & nmiMask) !== 0 ||
+        (this.m_IR0 & this.m_IE0) !== 0 ||
+        (this.m_IR1 & this.m_IE1) !== 0
+      ) {
+        this.m_halted = 0;
+      }
+
       if ((this.m_PS1 & 0x01) === 0) {
-        if ((this.m_IFLAGS & (1 << DMA_INT)) && (this.m_IE0 & 0x80)) {
-          this.m_halted = 0;
-          this.m_IFLAGS &= ~(1 << DMA_INT);
-        } else if (
-          ((this.m_IR0 & this.m_IE0) !== 0) ||
-          ((this.m_IR1 & this.m_IE1) !== 0)
-        ) {
-          this.m_halted = 0;
-        }
         return;
       }
 
-      let irqline = 0;
-      while (irqline < 11) {
-        if (this.m_IFLAGS & (1 << irqline)) {
-          this.m_halted = 0;
-          this.m_IE0 = this.m_p_ram[0x10];
-          this.m_IE1 = this.m_p_ram[0x11];
-          this.m_IR0 = this.m_p_ram[0x12];
-          this.m_IR1 = this.m_p_ram[0x13];
-          this.m_PS0 = this.m_p_ram[0x1e];
-          this.m_PS1 = this.m_p_ram[0x1f];
+      const prio = this.m_PS0 & 0x07;
 
-          switch (irqline) {
-            case WDT_INT:
-              this.take_interrupt(0x101c);
-              break;
-            case ILL_INT:
-            case NMI_INT:
-              this.take_interrupt(0x101e);
-              break;
-            case DMA_INT:
-              this.m_IR0 |= 0x80;
-              if ((this.m_IE0 & 0x80) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x1000);
-              }
-              break;
-            case TIM0_INT:
-              this.m_IR0 |= 0x40;
-              if ((this.m_IE0 & 0x40) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x1002);
-              }
-              break;
-            case EXT_INT:
-              this.m_IR0 |= 0x10;
-              if ((this.m_IE0 & 0x10) && ((this.m_PS0 & 0x07) < 7) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x1006);
-              }
-              break;
-            case UART_INT:
-              this.m_IR0 |= 0x08;
-              if ((this.m_IE0 & 0x08) && ((this.m_PS0 & 0x07) < 6) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x1008);
-              }
-              break;
-            case LCDC_INT:
-              this.m_IR0 |= 0x01;
-              if ((this.m_IE0 & 0x01) && ((this.m_PS0 & 0x07) < 5) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x100e);
-              }
-              break;
-            case TIM1_INT:
-              this.m_IR1 |= 0x40;
-              if ((this.m_IE1 & 0x40) && ((this.m_PS0 & 0x07) < 4) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x1012);
-              }
-              break;
-            case CK_INT:
-              this.m_IR1 |= 0x10;
-              if ((this.m_IE1 & 0x10) && ((this.m_PS0 & 0x07) < 3) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x1016);
-              }
-              break;
-            case PIO_INT:
-              this.m_IR1 |= 0x04;
-              if ((this.m_IE1 & 0x04) && ((this.m_PS0 & 0x07) < 2) && (this.m_PS1 & 0x01)) {
-                this.take_interrupt(0x101a);
-              }
-              break;
-          }
-          this.m_IFLAGS &= ~(1 << irqline);
-          this.m_p_ram[0x12] = this.m_IR0;
-          this.m_p_ram[0x13] = this.m_IR1;
-        }
-        irqline++;
+      if (this.m_IFLAGS & (1 << WDT_INT)) {
+        this.m_IFLAGS &= ~(1 << WDT_INT);
+        this.take_interrupt(0x101c);
+        return;
+      }
+      if (this.m_IFLAGS & ((1 << ILL_INT) | (1 << NMI_INT))) {
+        this.m_IFLAGS &= ~((1 << ILL_INT) | (1 << NMI_INT));
+        this.take_interrupt(0x101e);
+        return;
+      }
+      if ((this.m_IR0 & 0x80) && (this.m_IE0 & 0x80)) {
+        this.m_IR0 &= ~0x80;
+        this.m_p_ram[0x12] = this.m_IR0;
+        this.m_IFLAGS &= ~(1 << DMA_INT);
+        this.take_interrupt(0x1000);
+        return;
+      }
+      if ((this.m_IR0 & 0x40) && (this.m_IE0 & 0x40)) {
+        this.m_IR0 &= ~0x40;
+        this.m_p_ram[0x12] = this.m_IR0;
+        this.m_IFLAGS &= ~(1 << TIM0_INT);
+        this.take_interrupt(0x1002);
+        return;
+      }
+      if ((this.m_IR0 & 0x10) && (this.m_IE0 & 0x10) && prio < 7) {
+        this.m_IR0 &= ~0x10;
+        this.m_p_ram[0x12] = this.m_IR0;
+        this.m_IFLAGS &= ~(1 << EXT_INT);
+        this.take_interrupt(0x1006);
+        return;
+      }
+      if ((this.m_IR0 & 0x08) && (this.m_IE0 & 0x08) && prio < 6) {
+        this.m_IR0 &= ~0x08;
+        this.m_p_ram[0x12] = this.m_IR0;
+        this.m_IFLAGS &= ~(1 << UART_INT);
+        this.take_interrupt(0x1008);
+        return;
+      }
+      if ((this.m_IR0 & 0x01) && (this.m_IE0 & 0x01) && prio < 5) {
+        this.m_IR0 &= ~0x01;
+        this.m_p_ram[0x12] = this.m_IR0;
+        this.m_IFLAGS &= ~(1 << LCDC_INT);
+        this.take_interrupt(0x100e);
+        return;
+      }
+      if ((this.m_IR1 & 0x40) && (this.m_IE1 & 0x40) && prio < 4) {
+        this.m_IR1 &= ~0x40;
+        this.m_p_ram[0x13] = this.m_IR1;
+        this.m_IFLAGS &= ~(1 << TIM1_INT);
+        this.take_interrupt(0x1012);
+        return;
+      }
+      if ((this.m_IR1 & 0x10) && (this.m_IE1 & 0x10) && prio < 3) {
+        this.m_IR1 &= ~0x10;
+        this.m_p_ram[0x13] = this.m_IR1;
+        this.m_IFLAGS &= ~(1 << CK_INT);
+        this.take_interrupt(0x1016);
+        return;
+      }
+      if ((this.m_IR1 & 0x04) && (this.m_IE1 & 0x04) && prio < 2) {
+        this.m_IR1 &= ~0x04;
+        this.m_p_ram[0x13] = this.m_IR1;
+        this.m_IFLAGS &= ~(1 << PIO_INT);
+        this.take_interrupt(0x101a);
+        return;
       }
     }
   }
@@ -669,7 +665,7 @@ export class SM8521CPU {
             break;
           case SM8521_TM0C:
             this.m_timer[0].enabled = (data & 0x80) !== 0;
-            this.m_timer[0].prescale_max = gamecom_timer_limit[data & 0x07] >> 1;
+            this.m_timer[0].prescale_max = gamecom_timer_limit[data & 0x07];
             this.m_timer[0].prescale_count = 0;
             this.m_p_ram[SM8521_TM0D] = 0;
             break;
@@ -684,7 +680,7 @@ export class SM8521CPU {
             if (data === 0x81 && this.m_p_ram[0x0102] === 0x5f && this.m_p_ram[0x0103] === 0x37) {
               this.m_timer[1].prescale_max = 16;
             } else {
-              this.m_timer[1].prescale_max = gamecom_timer_limit[data & 0x07] >> 1;
+              this.m_timer[1].prescale_max = gamecom_timer_limit[data & 0x07];
             }
             this.m_timer[1].prescale_count = 0;
             this.m_p_ram[SM8521_TM1D] = 0;
@@ -742,7 +738,7 @@ export class SM8521CPU {
               this.lastDacCycle = this.cycles;
               // Filter out the 18-cycle DC anti-pop ramp loops ($56E7 and $56F7) which occur < 64 cycles apart
               if (deltaCycles >= 64) {
-                const tm1d = this.m_p_ram[SM8521_TM1D] || 208;
+                const tm1d = this.m_timer[1].upcounter_max || 208;
                 const prescale = this.m_timer[1].prescale_max || 1;
                 const div = this.m_p_ram[0xac] || 3;
                 const periodCycles = Math.max(128, tm1d * prescale * div);
@@ -917,11 +913,21 @@ export class SM8521CPU {
     let dest_line = dest_current;
 
     for (let y_count = 0; y_count <= block_height; y_count++) {
+      const cur_src_y = (source_y + (decrement_y ? -y_count : y_count)) & 0xff;
       for (let x_count = 0; x_count <= block_width; x_count++) {
-        const src_addr = source_base + (source_current & source_mask);
+        let src_addr = 0;
+        let src_adj = 0;
+        if (source_width === 64) {
+          // Hardware 8-bit independent X & Y source wrapping for 256x256 (64-byte wide) ROM/NVRAM pages
+          const cur_src_x = (source_x + x_count * adjust_x) & 0xff;
+          src_addr = source_base + (((cur_src_y << 6) | (cur_src_x >> 2)) & source_mask);
+          src_adj = ((cur_src_x & 3) ^ 3) << 1;
+        } else {
+          src_addr = source_base + (source_current & source_mask);
+          src_adj = (source_x_current ^ 3) << 1;
+        }
         const dst_addr = dest_base + (dest_current & dest_mask);
         const dst_adj = (dest_x_current ^ 3) << 1;
-        const src_adj = (source_x_current ^ 3) << 1;
 
         const source_pixel = ((source_bank[src_addr] || 0) >> src_adj) & 3;
         if (overwrite_mode || source_pixel !== 0) {
@@ -955,50 +961,59 @@ export class SM8521CPU {
     }
 
     this.m_p_ram[SM8521_DMC] &= 0x7f;
+    // DMA block transfer completion always releases the CPU from HALT
+    this.m_halted = 0;
     this.set_input_line(DMA_INT, true);
   }
 
   /**
-   * Exact port of MAME gamecom_state::gamecom_update_timers
+   * Hardware-accurate Timer 0, Timer 1, and 1Hz Sub-Clock (CK_INT) update
    */
   public gamecom_update_timers(cycles: number) {
     if (this.m_timer[0].enabled) {
       this.m_timer[0].prescale_count += cycles;
+      const limit = this.m_timer[0].upcounter_max || 256;
       while (this.m_timer[0].prescale_count >= this.m_timer[0].prescale_max) {
         this.m_timer[0].prescale_count -= this.m_timer[0].prescale_max;
-        this.m_p_ram[SM8521_TM0D] = (this.m_p_ram[SM8521_TM0D] + 1) & 0xff;
-        if (this.m_p_ram[SM8521_TM0D] >= this.m_timer[0].upcounter_max) {
+        const nextCount = this.m_p_ram[SM8521_TM0D] + 1;
+        if (nextCount >= limit) {
           this.m_p_ram[SM8521_TM0D] = 0;
           if (this.m_p_ram[SM8521_IE0] & 0x40) {
             this.set_input_line(TIM0_INT, true);
           }
+        } else {
+          this.m_p_ram[SM8521_TM0D] = nextCount & 0xff;
         }
       }
     }
 
     if (this.m_timer[1].enabled) {
       this.m_timer[1].prescale_count += cycles;
+      const limit = this.m_timer[1].upcounter_max || 256;
       while (this.m_timer[1].prescale_count >= this.m_timer[1].prescale_max) {
         this.m_timer[1].prescale_count -= this.m_timer[1].prescale_max;
-        this.m_p_ram[SM8521_TM1D] = (this.m_p_ram[SM8521_TM1D] + 1) & 0xff;
-        if (this.m_p_ram[SM8521_TM1D] >= this.m_timer[1].upcounter_max) {
+        const nextCount = this.m_p_ram[SM8521_TM1D] + 1;
+        if (nextCount >= limit) {
           this.m_p_ram[SM8521_TM1D] = 0;
           if (this.m_p_ram[SM8521_IE1] & 0x40) {
             this.set_input_line(TIM1_INT, true);
           }
+        } else {
+          this.m_p_ram[SM8521_TM1D] = nextCount & 0xff;
         }
       }
     }
 
-    // 1Hz / 60s Real-Time Clock Timer (SM8521_CLKT)
-    const clkt = this.m_p_ram[SM8521_CLKT];
-    if (clkt & 0x80) {
-      this.clockTimerAccumCycles += cycles;
-      const limitCycles = (clkt & 0x40) ? (5529600 * 60) : 5529600;
-      if (this.clockTimerAccumCycles >= limitCycles) {
-        this.clockTimerAccumCycles -= limitCycles;
-        const val = (clkt + 1) & 0x3f;
-        this.m_p_ram[SM8521_CLKT] = (clkt & 0xc0) | val;
+    // 1Hz Sub-Clock / Watch Timer (CK_INT $1016):
+    // Driven continuously by the 32.768 kHz crystal divider (1.000s = 60 frames = 4,932,000 cycles at 4.9152 MHz).
+    // Enabled via IE1 bit 4 ($0011 & 0x10). Required by the BIOS PDA Clock/Calendar and built-in Solitaire TIMER.
+    this.clockTimerAccumCycles += cycles;
+    const oneSecondCycles = this.correctClockSpeed ? (411 * 200 * 60) : (462 * 200 * 60);
+    while (this.clockTimerAccumCycles >= oneSecondCycles) {
+      this.clockTimerAccumCycles -= oneSecondCycles;
+      const clkt = this.m_p_ram[SM8521_CLKT];
+      this.m_p_ram[SM8521_CLKT] = (clkt & 0xc0) | ((clkt + 1) & 0x3f);
+      if (this.m_p_ram[SM8521_IE1] & 0x10) {
         this.set_input_line(CK_INT, true);
       }
     }
@@ -1167,13 +1182,13 @@ case 0x07:  /* SRL R - 4 cycles - Flags affected: CZ00---- */
 	break;
 case 0x08:  /* INC R - 4 cycles - Flags affected: -ZSV---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          res = (d1 + 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ! ( res & 0x80 ) ) ? FLAG_V : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          res = (d1 + 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ( res & 0x80 ) ) ? FLAG_V : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	mycycles += 4;
 	break;
 case 0x09:  /* DEC R - 4 cycles - Flags affected: -ZSV---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          res = (d1 - 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ( res & 0x80 ) ) ? FLAG_V : 0 );;
+	d1 = (this.mem_readbyte( r1 )) & 0xFF;                          res = (d1 - 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ! ( res & 0x80 ) ) ? FLAG_V : 0 );;
 	this.mem_writebyte( r1, res & 0xFF );
 	mycycles += 4;
 	break;
@@ -1261,13 +1276,13 @@ case 0x17:  /* XOR Rr,Rs - 5 cycles - Flags affected: -ZS0---- */
 	break;
 case 0x18:  /* INCW S - 8 cycles - Flags affected: -ZSV---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          res = (d1 + 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x8000 ) && ! ( res & 0x8000 ) ) ? FLAG_V : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          res = (d1 + 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x8000 ) && ( res & 0x8000 ) ) ? FLAG_V : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 8;
 	break;
 case 0x19:  /* DECW S - 8 cycles - Flags affected: -ZSV---- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
-	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          res = (d1 - 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x8000 ) && ( res & 0x8000 ) ) ? FLAG_V : 0 );;
+	d1 = (this.mem_readword( r1 )) & 0xFFFF;                          res = (d1 - 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFFFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x8000 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x8000 ) && ! ( res & 0x8000 ) ) ? FLAG_V : 0 );;
 	this.mem_writeword( r1, res & 0xFFFF );
 	mycycles += 8;
 	break;
@@ -1316,12 +1331,12 @@ case 0x1B:  /* INC/DEC/SRA/SLL/DA/SWAP/PUSH/POP @Rr - 7,7,6,7,9,13,8,12,11 cycle
 	s1 = this.mem_readbyte( r1 );
 	switch( r2 ) {
 	case 0x00:  /* Flags affected: -ZSV---- */
-		d1 = (this.mem_readbyte( s1 )) & 0xFF;                          res = (d1 + 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ! ( res & 0x80 ) ) ? FLAG_V : 0 );;
+		d1 = (this.mem_readbyte( s1 )) & 0xFF;                          res = (d1 + 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ( res & 0x80 ) ) ? FLAG_V : 0 );;
 		this.mem_writebyte( s1, res & 0xFF );
 		mycycles += 7;
 		break;
 	case 0x01:  /* Flags affected: -ZSV---- */
-		d1 = (this.mem_readbyte( s1 )) & 0xFF;                          res = (d1 - 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ( res & 0x80 ) ) ? FLAG_V : 0 );;
+		d1 = (this.mem_readbyte( s1 )) & 0xFF;                          res = (d1 - 1) >>> 0;                          this.m_PS1 = this.m_PS1 & ( FLAG_C | FLAG_D | FLAG_H | FLAG_B | FLAG_I );                          this.m_PS1 = this.m_PS1 | ( ( ( res & 0xFF ) == 0 ) ? FLAG_Z : 0 );                          this.m_PS1 = this.m_PS1 | ( ( res & 0x80 ) ? FLAG_S : 0 );                          this.m_PS1 = this.m_PS1 | ( ( ( ( d1 ^ res ) & 0x80 ) && ! ( res & 0x80 ) ) ? FLAG_V : 0 );;
 		this.mem_writebyte( s1, res & 0xFF );
 		mycycles += 7;
 		break;
