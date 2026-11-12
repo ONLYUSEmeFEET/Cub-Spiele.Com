@@ -118,7 +118,10 @@ def main():
     if os.path.exists(GH_EXE):
         releases_dir = os.path.join(ROOT_DIR, "public", "releases")
         dist_dir = os.path.join(ROOT_DIR, "dist")
-        dist_assets = glob.glob(os.path.join(dist_dir, "assets", "*"))
+        dist_assets = [
+            p for p in glob.glob(os.path.join(dist_dir, "assets", "*"))
+            if os.path.basename(p).lower() != "desktop.ini"
+        ]
         assets = [
             os.path.join(releases_dir, f"CubSpieleCom-{version_tag}-win64.zip"),
             os.path.join(releases_dir, f"CubSpieleCom-{version_tag}-dist.zip"),
