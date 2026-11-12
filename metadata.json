@@ -1,0 +1,6 @@
+{
+  "name": "Tiger Game.Com Emulator",
+  "description": "An accurate, feature-complete Tiger Game.Com handheld emulator featuring SM8521 architecture, dual cartridge bays, authentic STN passive-matrix LCD simulation with ghosting, built-in PDA apps, and classic playable titles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
