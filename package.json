@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.2.0",
   "description": "Cub Spiele.Com — Standalone SM8521 Handheld Emulator with Dual Cartridge Bays & Expanded NVRAM High Score Vault",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com.git"
+  },
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -12,6 +16,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "release:win": "vite build && python scripts/build-windows-release.py",
+    "github:sync": "python scripts/github-sync.py",
     "dist:win": "vite build && electron-builder --win --x64"
   },
   "dependencies": {
