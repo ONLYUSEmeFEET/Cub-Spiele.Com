@@ -2,7 +2,13 @@ node_modules/
 build/
 dist/
 coverage/
+roms/
+Other_Emulators/
+Applications/
+Firmware/
 .DS_Store
+desktop.ini
+**/desktop.ini
 *.log
 .env*
 !.env.example

@@ -27,6 +27,7 @@ interface ControlToolbarProps {
   onLoadState: () => void;
   onSettingsChange: () => void;
   onOpenHighScores?: () => void;
+  onOpenColorCustomizer?: () => void;
   onNotify?: (message: string, sub?: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -37,6 +38,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onLoadState,
   onSettingsChange,
   onOpenHighScores,
+  onOpenColorCustomizer,
   onNotify
 }) => {
   const settings = system.settings;
@@ -46,8 +48,14 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
   const handlePaletteSelect = (palId: LCDPaletteId) => {
     system.settings.palette = palId;
+    system.saveCustomPaletteStateToStorage();
     onSettingsChange();
   };
+
+  const activeColors =
+    settings.palette === 'custom'
+      ? settings.customPaletteColors
+      : PALETTES[settings.palette]?.colors || PALETTES.original.colors;
 
   const handleGhostingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -125,32 +133,53 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-        {/* SECTION 1: LCD Palettes */}
+        {/* SECTION 1: LCD Palettes & Per-Shade SGB/GBC Colorizer */}
         <div>
-          <label className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
-            <Palette className="w-3.5 h-3.5 text-purple-400" />
-            LCD Screen Palette
-          </label>
-          <div className="grid grid-cols-5 gap-1.5 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <Palette className="w-3.5 h-3.5 text-purple-400" />
+              LCD Screen Palette
+            </label>
+            {onOpenColorCustomizer && (
+              <button
+                onClick={onOpenColorCustomizer}
+                className="px-2 py-0.5 rounded bg-purple-950/90 hover:bg-purple-900 text-purple-200 border border-purple-500/50 text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                title="Open Super Game Boy / Game Boy Color 4-Shade Customizer"
+              >
+                SGB/GBC Colors...
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-6 gap-1 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
             {(Object.keys(PALETTES) as LCDPaletteId[]).map((pId) => {
               const pal = PALETTES[pId];
               const isSelected = settings.palette === pId;
+              const swatchColors = pId === 'custom' ? settings.customPaletteColors : pal.colors;
               return (
                 <button
                   key={pId}
                   onClick={() => handlePaletteSelect(pId)}
                   title={pal.name}
-                  className={`flex flex-col items-center justify-center p-1.5 rounded transition-all cursor-pointer ${
+                  className={`flex flex-col items-center justify-center p-1 rounded transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-purple-950/80 border border-purple-500 shadow-sm'
                       : 'hover:bg-slate-800/60'
                   }`}
                 >
-                  <div
-                    className="w-4 h-4 rounded-full border border-black/40 mb-1"
-                    style={{ backgroundColor: pal.colors[0] }}
-                  />
-                  <span className="text-[10px] text-slate-400 font-mono truncate max-w-full">
+                  {pId === 'custom' ? (
+                    <div className="w-4 h-4 rounded-full border border-black/40 mb-1 overflow-hidden grid grid-cols-2 grid-rows-2">
+                      <span style={{ backgroundColor: swatchColors[0] }} />
+                      <span style={{ backgroundColor: swatchColors[1] }} />
+                      <span style={{ backgroundColor: swatchColors[2] }} />
+                      <span style={{ backgroundColor: swatchColors[3] }} />
+                    </div>
+                  ) : (
+                    <div
+                      className="w-4 h-4 rounded-full border border-black/40 mb-1"
+                      style={{ backgroundColor: swatchColors[0] }}
+                    />
+                  )}
+                  <span className="text-[9px] text-slate-400 font-mono truncate max-w-full">
                     {pId === 'original'
                       ? '1997'
                       : pId === 'pocket_pro'
@@ -159,11 +188,48 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
                       ? 'Backlit'
                       : pId === 'amber'
                       ? 'Amber'
-                      : 'B&W'}
+                      : pId === 'grayscale'
+                      ? 'B&W'
+                      : 'Custom'}
                   </span>
                 </button>
               );
             })}
+          </div>
+
+          {/* Inline 4-Shade Customizer Strip (Click any shade 0..3 to pick its color directly) */}
+          <div className="mt-2 flex items-center justify-between gap-1.5 bg-slate-950/90 px-2 py-1.5 rounded-lg border border-slate-800/90">
+            <span className="text-[10px] font-mono text-slate-400 shrink-0">4-Shade:</span>
+            <div className="flex items-center gap-1.5">
+              {([0, 1, 2, 3] as const).map((shadeIdx) => (
+                <label
+                  key={shadeIdx}
+                  className="relative flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700/80 cursor-pointer transition-colors"
+                  title={`Customize Shade ${shadeIdx} (${shadeIdx === 0 ? 'Background' : shadeIdx === 3 ? 'Foreground Ink' : `Midtone ${shadeIdx}`})`}
+                >
+                  <span
+                    className="w-3 h-3 rounded-sm border border-white/25"
+                    style={{ backgroundColor: activeColors[shadeIdx] }}
+                  />
+                  <span className="text-[9px] font-mono text-slate-300">S{shadeIdx}</span>
+                  <input
+                    type="color"
+                    value={activeColors[shadeIdx]}
+                    onChange={(e) => {
+                      if (settings.palette !== 'custom') {
+                        const base = [...activeColors] as [string, string, string, string];
+                        base[shadeIdx] = e.target.value.toLowerCase();
+                        system.applyCustomColors(base);
+                      } else {
+                        system.setCustomShadeColor(shadeIdx, e.target.value.toLowerCase());
+                      }
+                      onSettingsChange();
+                    }}
+                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                  />
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 

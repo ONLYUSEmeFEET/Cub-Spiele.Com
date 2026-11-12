@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "release:win": "vite build && python3 scripts/build-windows-release.py",
+    "release:win": "vite build && python scripts/build-windows-release.py",
     "dist:win": "vite build && electron-builder --win --x64"
   },
   "dependencies": {
@@ -32,7 +32,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

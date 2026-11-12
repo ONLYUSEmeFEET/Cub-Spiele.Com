@@ -11,6 +11,7 @@ import { KeybindsModal } from './components/KeybindsModal';
 import { HighScoreVaultModal } from './components/HighScoreVaultModal';
 import { BiosManagerModal } from './components/BiosManagerModal';
 import { WindowsReleaseModal } from './components/WindowsReleaseModal';
+import { ColorCustomizerModal } from './components/ColorCustomizerModal';
 import { CheckCircle2, AlertCircle, Info, Sparkles, HardDrive, Trophy, Monitor } from 'lucide-react';
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
   const [isHighScoresOpen, setIsHighScoresOpen] = useState(false);
   const [isBiosOpen, setIsBiosOpen] = useState(false);
   const [isReleasesOpen, setIsReleasesOpen] = useState(false);
+  const [isColorCustomizerOpen, setIsColorCustomizerOpen] = useState(false);
 
   // Notification Toast state
   const [toast, setToast] = useState<{ message: string; sub?: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -287,6 +289,7 @@ export default function App() {
         onLoadRomFile={(f, slot = 1) => handleLoadRomFile(f, slot)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
         onOpenAccuracy={() => setIsAccuracyOpen(true)}
+        onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
         onOpenReleases={() => setIsReleasesOpen(true)}
         onOpenBios={() => setIsBiosOpen(true)}
         onOpenControls={() => setIsControlsOpen(true)}
@@ -303,7 +306,11 @@ export default function App() {
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
         {/* Viewport Mode: Screen-Only (mGBA/melonDS style) OR Full Handheld Console Bezel */}
         {system.settings.viewMode === 'screen-only' ? (
-          <ScreenOnlyView system={system} onStateChange={forceUpdate} />
+          <ScreenOnlyView
+            system={system}
+            onStateChange={forceUpdate}
+            onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
+          />
         ) : (
           <GameComConsole
             system={system}
@@ -320,6 +327,7 @@ export default function App() {
           onLoadState={handleLoadState}
           onSettingsChange={forceUpdate}
           onOpenHighScores={() => setIsHighScoresOpen(true)}
+          onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
           onNotify={showToast}
         />
 
@@ -435,6 +443,14 @@ export default function App() {
       <WindowsReleaseModal
         isOpen={isReleasesOpen}
         onClose={() => setIsReleasesOpen(false)}
+        onNotify={showToast}
+      />
+
+      <ColorCustomizerModal
+        system={system}
+        isOpen={isColorCustomizerOpen}
+        onClose={() => setIsColorCustomizerOpen(false)}
+        onUpdate={forceUpdate}
         onNotify={showToast}
       />
     </div>

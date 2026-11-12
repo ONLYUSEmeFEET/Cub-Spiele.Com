@@ -4,7 +4,7 @@
  * ghosting/persistence, customizable palettes, and contrast controls.
  */
 
-import { LCDPaletteId, PALETTES } from './types';
+import { LCDPaletteId, PALETTES, hexToRgbTuple } from './types';
 
 export const SCREEN_WIDTH = 200;
 export const SCREEN_HEIGHT = 160;
@@ -128,9 +128,42 @@ export class LCDSubsystem {
   private imageData: ImageData;
 
   public paletteId: LCDPaletteId = 'original';
+  public customColors: [string, string, string, string] = ['#f8e8c8', '#d89048', '#a82820', '#301850'];
+  private customRgbColors: [
+    [number, number, number],
+    [number, number, number],
+    [number, number, number],
+    [number, number, number]
+  ] = [
+    [248, 232, 200],
+    [216, 144, 72],
+    [168, 40, 32],
+    [48, 24, 80]
+  ];
   public ghosting: number = 0.45; // 0.0 = no ghosting, 0.8 = heavy passive STN response
   public contrast: number = 1.0;
   public pixelGrid: boolean = true;
+
+  public setCustomColors(colors: [string, string, string, string]) {
+    if (
+      this.customColors[0] === colors[0] &&
+      this.customColors[1] === colors[1] &&
+      this.customColors[2] === colors[2] &&
+      this.customColors[3] === colors[3]
+    ) {
+      return;
+    }
+    this.customColors = [...colors] as [string, string, string, string];
+    this.customRgbColors = [
+      hexToRgbTuple(colors[0]),
+      hexToRgbTuple(colors[1]),
+      hexToRgbTuple(colors[2]),
+      hexToRgbTuple(colors[3])
+    ];
+    PALETTES.custom.colors = [...this.customColors] as [string, string, string, string];
+    PALETTES.custom.rgbColors = [...this.customRgbColors];
+    PALETTES.custom.bezelTint = colors[1];
+  }
 
   constructor() {
     this.currentBuffer = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT);
@@ -282,7 +315,7 @@ export class LCDSubsystem {
    */
   public renderToCanvas(targetCanvas: HTMLCanvasElement, targetCtx: CanvasRenderingContext2D) {
     const palette = PALETTES[this.paletteId] || PALETTES.original;
-    const rgb = palette.rgbColors;
+    const rgb = this.paletteId === 'custom' ? this.customRgbColors : palette.rgbColors;
     const pixels = this.imageData.data;
 
     // Decay rate for STN LCD ghosting:

@@ -76,9 +76,17 @@ const DEFAULT_RELEASES: ProjectRelease[] = [
         name: 'CubSpieleCom-v1.2.0-win64.zip',
         label: 'Windows x64 Portable Release Bundle (.zip)',
         url: './releases/CubSpieleCom-v1.2.0-win64.zip',
-        sizeBytes: 1418240,
+        sizeBytes: 1379935,
         sha256: 'Verified PE32+ x64 Portable Archive',
         architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
+      },
+      {
+        name: 'CubSpieleCom-v1.2.0-dist.zip',
+        label: 'Production Web & Desktop Dist Bundle (dist.zip)',
+        url: './releases/CubSpieleCom-v1.2.0-dist.zip',
+        sizeBytes: 695000,
+        sha256: 'Verified Production dist/ Bundle',
+        architecture: 'Production dist/ Assets (HTML5 / JS / CSS / BIOS / ROMs)'
       },
       {
         name: 'CubSpieleCom.exe',
@@ -139,7 +147,7 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({
 
   // GitHub Publisher form state
   const [repoSlug, setRepoSlug] = useState<string>(
-    () => localStorage.getItem(STORAGE_KEY_GH_REPO) || 'cub-spiele/cub-spiele-com-emulator'
+    () => localStorage.getItem(STORAGE_KEY_GH_REPO) || 'ONLYUSEmeFEET/Cub-Spiele.Com'
   );
   const [githubToken, setGithubToken] = useState<string>('');
   const [selectedTagToPublish, setSelectedTagToPublish] = useState<string>('v1.2.0');

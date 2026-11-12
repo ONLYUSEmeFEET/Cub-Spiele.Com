@@ -445,6 +445,8 @@ STANDALONE HANDHELD EMULATOR FEATURES (mGBA / melonDS DESIGN):
             if rel_root.startswith('releases'):
                 continue
             for file in files:
+                if file.lower() == 'desktop.ini':
+                    continue
                 if rel_root == '.' and file == 'index.html':
                     continue
                 full_p = os.path.join(root, file)
@@ -455,6 +457,26 @@ STANDALONE HANDHELD EMULATOR FEATURES (mGBA / melonDS DESIGN):
             full_p = os.path.join(ROOT_DIR, extra_rel)
             if os.path.exists(full_p):
                 zf.write(full_p, f'src-desktop/{extra_rel}')
+
+
+def build_dist_zip(zip_path: str):
+    """
+    Packages the production web/desktop dist/ build artifacts (index.html, assets/, bios/, roms/)
+    into a clean distributable ZIP archive for GitHub Releases.
+    """
+    if not os.path.exists(DIST_DIR):
+        return
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        for root, dirs, files in os.walk(DIST_DIR):
+            rel_root = os.path.relpath(root, DIST_DIR)
+            if rel_root.replace('\\', '/').startswith('releases'):
+                continue
+            for file in files:
+                if file.lower() == 'desktop.ini':
+                    continue
+                full_p = os.path.join(root, file)
+                arc_p = file if rel_root == '.' else os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
+                zf.write(full_p, arc_p)
 
 
 def build_antigravity_workspace_zip(zip_path: str):
@@ -483,14 +505,19 @@ if exist "%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe" (
 echo Launching cub-spiele-com.code-workspace...
 start "" "%~dp0cub-spiele-com.code-workspace"
 """
-    exclude_dirs = {'node_modules', 'dist', 'release', '.git', '.aistudio', '__pycache__'}
+    exclude_dirs = {'node_modules', 'dist', 'release', '.git', '.aistudio', '__pycache__', 'build', 'coverage'}
+    root_only_excludes = {'roms', 'Applications', 'Firmware', 'Other_Emulators'}
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         zf.writestr('Open-in-Antigravity.bat', open_bat)
 
         for root, dirs, files in os.walk(ROOT_DIR):
-            dirs[:] = [d for d in dirs if d not in exclude_dirs]
             rel_root = os.path.relpath(root, ROOT_DIR)
+            if rel_root == '.':
+                dirs[:] = [d for d in dirs if d not in exclude_dirs and d not in root_only_excludes]
+            else:
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
             # Avoid recursive inclusion of the workspace zip itself inside public/releases
             if rel_root.replace('\\', '/').startswith('public/releases'):
                 for file in files:
@@ -501,7 +528,12 @@ start "" "%~dp0cub-spiele-com.code-workspace"
                 continue
 
             for file in files:
-                if file == 'bun.lock' or file == 'package-lock.json':
+                if (
+                    file == 'bun.lock'
+                    or file == 'package-lock.json'
+                    or file.lower() == 'desktop.ini'
+                    or (rel_root == '.' and file == 'Open-in-Antigravity.bat')
+                ):
                     continue
                 full_p = os.path.join(root, file)
                 arc_p = file if rel_root == '.' else os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
@@ -534,6 +566,10 @@ def main():
     zip_v120_path = os.path.join(RELEASES_DIR, zip_v120_name)
     build_zip_bundle(zip_v120_path, exe_bytes, 'v1.2.0')
 
+    dist_zip_name = 'CubSpieleCom-v1.2.0-dist.zip'
+    dist_zip_path = os.path.join(RELEASES_DIR, dist_zip_name)
+    build_dist_zip(dist_zip_path)
+
     zip_v110_name = 'CubSpieleCom-v1.1.0-win64.zip'
     zip_v110_path = os.path.join(RELEASES_DIR, zip_v110_name)
     build_zip_bundle(zip_v110_path, exe_bytes, 'v1.1.0')
@@ -545,25 +581,28 @@ def main():
     if os.path.exists(DIST_DIR):
         dist_rel = os.path.join(DIST_DIR, 'releases')
         os.makedirs(dist_rel, exist_ok=True)
-        for fname in ['CubSpieleCom.exe', zip_v120_name, zip_v110_name, ag_zip_name]:
+        for fname in ['CubSpieleCom.exe', zip_v120_name, dist_zip_name, zip_v110_name, ag_zip_name]:
             src = os.path.join(RELEASES_DIR, fname)
-            dst = os.path.join(dist_rel, fname)
-            with open(src, 'rb') as sf, open(dst, 'wb') as df:
-                df.write(sf.read())
+            if os.path.exists(src):
+                dst = os.path.join(dist_rel, fname)
+                with open(src, 'rb') as sf, open(dst, 'wb') as df:
+                    df.write(sf.read())
 
     manifest = {
         "project": "cub-spiele-com-emulator",
+        "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
         "latestVersion": "v1.2.0",
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "releases": [
             {
                 "tag": "v1.2.0",
-                "title": "Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator & Google Antigravity Desktop Workspace",
-                "publishedAt": "2026-11-12T07:30:00Z",
+                "title": "Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Antigravity Workspace",
+                "publishedAt": "2026-11-12T17:00:00Z",
                 "isLatest": True,
                 "Prerelease": False,
                 "commitRef": "HEAD (tag: v1.2.0)",
                 "highlights": [
+                    "Added Super Game Boy (1994) & Game Boy Color (1998) 4-Shade Display Color Customizer with per-shade hex/color pickers, midtone auto-blend, shade inversion, and persistent user presets",
                     "Added full Google Antigravity Desktop IDE Workspace (cub-spiele-com.code-workspace, GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/)",
                     "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
                     "mGBA / melonDS-inspired standalone desktop layout with native Menu Bar (File, Emulation, Audio/Video, View, Tools)",
@@ -578,6 +617,14 @@ def main():
                         "sizeBytes": os.path.getsize(zip_v120_path),
                         "sha256": sha256_file(zip_v120_path),
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    },
+                    {
+                        "name": dist_zip_name,
+                        "label": "Production Web & Desktop Dist Bundle (dist.zip)",
+                        "url": f"./releases/{dist_zip_name}",
+                        "sizeBytes": os.path.getsize(dist_zip_path) if os.path.exists(dist_zip_path) else 0,
+                        "sha256": sha256_file(dist_zip_path) if os.path.exists(dist_zip_path) else "",
+                        "architecture": "Production dist/ Assets (HTML5 / JS / CSS / BIOS / ROMs)"
                     },
                     {
                         "name": "CubSpieleCom.exe",

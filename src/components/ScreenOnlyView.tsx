@@ -11,15 +11,21 @@ import {
   Volume2,
   VolumeX,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Palette
 } from 'lucide-react';
 
 interface ScreenOnlyViewProps {
   system: GameComSystem;
   onStateChange?: () => void;
+  onOpenColorCustomizer?: () => void;
 }
 
-export const ScreenOnlyView: React.FC<ScreenOnlyViewProps> = ({ system, onStateChange }) => {
+export const ScreenOnlyView: React.FC<ScreenOnlyViewProps> = ({
+  system,
+  onStateChange,
+  onOpenColorCustomizer
+}) => {
   const [showCompactPad, setShowCompactPad] = useState<boolean>(false);
   const scale = system.settings.screenScale || 3;
 
@@ -87,6 +93,17 @@ export const ScreenOnlyView: React.FC<ScreenOnlyViewProps> = ({ system, onStateC
             ))}
 
             <span className="text-[#2c3242] mx-0.5">|</span>
+
+            {onOpenColorCustomizer && (
+              <button
+                onClick={onOpenColorCustomizer}
+                className="px-2 py-0.5 rounded bg-purple-950/70 hover:bg-purple-900/80 border border-purple-500/40 text-purple-200 text-[10px] font-sans font-semibold flex items-center gap-1"
+                title="Customize 4-Shade Display Colors (Super Game Boy / Game Boy Color)"
+              >
+                <Palette className="w-3 h-3 text-purple-400" />
+                <span>Colors</span>
+              </button>
+            )}
 
             <button
               onClick={() => {

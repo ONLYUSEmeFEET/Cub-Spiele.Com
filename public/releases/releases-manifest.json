@@ -1,16 +1,18 @@
 {
   "project": "cub-spiele-com-emulator",
+  "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
   "latestVersion": "v1.2.0",
-  "generatedAt": "2026-11-12T15:42:40.363183+00:00",
+  "generatedAt": "2026-11-12T17:10:31.971018+00:00",
   "releases": [
     {
       "tag": "v1.2.0",
-      "title": "Cub Spiele.Com v1.2.0 \u2014 Standalone Handheld Emulator & Google Antigravity Desktop Workspace",
-      "publishedAt": "2026-11-12T07:30:00Z",
+      "title": "Cub Spiele.Com v1.2.0 \u2014 Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Antigravity Workspace",
+      "publishedAt": "2026-11-12T17:00:00Z",
       "isLatest": true,
       "Prerelease": false,
       "commitRef": "HEAD (tag: v1.2.0)",
       "highlights": [
+        "Added Super Game Boy (1994) & Game Boy Color (1998) 4-Shade Display Color Customizer with per-shade hex/color pickers, midtone auto-blend, shade inversion, and persistent user presets",
         "Added full Google Antigravity Desktop IDE Workspace (cub-spiele-com.code-workspace, GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/)",
         "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
         "mGBA / melonDS-inspired standalone desktop layout with native Menu Bar (File, Emulation, Audio/Video, View, Tools)",
@@ -22,9 +24,17 @@
           "name": "CubSpieleCom-v1.2.0-win64.zip",
           "label": "Windows x64 Portable Release Bundle (.zip)",
           "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
-          "sizeBytes": 1432073,
-          "sha256": "1aa5abe6a151ec954a29f268c478c069316c10c08f9a44776dd9c92644c42937",
+          "sizeBytes": 1380064,
+          "sha256": "87163c10d68e3973526c4c467b062fa098ea4695587c2d20e6f12f8df10e2e32",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+        },
+        {
+          "name": "CubSpieleCom-v1.2.0-dist.zip",
+          "label": "Production Web & Desktop Dist Bundle (dist.zip)",
+          "url": "./releases/CubSpieleCom-v1.2.0-dist.zip",
+          "sizeBytes": 982869,
+          "sha256": "ac5d5da0cd10c8ae7a81ea9804217bca3155b5aa65ad3ddd30f3fc982bd2f12c",
+          "architecture": "Production dist/ Assets (HTML5 / JS / CSS / BIOS / ROMs)"
         },
         {
           "name": "CubSpieleCom.exe",
@@ -38,8 +48,8 @@
           "name": "CubSpieleCom-Antigravity-Workspace.zip",
           "label": "Google Antigravity Desktop IDE Project Workspace (.zip)",
           "url": "./releases/CubSpieleCom-Antigravity-Workspace.zip",
-          "sizeBytes": 954535,
-          "sha256": "e3a74dce6b2547027ccfe5d973bc7b21ebe0d14e124148a432a83f8248a219c7",
+          "sizeBytes": 973914,
+          "sha256": "db624a646fe80c2e661d39a4f8d821a5e8a88103c70e1f83c508f19429a3917a",
           "architecture": "Google Antigravity IDE (Full Source + .agents + .vscode)"
         }
       ]
@@ -62,8 +72,8 @@
           "name": "CubSpieleCom-v1.1.0-win64.zip",
           "label": "Windows x64 Portable Release Bundle (.zip)",
           "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
-          "sizeBytes": 1432073,
-          "sha256": "d8217115e3ce653d03ad62202826cce6324b258e79fd5d891f20b8913b96c13f",
+          "sizeBytes": 1380064,
+          "sha256": "5fa0ea9df8b0dba214588a3390bbfbd6e310eb8f77f85716d0836c0065e329a3",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         }
       ]

@@ -27,7 +27,8 @@ import {
   Pause,
   Camera,
   Download,
-  Code2
+  Code2,
+  Palette
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -36,6 +37,7 @@ interface TopBarProps {
   onOpenLibrary: () => void;
   onOpenHighScores: () => void;
   onOpenAccuracy: () => void;
+  onOpenColorCustomizer?: () => void;
   onOpenReleases?: () => void;
   onOpenBios?: () => void;
   onOpenControls?: () => void;
@@ -55,6 +57,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenLibrary,
   onOpenHighScores,
   onOpenAccuracy,
+  onOpenColorCustomizer,
   onOpenReleases,
   onOpenBios,
   onOpenControls,
@@ -515,19 +518,46 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="px-3 py-0.5 text-[10px] font-mono uppercase text-[#94a3b8]">
                   LCD Palette
                 </div>
-                {(Object.keys(PALETTES) as LCDPaletteId[]).map((pid) => (
+                {(Object.keys(PALETTES) as LCDPaletteId[]).map((pid) => {
+                  const swatch =
+                    pid === 'custom' ? system.settings.customPaletteColors : PALETTES[pid].colors;
+                  return (
+                    <button
+                      key={pid}
+                      onClick={() => {
+                        system.settings.palette = pid;
+                        system.saveCustomPaletteStateToStorage();
+                        onUpdate();
+                      }}
+                      className="w-full px-3 py-1 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between gap-2"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <span className="flex rounded overflow-hidden border border-white/20 shrink-0">
+                          {swatch.map((c, i) => (
+                            <span key={i} className="w-2 h-3 block" style={{ backgroundColor: c }} />
+                          ))}
+                        </span>
+                        <span className="truncate">{PALETTES[pid].name}</span>
+                      </span>
+                      {system.settings.palette === pid && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+
+                {onOpenColorCustomizer && (
                   <button
-                    key={pid}
                     onClick={() => {
-                      system.settings.palette = pid;
-                      onUpdate();
+                      setOpenMenu(null);
+                      onOpenColorCustomizer();
                     }}
-                    className="w-full px-3 py-1 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                    className="w-full px-3 py-1.5 text-left text-purple-300 hover:bg-[#282e3d] flex items-center justify-between font-semibold"
                   >
-                    <span>{PALETTES[pid].name}</span>
-                    {system.settings.palette === pid && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    <span className="flex items-center gap-1.5">
+                      <Palette className="w-3.5 h-3.5 text-purple-400" />
+                      Customize 4-Shade Colors (SGB/GBC)...
+                    </span>
                   </button>
-                ))}
+                )}
 
                 <div className="border-t border-[#292e3b]" />
 
@@ -676,6 +706,17 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span>SM8521 Chip Accuracy Audit...</span>
                 </button>
+                {onOpenColorCustomizer && (
+                  <button
+                    onClick={() => {
+                      setOpenMenu(null);
+                      onOpenColorCustomizer();
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-purple-300 hover:bg-[#282e3d] flex items-center justify-between"
+                  >
+                    <span>SGB / GBC 4-Shade Color Customizer...</span>
+                  </button>
+                )}
                 {onOpenBios && (
                   <button
                     onClick={() => {
@@ -915,6 +956,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Disc className="w-3.5 h-3.5 text-[#a3ae76]" />
             <span className="hidden sm:inline">Cartridges</span>
           </button>
+
+          {onOpenColorCustomizer && (
+            <button
+              onClick={onOpenColorCustomizer}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/70 text-purple-200 border border-purple-500/40 text-xs font-medium transition-colors"
+              title="Super Game Boy / Game Boy Color 4-Shade Display Customizer"
+            >
+              <Palette className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Colors</span>
+            </button>
+          )}
 
           <button
             onClick={onOpenAccuracy}

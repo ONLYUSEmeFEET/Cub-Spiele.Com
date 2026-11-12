@@ -2,6 +2,8 @@ name: Build Native Windows App & Publish GitHub Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -13,14 +15,14 @@ on:
       release_title:
         description: 'Release Title'
         required: true
-        default: 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator (Windows x64)'
+        default: 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Dist Release'
 
 permissions:
   contents: write
 
 jobs:
   build-windows:
-    name: Build Cub Spiele.Com Windows x64 App (.exe & .zip)
+    name: Build Cub Spiele.Com Windows x64 App, Dist Bundle & GitHub Release
     runs-on: windows-latest
 
     steps:
@@ -41,38 +43,40 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Build Production Emulator Core (Vite + SM8521 Core)
+      - name: Typecheck Codebase
+        run: npm run lint
+
+      - name: Build Production Emulator Core (Vite dist/)
         run: npm run build
 
-      - name: Generate Native Windows x64 Portable Release Package & PE32+ Executable
+      - name: Generate Native Windows x64 Portable Release, Dist ZIP & PE32+ Executable
         run: python scripts/build-windows-release.py
 
-      - name: Package Electron Native Windows NSIS & Portable Executables
-        run: npx electron-builder --win --x64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Build Artifacts
+      - name: Upload Build & Dist Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CubSpieleCom-Windows-x64-Release-Packages
+          name: CubSpieleCom-Windows-x64-and-Dist-Packages
           path: |
-            public/releases/*.exe
-            public/releases/*.zip
-            release/*.exe
-            release/*.zip
+            public/releases/CubSpieleCom.exe
+            public/releases/CubSpieleCom-v1.2.0-win64.zip
+            public/releases/CubSpieleCom-v1.2.0-dist.zip
+            public/releases/CubSpieleCom-Antigravity-Workspace.zip
+            public/releases/releases-manifest.json
+            dist/index.html
+            dist/assets/*
 
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      - name: Publish GitHub Release with Dist & Win64 Files
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          name: ${{ github.event.inputs.release_title || format('Cub Spiele.Com {0} (Windows x64)', github.ref_name) }}
+          tag_name: ${{ github.event.inputs.tag_name || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.2.0' }}
+          name: ${{ github.event.inputs.release_title || 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Dist Release' }}
           generate_release_notes: true
           files: |
             public/releases/CubSpieleCom.exe
             public/releases/CubSpieleCom-v1.2.0-win64.zip
-            release/*.exe
-            release/*.zip
+            public/releases/CubSpieleCom-v1.2.0-dist.zip
+            public/releases/CubSpieleCom-Antigravity-Workspace.zip
+            public/releases/releases-manifest.json
+            dist/index.html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

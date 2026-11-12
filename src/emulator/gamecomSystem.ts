@@ -17,11 +17,17 @@ import {
   CartridgeInfo,
   EmulatorSettings,
   CPURegisters,
-  RecentGameEntry
+  RecentGameEntry,
+  CustomPalettePreset,
+  LCDPaletteId,
+  PALETTES,
+  hexToRgbTuple
 } from './types';
 import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
 
 const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v1';
+const CUSTOM_PALETTE_STORAGE_KEY = 'cub_spiele_custom_palette_v1';
+const USER_PALETTES_STORAGE_KEY = 'cub_spiele_user_palettes_v1';
 
 export interface EmulationAccuracyFixes {
   correctClockSpeed: boolean;      // Calibrated 4.9152 MHz SM8521 scanline cycle timing
@@ -49,6 +55,9 @@ export class GameComSystem {
   // Recently played ROMs list (mGBA / melonDS style)
   public recentGames: RecentGameEntry[] = [];
   private loadedCartridgeCache: Map<string, CartridgeInfo> = new Map();
+
+  // User-saved 4-shade custom palettes (SGB / GBC style)
+  public userPalettes: CustomPalettePreset[] = [];
 
   // System states
   public isPoweredOn: boolean = true;
@@ -98,6 +107,8 @@ export class GameComSystem {
   // Settings
   public settings: EmulatorSettings = {
     palette: 'original',
+    customPaletteColors: ['#f8e8c8', '#d89048', '#a82820', '#301850'],
+    activeCustomPresetId: 'sgb_1a',
     ghosting: 0.40,
     pixelGrid: true,
     showTouchGrid: false,
@@ -175,9 +186,147 @@ export class GameComSystem {
       this.loadedCartridgeCache.set(c.id, c);
     }
     this.loadRecentGamesFromStorage();
+    this.loadCustomPalettesFromStorage();
     this.loadPreloadedCartridges();
 
     this.resetSystem('MAIN_MENU');
+  }
+
+  private loadCustomPalettesFromStorage() {
+    try {
+      const rawCustom = localStorage.getItem(CUSTOM_PALETTE_STORAGE_KEY);
+      if (rawCustom) {
+        const parsed = JSON.parse(rawCustom);
+        if (
+          parsed &&
+          Array.isArray(parsed.colors) &&
+          parsed.colors.length === 4 &&
+          parsed.colors.every((c: unknown) => typeof c === 'string')
+        ) {
+          this.settings.customPaletteColors = [
+            parsed.colors[0],
+            parsed.colors[1],
+            parsed.colors[2],
+            parsed.colors[3]
+          ];
+          if (typeof parsed.presetId === 'string') {
+            this.settings.activeCustomPresetId = parsed.presetId;
+          }
+          if (parsed.activePalette === 'custom') {
+            this.settings.palette = 'custom';
+          }
+          this.lcd.setCustomColors(this.settings.customPaletteColors);
+        }
+      }
+
+      const rawUserList = localStorage.getItem(USER_PALETTES_STORAGE_KEY);
+      if (rawUserList) {
+        const parsedList = JSON.parse(rawUserList);
+        if (Array.isArray(parsedList)) {
+          this.userPalettes = parsedList;
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  public saveCustomPaletteStateToStorage() {
+    try {
+      localStorage.setItem(
+        CUSTOM_PALETTE_STORAGE_KEY,
+        JSON.stringify({
+          colors: this.settings.customPaletteColors,
+          presetId: this.settings.activeCustomPresetId,
+          activePalette: this.settings.palette
+        })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  public setCustomShadeColor(shadeIndex: 0 | 1 | 2 | 3, hexColor: string) {
+    const next = [...this.settings.customPaletteColors] as [string, string, string, string];
+    next[shadeIndex] = hexColor;
+    this.settings.customPaletteColors = next;
+    this.settings.activeCustomPresetId = undefined;
+    this.settings.palette = 'custom';
+    this.lcd.setCustomColors(next);
+    this.saveCustomPaletteStateToStorage();
+  }
+
+  public applyCustomColors(colors: [string, string, string, string], presetId?: string) {
+    const next: [string, string, string, string] = [colors[0], colors[1], colors[2], colors[3]];
+    this.settings.customPaletteColors = next;
+    this.settings.activeCustomPresetId = presetId;
+    this.settings.palette = 'custom';
+    this.lcd.setCustomColors(next);
+    this.saveCustomPaletteStateToStorage();
+  }
+
+  public invertCustomColors() {
+    const [c0, c1, c2, c3] = this.settings.customPaletteColors;
+    this.applyCustomColors([c3, c2, c1, c0]);
+  }
+
+  public interpolateMidtones() {
+    const [c0, , , c3] = this.settings.customPaletteColors;
+    const rgb0 = hexToRgbTuple(c0);
+    const rgb3 = hexToRgbTuple(c3);
+    const toHex = (r: number, g: number, b: number) =>
+      '#' +
+      [r, g, b]
+        .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+        .join('');
+    const c1 = toHex(
+      rgb0[0] + (rgb3[0] - rgb0[0]) * 0.33,
+      rgb0[1] + (rgb3[1] - rgb0[1]) * 0.33,
+      rgb0[2] + (rgb3[2] - rgb0[2]) * 0.33
+    );
+    const c2 = toHex(
+      rgb0[0] + (rgb3[0] - rgb0[0]) * 0.67,
+      rgb0[1] + (rgb3[1] - rgb0[1]) * 0.67,
+      rgb0[2] + (rgb3[2] - rgb0[2]) * 0.67
+    );
+    this.applyCustomColors([c0, c1, c2, c3]);
+  }
+
+  public copyFromBuiltinPalette(paletteId: Exclude<LCDPaletteId, 'custom'>) {
+    const pal = PALETTES[paletteId];
+    if (!pal) return;
+    this.applyCustomColors([...pal.colors] as [string, string, string, string], `builtin_${paletteId}`);
+  }
+
+  public saveUserPalette(name: string, colors?: [string, string, string, string]): CustomPalettePreset {
+    const trimmed = name.trim() || `Custom Palette #${this.userPalettes.length + 1}`;
+    const targetColors = colors
+      ? ([...colors] as [string, string, string, string])
+      : ([...this.settings.customPaletteColors] as [string, string, string, string]);
+    const preset: CustomPalettePreset = {
+      id: `user_${Date.now()}`,
+      name: trimmed,
+      category: 'user',
+      shortcutHint: 'User Saved',
+      colors: targetColors
+    };
+    this.userPalettes = [preset, ...this.userPalettes].slice(0, 24);
+    try {
+      localStorage.setItem(USER_PALETTES_STORAGE_KEY, JSON.stringify(this.userPalettes));
+    } catch {
+      // Ignore storage errors
+    }
+    this.applyCustomColors(targetColors, preset.id);
+    return preset;
+  }
+
+  public deleteUserPalette(id: string) {
+    this.userPalettes = this.userPalettes.filter((p) => p.id !== id);
+    try {
+      localStorage.setItem(USER_PALETTES_STORAGE_KEY, JSON.stringify(this.userPalettes));
+    } catch {
+      // Ignore storage errors
+    }
   }
 
   private loadRecentGamesFromStorage() {
@@ -534,17 +683,18 @@ export class GameComSystem {
       return;
     }
 
-    if (this.isPaused) {
-      return;
-    }
-
-    // Sync LCD & CPU accuracy settings
+    // Sync LCD & CPU accuracy settings (even when paused so palette/color edits reflect live)
     this.lcd.paletteId = this.settings.palette;
+    this.lcd.setCustomColors(this.settings.customPaletteColors);
     this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0.0;
     this.lcd.contrast = this.settings.contrast;
     this.lcd.pixelGrid = this.settings.pixelGrid;
     this.cpu.correctClockSpeed = this.accuracyFixes.correctClockSpeed;
     this.cpu.dualCartridgeSlotFix = this.accuracyFixes.dualCartridgeSlotFix;
+
+    if (this.isPaused) {
+      return;
+    }
 
     // Run at exact 1.0x original hardware speed (multiplied only by user speed setting, default 1.0)
     const baseMult = 1.0 * this.settings.speed;
