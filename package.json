@@ -1,8 +1,28 @@
 {
   "name": "cub-spiele-com-emulator",
   "private": true,
-  "version": "1.3.0",
-  "description": "Cub Spiele.Com — Standalone SM8521 Handheld Emulator with Dual Cartridge Bays & Expanded NVRAM High Score Vault",
+  "version": "1.4.0",
+  "description": "Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator with Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
+  "keywords": [
+    "emulator",
+    "gamecom",
+    "tiger-game-com",
+    "sm8521",
+    "sharp-sm8521",
+    "retroachievements",
+    "rcheevos",
+    "hardcore-mode",
+    "online-leaderboards",
+    "high-scores",
+    "handheld-emulator",
+    "retro-gaming",
+    "nvram",
+    "stn-lcd",
+    "typescript",
+    "electron",
+    "windows-x64",
+    "cub-spiele-com"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com.git"

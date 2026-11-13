@@ -1,6 +1,18 @@
 {
-  "name": "Tiger Game.Com Emulator",
-  "description": "An accurate, feature-complete Tiger Game.Com handheld emulator featuring SM8521 architecture, dual cartridge bays, authentic STN passive-matrix LCD simulation with ghosting, built-in PDA apps, and classic playable titles.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Cub Spiele.Com — SM8521 Handheld Emulator",
+  "description": "Cycle-accurate Sharp SM8521 (Tiger Game.Com) handheld emulator featuring Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault, RetroAchievements (rcheevos) integration, dual cartridge bays, and STN LCD simulation.",
+  "tags": [
+    "emulator",
+    "gamecom",
+    "tiger-game-com",
+    "sm8521",
+    "retroachievements",
+    "rcheevos",
+    "hardcore-mode",
+    "online-leaderboards",
+    "high-scores",
+    "handheld-emulator",
+    "retro-gaming"
+  ],
+  "requestFramePermissions": []
 }

@@ -2,7 +2,7 @@
  * Game.Com Cartridge & ROM Header Subsystem
  * Handles .bin, .tgc, and .zip file loading, ZIP archive decompression via fflate,
  * official "TigerDMGC" cartridge header parsing (+0x05 signature, +0x11 9-char title, +0x1A 16-bit Game ID),
- * checksum verification, and cartridge metadata resolution.
+ * Fletcher-32 & RetroAchievements RFC 1321 MD5 hashing, and cartridge metadata resolution.
  */
 
 import { unzipSync } from 'fflate';
@@ -19,6 +19,7 @@ export interface KnownGame {
   headerMatches: string[];
   coverColor: string;
   coverAccent: string;
+  scoreUnit?: string;
 }
 
 export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
@@ -28,34 +29,27 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     publisher: 'Tiger Electronics',
     year: 1997,
     genre: 'Puzzle / Logic',
-    description: 'The pack-in touchscreen puzzle cartridge. Tap cells to toggle adjacent lights and clear the 5x5 or 6x6 board.',
+    description:
+      'The pack-in touchscreen puzzle cartridge. Tap cells to toggle adjacent lights and clear the 5x5 or 6x6 board.',
     gameIds: [0x0917],
     headerMatches: ['LIGHTSOUT', 'LIGHTS OUT'],
     coverColor: '#18181b',
-    coverAccent: '#22c55e'
+    coverAccent: '#22c55e',
+    scoreUnit: 'Level / Puzzles'
   },
-  sonic: {
-    id: 'sonic',
-    title: 'Sonic Jam',
-    publisher: 'Sega / Tiger Electronics',
-    year: 1998,
-    genre: 'Platformer',
-    description: 'Official adaptation featuring Sonic, Tails, and Knuckles across Sonic 2, Sonic 3, and Sonic & Knuckles zones.',
-    gameIds: [0x2015],
-    headerMatches: ['SONIC JAM', 'SONICJAM'],
-    coverColor: '#1e3a8a',
-    coverAccent: '#38bdf8'
-  },
-  indy500: {
-    id: 'indy500',
-    title: 'Indy 500',
-    publisher: 'Sega / Tiger Electronics',
+  solitaire: {
+    id: 'solitaire',
+    title: 'Built-In Solitaire (BIOS)',
+    publisher: 'Tiger Electronics',
     year: 1997,
-    genre: 'Arcade Racing',
-    description: 'High-speed open-wheel racing at the Indianapolis Motor Speedway with dual-gear acceleration and drafting.',
-    headerMatches: ['INDY 500', 'INDY500'],
-    coverColor: '#b91c1c',
-    coverAccent: '#f59e0b'
+    genre: 'Card / PDA Built-In',
+    description:
+      'Built-in BIOS Klondike Solitaire stored in external.bin with dedicated NVRAM high score register at $FEE0-$FEE1.',
+    gameIds: [0xfee0],
+    headerMatches: ['SOLITAIRE'],
+    coverColor: '#064e3b',
+    coverAccent: '#10b981',
+    scoreUnit: 'Points'
   },
   williams: {
     id: 'williams',
@@ -64,9 +58,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Arcade Classics',
     description: 'Compilation of Joust, Defender, Defender II, Robotron: 2084, and Sinistar.',
+    gameIds: [0x0617],
     headerMatches: ['WILLIAMS', 'ARCADE CL'],
     coverColor: '#581c87',
-    coverAccent: '#c084fc'
+    coverAccent: '#c084fc',
+    scoreUnit: 'Points'
   },
   re2: {
     id: 're2',
@@ -74,10 +70,13 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     publisher: 'Capcom / Tiger Electronics',
     year: 1998,
     genre: 'Survival Horror',
-    description: 'Isometric survival horror adaptation following Leon S. Kennedy through the R.P.D. station.',
+    description:
+      'Isometric survival horror adaptation following Leon S. Kennedy through the R.P.D. station.',
+    gameIds: [0x1d18],
     headerMatches: ['RESIDENT2', 'RES EVIL2', 'RESIDENT'],
     coverColor: '#1c1917',
-    coverAccent: '#dc2626'
+    coverAccent: '#dc2626',
+    scoreUnit: 'Points'
   },
   duke3d: {
     id: 'duke3d',
@@ -85,21 +84,27 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     publisher: '3D Realms / Tiger Electronics',
     year: 1997,
     genre: 'First-Person Shooter',
-    description: 'First-person shooter adaptation featuring 3D corridor rendering, weapons, and digitized voice clips.',
+    description:
+      'First-person shooter adaptation featuring 3D corridor rendering, weapons, and digitized voice clips.',
+    gameIds: [0x0b17],
     headerMatches: ['DUKE 3D', 'DUKENUKEM', 'DUKE3D'],
     coverColor: '#78350f',
-    coverAccent: '#f59e0b'
+    coverAccent: '#f59e0b',
+    scoreUnit: 'Points'
   },
   batman: {
     id: 'batman',
     title: 'Batman & Robin',
     publisher: 'Warner Bros. / Tiger Electronics',
     year: 1997,
-    genre: 'Action Beat \'Em Up',
-    description: 'Side-scrolling action beat-em-up across Gotham City with batarangs and boss encounters.',
+    genre: "Action Beat 'Em Up",
+    description:
+      'Side-scrolling action beat-em-up across Gotham City with batarangs and boss encounters.',
+    gameIds: [0x0317],
     headerMatches: ['BATMAN&R', 'BATMAN'],
     coverColor: '#0f172a',
-    coverAccent: '#eab308'
+    coverAccent: '#eab308',
+    scoreUnit: 'Points'
   },
   lostworld: {
     id: 'lostworld',
@@ -108,9 +113,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Action Adventure',
     description: 'Top-down and side-scrolling action adventure across Isla Sorna.',
+    gameIds: [0x0817],
     headerMatches: ['LOSTWORLD', 'JURASSIC'],
     coverColor: '#14532d',
-    coverAccent: '#84cc16'
+    coverAccent: '#84cc16',
+    scoreUnit: 'Points'
   },
   mkt: {
     id: 'mkt',
@@ -118,21 +125,13 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     publisher: 'Midway / Tiger Electronics',
     year: 1997,
     genre: 'Fighting',
-    description: '2D martial arts fighting adaptation with digitized fighter sprites and special moves.',
+    description:
+      '2D martial arts fighting adaptation with digitized fighter sprites and special moves.',
+    gameIds: [0x0a17],
     headerMatches: ['MORTAL K', 'MKTRILOGY', 'MORTALKOM'],
     coverColor: '#450a0a',
-    coverAccent: '#ef4444'
-  },
-  fighters: {
-    id: 'fighters',
-    title: 'Fighters Megamix',
-    publisher: 'Sega / Tiger Electronics',
-    year: 1998,
-    genre: 'Fighting',
-    description: 'Crossover fighting cartridge featuring Virtua Fighter and Fighting Vipers characters.',
-    headerMatches: ['FIGHTERS', 'MEGAMIX'],
-    coverColor: '#9a3412',
-    coverAccent: '#fb923c'
+    coverAccent: '#ef4444',
+    scoreUnit: 'Wins / Points'
   },
   wheel: {
     id: 'wheel',
@@ -141,9 +140,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Game Show',
     description: 'Spin the wheel, guess consonants, and solve word puzzles using the touchscreen.',
+    gameIds: [0x0717],
     headerMatches: ['WHEEL OF', 'WHEEL 1'],
     coverColor: '#4c1d95',
-    coverAccent: '#a855f7'
+    coverAccent: '#a855f7',
+    scoreUnit: 'Cash ($)'
   },
   wheel2: {
     id: 'wheel2',
@@ -152,9 +153,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Game Show',
     description: 'Sequel edition featuring hundreds of new word puzzles and categories.',
+    gameIds: [0x1418],
     headerMatches: ['WHEEL 2', 'WHEEL2'],
     coverColor: '#1e3a8a',
-    coverAccent: '#60a5fa'
+    coverAccent: '#60a5fa',
+    scoreUnit: 'Cash ($)'
   },
   jeopardy: {
     id: 'jeopardy',
@@ -162,10 +165,13 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     publisher: 'Hasbro / GameTek / Tiger',
     year: 1998,
     genre: 'Trivia Quiz',
-    description: 'Television quiz show adaptation with Daily Doubles, Final Jeopardy, and touchscreen input.',
+    description:
+      'Television quiz show adaptation with Daily Doubles, Final Jeopardy, and touchscreen input.',
+    gameIds: [0x0f18],
     headerMatches: ['JEOPARDY!', 'JEOPARDY'],
     coverColor: '#1e1b4b',
-    coverAccent: '#60a5fa'
+    coverAccent: '#60a5fa',
+    scoreUnit: 'Cash ($)'
   },
   frogger: {
     id: 'frogger',
@@ -174,9 +180,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Arcade Classic',
     description: 'Hop across highway traffic and river logs to guide your frogs safely home.',
+    gameIds: [0x1a18],
     headerMatches: ['FROGGER'],
     coverColor: '#064e3b',
-    coverAccent: '#10b981'
+    coverAccent: '#10b981',
+    scoreUnit: 'Points'
   },
   centipede: {
     id: 'centipede',
@@ -185,9 +193,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Arcade Shooter',
     description: 'Arcade insect shooter supporting both stylus and D-Pad control.',
+    gameIds: [0x1b18],
     headerMatches: ['CENTIPEDE'],
     coverColor: '#701a75',
-    coverAccent: '#ec4899'
+    coverAccent: '#ec4899',
+    scoreUnit: 'Points'
   },
   monopoly: {
     id: 'monopoly',
@@ -196,9 +206,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Board Game',
     description: 'Buy, trade, and develop properties using the touchscreen interface.',
+    gameIds: [0x1918],
     headerMatches: ['MONOPOLY'],
     coverColor: '#065f46',
-    coverAccent: '#34d399'
+    coverAccent: '#34d399',
+    scoreUnit: 'Net Worth ($)'
   },
   scrabble: {
     id: 'scrabble',
@@ -207,9 +219,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Word Board Game',
     description: 'Touchscreen crossword board game with built-in word validation.',
+    gameIds: [0x1c18],
     headerMatches: ['SCRABBLE'],
     coverColor: '#115e59',
-    coverAccent: '#2dd4bf'
+    coverAccent: '#2dd4bf',
+    scoreUnit: 'Points'
   },
   casino: {
     id: 'casino',
@@ -218,9 +232,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Card & Casino',
     description: 'Touchscreen casino suite featuring Blackjack, Poker, and Slot Machines.',
+    gameIds: [0x0e18],
     headerMatches: ['TIGER CAS', 'CASINO'],
     coverColor: '#713f12',
-    coverAccent: '#facc15'
+    coverAccent: '#facc15',
+    scoreUnit: 'Bankroll ($)'
   },
   quizwiz: {
     id: 'quizwiz',
@@ -229,9 +245,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Trivia',
     description: 'General knowledge trivia cartridge with touchscreen multiple-choice questions.',
+    gameIds: [0x0417],
     headerMatches: ['QUIZ WIZ', 'QUIZWIZ'],
     coverColor: '#312e81',
-    coverAccent: '#818cf8'
+    coverAccent: '#818cf8',
+    scoreUnit: 'Points'
   },
   henry: {
     id: 'henry',
@@ -240,11 +258,48 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Puzzle / Memory',
     description: 'Interactive pattern and word puzzle cartridge.',
+    gameIds: [0x0c17],
     headerMatches: ['HENRY'],
     coverColor: '#581c87',
-    coverAccent: '#d8b4fe'
+    coverAccent: '#d8b4fe',
+    scoreUnit: 'Points'
   }
 };
+
+export function resolveKnownGameByGameIdOrTitle(
+  gameId: number,
+  rawTitle?: string
+): KnownGame | null {
+  if (gameId !== 0) {
+    for (const key in KNOWN_GAMECOM_GAMES) {
+      const g = KNOWN_GAMECOM_GAMES[key];
+      if (g.gameIds?.includes(gameId)) return g;
+    }
+    const hiByte = (gameId >> 8) & 0xff;
+    const loByte = gameId & 0xff;
+    for (const key in KNOWN_GAMECOM_GAMES) {
+      const g = KNOWN_GAMECOM_GAMES[key];
+      if (g.gameIds?.some((id) => ((id >> 8) & 0xff) === hiByte && (id & 0xff) === loByte)) {
+        return g;
+      }
+    }
+  }
+  if (rawTitle) {
+    const norm = rawTitle.toUpperCase().replace(/\s+/g, ' ').trim();
+    const compact = norm.replace(/\s+/g, '');
+    for (const key in KNOWN_GAMECOM_GAMES) {
+      const g = KNOWN_GAMECOM_GAMES[key];
+      for (const pat of g.headerMatches) {
+        const np = pat.toUpperCase().trim();
+        const cp = np.replace(/\s+/g, '');
+        if (norm === np || compact === cp || norm.startsWith(np) || compact.startsWith(cp)) {
+          return g;
+        }
+      }
+    }
+  }
+  return null;
+}
 
 export interface ParsedGameComHeader {
   found: boolean;
@@ -265,7 +320,7 @@ export interface ParsedGameComHeader {
  * - +0x04: Slot compatibility flags
  * - +0x05..+0x0D: 9-byte ASCII signature "TigerDMGC"
  * - +0x11..+0x19: 9-byte ASCII Game Title (used by BIOS main menu & NVRAM high scores)
- * - +0x1A..+0x1B: 16-bit Big-Endian Game ID (e.g. $0917 = Lights Out, $2015 = Sonic Jam)
+ * - +0x1A..+0x1B: 16-bit Big-Endian Game ID (e.g. $0917 = Lights Out)
  */
 export function parseGameComRomHeader(romBytes: Uint8Array): ParsedGameComHeader {
   const sig = [0x54, 0x69, 0x67, 0x65, 0x72, 0x44, 0x4d, 0x47, 0x43]; // "TigerDMGC"
@@ -348,6 +403,99 @@ export function calculateChecksum(data: Uint8Array): string {
   return checksum.toString(16).toUpperCase().padStart(8, '0');
 }
 
+/**
+ * Pure RFC 1321 MD5 implementation for RetroAchievements (rcheevos) ROM identification
+ * and leaderboard/achievement submission signing.
+ */
+export function calculateMd5Hex(input: Uint8Array | string): string {
+  const bytes =
+    typeof input === 'string' ? new TextEncoder().encode(input) : input;
+
+  const K = new Uint32Array([
+    0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
+    0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
+    0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+    0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
+    0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
+    0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+    0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+    0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
+  ]);
+  const S = [
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+    5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21
+  ];
+
+  const origLen = bytes.length;
+  const bitLenLo = (origLen * 8) >>> 0;
+  const bitLenHi = Math.floor((origLen * 8) / 0x100000000) >>> 0;
+  const padLen = ((56 - ((origLen + 1) % 64)) + 64) % 64;
+  const totalLen = origLen + 1 + padLen + 8;
+  const buf = new Uint8Array(totalLen);
+  buf.set(bytes, 0);
+  buf[origLen] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(totalLen - 8, bitLenLo, true);
+  dv.setUint32(totalLen - 4, bitLenHi, true);
+
+  let a0 = 0x67452301;
+  let b0 = 0xefcdab89;
+  let c0 = 0x98badcfe;
+  let d0 = 0x10325476;
+
+  const M = new Uint32Array(16);
+  for (let offset = 0; offset < totalLen; offset += 64) {
+    for (let j = 0; j < 16; j++) {
+      M[j] = dv.getUint32(offset + j * 4, true);
+    }
+    let A = a0;
+    let B = b0;
+    let C = c0;
+    let D = d0;
+
+    for (let i = 0; i < 64; i++) {
+      let F = 0;
+      let g = 0;
+      if (i < 16) {
+        F = (B & C) | (~B & D);
+        g = i;
+      } else if (i < 32) {
+        F = (D & B) | (~D & C);
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        F = B ^ C ^ D;
+        g = (3 * i + 5) % 16;
+      } else {
+        F = C ^ (B | ~D);
+        g = (7 * i) % 16;
+      }
+      F = (F + A + K[i] + M[g]) >>> 0;
+      A = D;
+      D = C;
+      C = B;
+      const rot = ((F << S[i]) | (F >>> (32 - S[i]))) >>> 0;
+      B = (B + rot) >>> 0;
+    }
+
+    a0 = (a0 + A) >>> 0;
+    b0 = (b0 + B) >>> 0;
+    c0 = (c0 + C) >>> 0;
+    d0 = (d0 + D) >>> 0;
+  }
+
+  const out = new Uint8Array(16);
+  const outDv = new DataView(out.buffer);
+  outDv.setUint32(0, a0, true);
+  outDv.setUint32(4, b0, true);
+  outDv.setUint32(8, c0, true);
+  outDv.setUint32(12, d0, true);
+  return Array.from(out)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 function formatHeaderTitleDisplay(rawHeaderTitle: string): string {
   const cleaned = rawHeaderTitle.replace(/\s+/g, ' ').trim();
   if (!cleaned) return '';
@@ -408,49 +556,14 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
       .replace(/[\(_].*$/, '')
       .trim() || 'Game.Com Cartridge';
 
-  let matchedGame: KnownGame | null = null;
-
-  // 1. Match by exact 16-bit Game ID from the TigerDMGC header (+0x1A..+0x1B)
-  if (header.found && header.gameId !== 0) {
-    for (const gameKey in KNOWN_GAMECOM_GAMES) {
-      const game = KNOWN_GAMECOM_GAMES[gameKey];
-      if (game.gameIds && game.gameIds.includes(header.gameId)) {
-        matchedGame = game;
-        break;
-      }
-    }
-  }
-
-  // 2. Match by the 9-character ASCII Title in the TigerDMGC header (+0x11..+0x19)
-  if (!matchedGame && header.found && header.rawHeaderTitle) {
-    const normHeader = header.rawHeaderTitle.toUpperCase().replace(/\s+/g, ' ').trim();
-    const compactHeader = normHeader.replace(/\s+/g, '');
-
-    for (const gameKey in KNOWN_GAMECOM_GAMES) {
-      const game = KNOWN_GAMECOM_GAMES[gameKey];
-      for (const pattern of game.headerMatches) {
-        const normPattern = pattern.toUpperCase().trim();
-        const compactPattern = normPattern.replace(/\s+/g, '');
-        if (
-          normHeader === normPattern ||
-          compactHeader === compactPattern ||
-          normHeader.startsWith(normPattern) ||
-          compactHeader.startsWith(compactPattern)
-        ) {
-          matchedGame = game;
-          break;
-        }
-      }
-      if (matchedGame) break;
-    }
-  }
+  const matchedGame = resolveKnownGameByGameIdOrTitle(header.gameId, header.rawHeaderTitle);
 
   if (matchedGame) {
     return {
       id: `${matchedGame.id}_${Date.now()}`,
       title: matchedGame.title,
       headerTitle: header.rawHeaderTitle || matchedGame.title,
-      headerGameId: header.gameId || undefined,
+      headerGameId: header.gameId || matchedGame.gameIds?.[0],
       publisher: matchedGame.publisher,
       year: matchedGame.year,
       genre: matchedGame.genre,
@@ -463,7 +576,7 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
     };
   }
 
-  // 3. If the ROM has a valid TigerDMGC header with a custom/unlisted title, use its genuine header title
+  // If the ROM has a valid TigerDMGC header with a custom/unlisted title, use its genuine header title
   if (header.found && header.rawHeaderTitle) {
     const displayTitle = formatHeaderTitleDisplay(header.rawHeaderTitle) || cleanFileTitle;
     const hexId = `$${header.gameId.toString(16).toUpperCase().padStart(4, '0')}`;
@@ -484,7 +597,7 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
     };
   }
 
-  // 4. Fallback for raw unheadered binaries: use cleaned filename
+  // Fallback for raw unheadered binaries: use cleaned filename
   return {
     id: `custom_${Date.now()}`,
     title: cleanFileTitle,
@@ -501,7 +614,7 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
 }
 
 /**
- * Preloaded Cartridge ROM binaries served from /roms/
+ * Preloaded Cartridge ROM binary served from /roms/ (Lights Out pack-in cartridge only)
  */
 export const PRELOADED_CARTRIDGES: CartridgeInfo[] = [
   {
@@ -512,26 +625,12 @@ export const PRELOADED_CARTRIDGES: CartridgeInfo[] = [
     publisher: 'Tiger Electronics',
     year: 1997,
     genre: 'Puzzle / Logic',
-    description: 'Official 32KB pack-in cartridge binary (Header: "LightsOut", ID: $0917). Executes natively on the cycle-accurate SM8521 CPU.',
+    description:
+      'Official 32KB pack-in cartridge binary (Header: "LightsOut", ID: $0917). Executes natively on the cycle-accurate SM8521 CPU.',
     sizeBytes: 32768,
     isBuiltin: false,
     coverColor: '#18181b',
     coverAccent: '#22c55e',
     romUrl: './roms/lightsout.bin'
-  },
-  {
-    id: 'sonic',
-    title: 'Sonic Jam',
-    headerTitle: 'SONIC JAM',
-    headerGameId: 0x2015,
-    publisher: 'Sega / Tiger Electronics',
-    year: 1998,
-    genre: 'Platformer',
-    description: 'Official retail cartridge binary (Header: "SONIC JAM", ID: $2015). Executes natively on the cycle-accurate SM8521 CPU.',
-    sizeBytes: 2097152,
-    isBuiltin: false,
-    coverColor: '#1e3a8a',
-    coverAccent: '#38bdf8',
-    romUrl: './roms/sonicjam.bin'
   }
 ];

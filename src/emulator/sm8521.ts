@@ -200,14 +200,21 @@ export class SM8521CPU {
   public linkConnected: boolean = false;
   public localPort3Bits: number = 0x00;  // Local P3 bits 0..1 (outputs to link cable)
   public remotePort3Bits: number = 0x00; // Remote P3 bits 0..1 (received on local P3 bits 2..3)
+  public remotePort3Queue: number[] = [];
+  public remotePort3ReadsInState: number = 0;
+  public p3ReadsThisFrame: number = 0;
+  public uartPollsThisFrame: number = 0;
   public uartTxCyclesRemaining: number = 0;
   public uartRxFifo: number[] = [];
   public uartRxCooldown: number = 0;
   public uartRxStaleCycles: number = 0;
   public linkWaitFrames: number = 0;
+  public linkFrameHadWait: boolean = false;
   public linkYieldScanline: boolean = false;
+  public linkYieldFrame: boolean = false;
   public onUartTxByte?: (byte: number) => void;
   public onLinkPort3Change?: (lowBits: number) => void;
+  public onLinkPoll?: () => void;
 
   public get pc(): number {
     return this.m_PC;
@@ -287,17 +294,25 @@ export class SM8521CPU {
     this.mem_writebyte(0x5f, 0x38);   // WDTC
 
     this.localPort3Bits = 0x00;
+    this.remotePort3Queue = [];
+    this.remotePort3ReadsInState = 0;
+    this.p3ReadsThisFrame = 0;
     this.uartTxCyclesRemaining = 0;
     this.uartRxFifo = [];
     this.uartRxCooldown = 0;
     this.uartRxStaleCycles = 0;
     this.linkWaitFrames = 0;
+    this.linkFrameHadWait = false;
     this.linkYieldScanline = false;
+    this.linkYieldFrame = false;
 
-    // Initialize default BIOS UART ISR vector ($3D0E in Bank 2) & System TX/RX Queues ($0180/$0188)
+    // Initialize default BIOS UART ISR vector ($3D0E in Bank 2, stored in Register Bank $28 RR2 = $002A/$002B!)
+    // and System TX/RX Queues ($0180/$0188)
     this.m_p_ram[0x00a5] = 0x02; // UART_new_ibank
     this.m_p_ram[0x0100] = 0x3d; // UART_new_isr hi ($3D0E)
     this.m_p_ram[0x0101] = 0x0e; // UART_new_isr lo
+    this.m_register_ram[0x28 + 2] = 0x3d; // Register Bank $28 R2 = $3D ($3D0E hi)
+    this.m_register_ram[0x28 + 3] = 0x0e; // Register Bank $28 R3 = $0E ($3D0E lo)
     this.m_p_ram[0x0190] = 0x01; // User_TX_qq ($0180)
     this.m_p_ram[0x0191] = 0x80;
     this.m_p_ram[0x0192] = 0x01; // User_RX_qq ($0188)
@@ -335,11 +350,37 @@ export class SM8521CPU {
 
   /**
    * Updates the remote console's Port 3 output bits (0..1), which appear on this console's Port 3 input bits (2..3).
+   * Preserves rapid handshake transitions in `remotePort3Queue` so sub-frame pulses (such as Mortal Kombat Trilogy
+   * $50E4 / $73A5 and Fighters Megamix $6F29) are never overwritten before the local CPU reads Port 3 ($0017).
    */
-  public setRemotePort3Bits(remoteLowBits: number) {
-    this.remotePort3Bits = remoteLowBits & 0x03;
-    this.m_p_ram[SM8521_P3] =
-      (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
+  public setRemotePort3Bits(remoteLowBits: number, isHandshakeTransition: boolean = true) {
+    const cleanBits = remoteLowBits & 0x03;
+    if (!isHandshakeTransition) {
+      if (this.remotePort3Queue.length === 0 && (this.remotePort3ReadsInState > 0 || this.remotePort3Bits === 0)) {
+        this.remotePort3Bits = cleanBits;
+        this.m_p_ram[SM8521_P3] =
+          (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
+      }
+      return;
+    }
+
+    const lastQueued =
+      this.remotePort3Queue.length > 0
+        ? this.remotePort3Queue[this.remotePort3Queue.length - 1]
+        : this.remotePort3Bits;
+
+    if (cleanBits === lastQueued) {
+      return;
+    }
+
+    if (this.remotePort3Queue.length === 0 && this.remotePort3ReadsInState > 0) {
+      this.remotePort3Bits = cleanBits;
+      this.remotePort3ReadsInState = 0;
+      this.m_p_ram[SM8521_P3] =
+        (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
+    } else if (this.remotePort3Queue.length < 16) {
+      this.remotePort3Queue.push(cleanBits);
+    }
     this.linkWaitFrames = 0;
   }
 
@@ -755,14 +796,81 @@ export class SM8521CPU {
     addr &= 0xffff;
     if (addr < 0x0400) {
       if (addr === SM8521_P3) {
+        if (this.linkConnected) {
+          this.onLinkPoll?.();
+        }
         const remoteIn = this.linkConnected ? ((this.remotePort3Bits & 0x03) << 2) : 0x00;
-        return (this.m_p_ram[SM8521_P3] & ~0x0c) | remoteIn;
+        const result = (this.m_p_ram[SM8521_P3] & ~0x0c) | remoteIn;
+        this.remotePort3ReadsInState++;
+        this.p3ReadsThisFrame++;
+        if (this.remotePort3Queue.length > 0 && this.remotePort3ReadsInState >= 4) {
+          this.remotePort3Bits = this.remotePort3Queue.shift()! & 0x03;
+          this.remotePort3ReadsInState = 0;
+          this.m_p_ram[SM8521_P3] =
+            (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
+        } else if (this.linkConnected && this.linkWaitFrames < 600) {
+          // Fighters Megamix open_h2hx & exchg_openx ($6CE0..$6F35 in Bank $25) decrement their $0162/$0163
+          // 16-bit timeout counter ($0163=hi, $0164=lo) across frames; keep $0164 nonzero while waiting!
+          if (this.mmu[2] === 0x20 && this.mmu[3] === 0x25 && this.m_PC >= 0x6ce0 && this.m_PC < 0x6f35) {
+            this.linkFrameHadWait = true;
+            if (this.m_p_ram[0x0162] === 0x01 && this.m_p_ram[0x0164] > 0 && this.m_p_ram[0x0164] < 0x60) {
+              this.m_p_ram[0x0164] = 0x60;
+            }
+          }
+          if (this.p3ReadsThisFrame > 24) {
+            // CPU is spinning in a P3 handshake wait loop (e.g. Fighters Megamix wait_count or Mortal Kombat Trilogy $7C5A/$7E23)
+            this.linkFrameHadWait = true;
+            const bankBase = this.m_PS0 & 0xf8;
+            const rr10 = (this.m_register_ram[bankBase + 10] << 8) | this.m_register_ram[bankBase + 11];
+            if (rr10 > 0x0010 && rr10 < 0xfff8) {
+              this.m_register_ram[bankBase + 10] = 0x00;
+              this.m_register_ram[bankBase + 11] = 0x10;
+              this.m_p_ram[10] = 0x00;
+              this.m_p_ram[11] = 0x10;
+            }
+            if (this.m_p_ram[0x02d3] === 0x01) {
+              this.m_p_ram[0x02d3] = 0x00;
+            }
+            if (this.p3ReadsThisFrame > 64) {
+              this.linkYieldScanline = true;
+              this.linkYieldFrame = true;
+            }
+          }
+        }
+        return result;
       }
       if (addr === SM8521_URTR) {
         // Reading UART Receive Data ($002C) clears RXRDY (bit 0) and error flags (bits 2..4) in URTS ($002D)
         this.m_p_ram[SM8521_URTS] &= ~0x1d;
         this.uartRxStaleCycles = 0;
+        // Post-read cooldown so current UART_INT ($3D65..$2178) finishes updating $00A2 and executes IRET
+        this.uartRxCooldown = 24;
         return this.m_p_ram[SM8521_URTR];
+      }
+      if (addr === 0x00fb && this.linkConnected && this.m_p_ram[0x00fb] === 0xff) {
+        // Custom UART ISR status byte ($00FB = uart_ram in Fighters Megamix rec_decode_data)
+        this.onLinkPoll?.();
+        if (this.uartRxFifo.length > 0 && (this.m_PS1 & FLAG_I) !== 0 && (this.m_p_ram[SM8521_IE0] & 0x08) !== 0) {
+          this.uartRxCooldown = 0;
+          this.gamecom_update_timers(0);
+        } else if (this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
+          this.p3ReadsThisFrame++;
+          if (this.p3ReadsThisFrame > 32) {
+            this.linkFrameHadWait = true;
+            const bankBase = this.m_PS0 & 0xf8;
+            const rr10 = (this.m_register_ram[bankBase + 10] << 8) | this.m_register_ram[bankBase + 11];
+            if (rr10 > 0x0010 && rr10 < 0xfff8) {
+              this.m_register_ram[bankBase + 10] = 0x00;
+              this.m_register_ram[bankBase + 11] = 0x10;
+              this.m_p_ram[10] = 0x00;
+              this.m_p_ram[11] = 0x10;
+            }
+            if (this.p3ReadsThisFrame > 96) {
+              this.linkYieldScanline = true;
+              this.linkYieldFrame = true;
+            }
+          }
+        }
       }
       return this.m_p_ram[addr];
     }
@@ -848,12 +956,20 @@ export class SM8521CPU {
           case SM8521_MMU3: this.mmu[3] = data; break;
           case SM8521_MMU4: this.mmu[4] = data; break;
           case SM8521_URTT:
-            // Writing a byte to UART Transmit Data ($002B) begins serial transmission:
-            // Clear TXRDY (bit 1 = 0x02) and TXEMPTY (bit 6 = 0x40) in URTS ($002D) for 48 cycles,
-            // and transmit the byte over the Compete.Com link cable.
+            // Writing a byte to UART Transmit Data ($002B) transmits over the Compete.Com link cable:
+            // Keep TXRDY (bit 1 = 0x02) and TXEMPTY (bit 6 = 0x40) asserted in URTS ($002D) so BIOS
+            // Send_a_byte ($463D) always takes the direct $464D hardware register path during multi-byte
+            // bursts (preventing Reset_UART_queue $460B from wiping queued bytes before transmission).
+            if (this.remotePort3Queue.length > 0) {
+              this.remotePort3Bits = this.remotePort3Queue[this.remotePort3Queue.length - 1] & 0x03;
+              this.remotePort3Queue = [];
+              this.remotePort3ReadsInState = 0;
+              this.m_p_ram[SM8521_P3] =
+                (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
+            }
             this.m_p_ram[SM8521_URTT] = data;
-            this.m_p_ram[SM8521_URTS] &= ~0x42;
-            this.uartTxCyclesRemaining = 48;
+            this.m_p_ram[SM8521_URTS] |= 0x42;
+            this.uartTxCyclesRemaining = 0;
             this.linkWaitFrames = 0;
             this.onUartTxByte?.(data);
             return;
@@ -1234,11 +1350,13 @@ export class SM8521CPU {
     }
     if (this.uartRxFifo.length > 0 && this.uartRxCooldown <= 0) {
       const rxBusy = (this.m_p_ram[SM8521_URTS] & 0x01) !== 0;
-      if (!rxBusy || this.uartRxStaleCycles >= 1024) {
+      const irqPending = (this.m_IR0 & 0x08) !== 0;
+      const interruptsEnabled = (this.m_PS1 & FLAG_I) !== 0;
+      if ((!rxBusy && !irqPending && interruptsEnabled) || this.uartRxStaleCycles >= 1024) {
         const nextByte = this.uartRxFifo.shift()! & 0xff;
         this.m_p_ram[SM8521_URTR] = nextByte;
-        this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1c) | 0x01; // RXRDY (0x01), 0 errors
-        this.uartRxCooldown = 48;
+        this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1c) | 0x43; // RXRDY (0x01) | TXRDY (0x02) | TXEMPTY (0x40), 0 errors
+        this.uartRxCooldown = 24;
         this.uartRxStaleCycles = 0;
         this.linkWaitFrames = 0;
         if (this.m_p_ram[SM8521_IE0] & 0x08) {
@@ -1327,28 +1445,83 @@ export class SM8521CPU {
         }
       }
 
-      // 2. Intercept BIOS ADPCM DAC Stream start ($56A3 -> $56B4 in Bank 5)
-      if (this.m_PC === 0x56b4 && this.mmu[2] === 5) {
-        if (this.onDacStreamStart) {
-          this.onDacStreamStart();
+      // 2b. Compete.Com Link Cable VBlank Handshake Synchronizer ($43CE = BIOS Scan_Keypad in Bank 5):
+      //     Fighters Megamix open_h2hx ($6D2F) and exchg_openx ($6D80/$6E53) call Scan_Keypad (`49 5A AC`)
+      //     while waiting for the peer console's Port 3 handshake. Ensure $0163/$0164 timeout counter stays
+      //     nonzero while waiting and return from Scan_Keypad once per frame so the P3 handshake loop advances.
+      if (this.linkConnected && this.m_PC === 0x43ce && this.mmu[2] === 5 && this.mmu[3] === 0x25 && this.linkWaitFrames < 600) {
+        this.onLinkPoll?.();
+        if (this.m_p_ram[0x0162] === 0x01) {
+          this.linkFrameHadWait = true;
+          if (this.m_p_ram[0x0164] > 0 && this.m_p_ram[0x0164] < 0x60) {
+            this.m_p_ram[0x0164] = 0x60;
+          }
+          this.m_PC = 0x43e6; // POP R2; RET (matching PUSH R2 at $43CC)
+          this.uartPollsThisFrame++;
+          if (this.uartPollsThisFrame >= 2) {
+            this.linkYieldScanline = true;
+            this.linkYieldFrame = true;
+          }
         }
       }
 
       // 3. Compete.Com Link Cable Asynchronous Transport Synchronizer ($46C6 = BIOS Receive_a_byte in Bank 5):
-      //    When a Head-to-Head game polls Receive_a_byte in a tight 0x180-iteration loop (~6ms) while waiting
-      //    for an in-flight packet over BroadcastChannel or LAN WebSocket, yield the scanline to the JS event
-      //    loop and hold the caller's RR4 timeout counter for up to 90 frames (~1.5s) until the byte arrives.
+      //    When a Head-to-Head game polls Receive_a_byte in a tight loop while waiting for an in-flight
+      //    packet over BroadcastChannel or LAN WebSocket, flush any pending outgoing TX bytes immediately,
+      //    clock in any waiting RX FIFO byte, or yield the remainder of the frame to the JS event loop while
+      //    preventing false software spin-loop timeouts (RR4 in Fighters Megamix, $0112/$0208 in Mortal Kombat Trilogy).
       if (this.linkConnected && this.m_PC === 0x46c6 && this.mmu[2] === 5) {
-        const rxEmpty =
-          this.m_p_ram[0x00a0] === this.m_p_ram[0x00a2] &&
-          this.m_p_ram[0x00a1] === this.m_p_ram[0x00a3];
-        if (rxEmpty && this.uartRxFifo.length === 0 && this.linkWaitFrames < 90) {
+        this.onLinkPoll?.();
+        let rxHead = (this.m_p_ram[0x00a0] << 8) | this.m_p_ram[0x00a1];
+        let rxTail = (this.m_p_ram[0x00a2] << 8) | this.m_p_ram[0x00a3];
+        if (rxHead === rxTail && this.uartRxFifo.length > 0 && (this.m_PS1 & FLAG_I) !== 0 && (this.m_p_ram[SM8521_IE0] & 0x08) !== 0) {
+          // Deliver the next received byte directly into the active User_RX_qq ring buffer ($0192/$0193, size $0196/$0197)
+          // and update hardware UART registers ($002C URTR, $002D URTS, and $00FB uart_ram) without overflowing the 256B stack!
+          const nextByte = this.uartRxFifo.shift()! & 0xff;
+          this.m_p_ram[SM8521_URTR] = nextByte;
+          this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1d) | 0x42;
+          this.m_p_ram[0x00fb] = 0x01;
+          const qBase = (this.m_p_ram[0x0192] << 8) | this.m_p_ram[0x0193];
+          const qSize = (this.m_p_ram[0x0196] << 8) | this.m_p_ram[0x0197];
+          const qEnd = (qBase + (qSize > 0 ? qSize : 8)) & 0xffff;
+          if (rxTail >= 0x0100 && rxTail < 0x0400) {
+            this.m_p_ram[rxTail] = nextByte;
+            rxTail = (rxTail + 1) & 0xffff;
+            if (rxTail === qEnd) {
+              rxTail = qBase;
+            }
+            this.m_p_ram[0x00a2] = (rxTail >> 8) & 0xff;
+            this.m_p_ram[0x00a3] = rxTail & 0xff;
+          }
+          this.uartRxCooldown = 24;
+          this.uartRxStaleCycles = 0;
+          this.linkWaitFrames = 0;
+        } else if (rxHead === rxTail && this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
+          this.uartPollsThisFrame++;
+          this.linkFrameHadWait = true;
           const bankBase = this.m_PS0 & 0xf8;
           const rr4 = (this.m_register_ram[bankBase + 4] << 8) | this.m_register_ram[bankBase + 5];
-          if (rr4 > 0x0008 && rr4 < 0x0280) {
+          if (rr4 > 0x0004 && rr4 < 0x0300) {
             this.m_register_ram[bankBase + 4] = 0x00;
             this.m_register_ram[bankBase + 5] = 0x04;
+            this.m_p_ram[4] = 0x00;
+            this.m_p_ram[5] = 0x04;
+          }
+          // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in R5 / $0208
+          if (this.mmu[4] === 0x27) {
+            const vblankTick = this.m_p_ram[0x0112];
+            this.m_register_ram[bankBase + 5] = vblankTick;
+            this.m_p_ram[5] = vblankTick;
+            if (this.m_p_ram[0x0208] <= 0x02) {
+              this.m_p_ram[0x0208] = 0x00;
+            }
+          }
+          if (this.uartPollsThisFrame >= 1) {
             this.linkYieldScanline = true;
+            this.linkYieldFrame = true;
+            this.gamecom_update_timers(4);
+            this.cycles += 4;
+            return 4;
           }
         }
       }
@@ -1646,8 +1819,14 @@ case 0x1F:  /* POPW S - 12,13 cycles - Flags affected: -------- */
 	r1 = this.mem_readbyte( this.m_PC ); this.m_PC = (this.m_PC + 1) & 0xFFFF;;
 	r2 = this.mem_readbyte( this.m_SP );                          this.m_SP = (this.m_SP + 1) & 0xFFFF;                          if ( ( this.m_SYS & 0x40 ) == 0 ) this.m_SP &= 0xFF;;
 	this.mem_writebyte( r1, r2 );
+	if ( r1 === 0x1b || r1 === 0x1e ) {
+		this.m_PS0 = r2;
+	}
 	r2 = this.mem_readbyte( this.m_SP );                          this.m_SP = (this.m_SP + 1) & 0xFFFF;                          if ( ( this.m_SYS & 0x40 ) == 0 ) this.m_SP &= 0xFF;;
 	this.mem_writebyte( r1 + 1, r2 );
+	if ( r1 + 1 === 0x1f ) {
+		this.m_PS1 = r2;
+	}
 	mycycles += ( ( this.m_SYS & 0x40 ) ? 12 : 13 );
 	break;
 case 0x20:  /* CMP r,@r / CMP r,(r)+ / CMP r,@w / CMP r,w(r) / CMP r,-(r) - 7,8,10,8,9 cycles - Flags affected: CZSV---- */
@@ -2676,21 +2855,34 @@ default:
    * - 5.5296 MHz MAME clock / 59.732155 Hz / 200 scanlines = 462 cycles per scanline (~92,573 cycles/frame)
    */
   public runFrame(speedMultiplier: number = 1.0) {
-    if (this.linkConnected) {
-      this.linkWaitFrames++;
-    }
+    this.linkFrameHadWait = false;
+    this.linkYieldFrame = false;
+    this.p3ReadsThisFrame = 0;
+    this.uartPollsThisFrame = 0;
     const baseScanlineCycles = this.correctClockSpeed ? 411 : 462;
     const cyclesPerScanline = Math.max(64, Math.floor(baseScanlineCycles * speedMultiplier));
     for (let line = 0; line < 200; line++) {
       let lineCycles = 0;
       this.linkYieldScanline = false;
-      while (lineCycles < cyclesPerScanline) {
-        lineCycles += this.step();
-        if (this.linkYieldScanline) {
-          break;
+      if (!this.linkYieldFrame) {
+        while (lineCycles < cyclesPerScanline) {
+          lineCycles += this.step();
+          if (this.linkYieldScanline) {
+            break;
+          }
         }
+      } else {
+        this.gamecom_update_timers(cyclesPerScanline);
       }
       this.renderScanline();
+    }
+    if (this.linkConnected) {
+      if (this.linkFrameHadWait) {
+        this.linkWaitFrames++;
+      } else {
+        this.linkWaitFrames = 0;
+      }
+      this.onLinkPoll?.();
     }
     // Assert VBLANK interrupt (LCDC_INT)
     this.set_input_line(LCDC_INT, true);

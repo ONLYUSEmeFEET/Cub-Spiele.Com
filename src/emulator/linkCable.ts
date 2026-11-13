@@ -36,67 +36,50 @@ export interface CompeteCompatibilityTitle {
 export const COMPETE_COMPATIBLE_GAMES: CompeteCompatibilityTitle[] = [
   {
     title: 'Fighters Megamix',
-    gameId: '$2905',
+    gameId: '$0710',
     mode: '2-Player Vs. Fighting (Real-Time)',
-    notes: 'Uses 19,200 8N1 UART + P3.0/P3.1 <-> P3.2/P3.3 hardware crossover handshake'
+    notes: '19,200 8N1 UART + P3.0/P3.1 <-> P3.2/P3.3 hardware crossover + 68-byte frame sync'
   },
   {
     title: 'Mortal Kombat Trilogy',
-    gameId: '$2301',
-    mode: '2-Player Kombat Link',
-    notes: 'Head-to-Head fighting & kode exchange over compete.com serial link'
-  },
-  {
-    title: 'Sonic Jam',
-    gameId: '$2703',
-    mode: '2-Player Sonic Vs. Mode',
-    notes: 'Head-to-Head stage race and time-attack synchronization'
-  },
-  {
-    title: 'Duke Nukem 3D',
-    gameId: '$2604',
-    mode: '2-Player Dukematch',
-    notes: 'Head-to-Head corridor deathmatch over serial link'
-  },
-  {
-    title: 'Indy 500',
-    gameId: '$0101',
-    mode: '2-Player Head-to-Head Racing',
-    notes: 'Real-time lap and car position telemetry via SM8521 UART'
+    gameId: '$1F55',
+    mode: '2-Player Kombat Link (Real-Time)',
+    notes: 'Master/Slave P3 crossover handshake + $3A/$A3/$E3/$EF/$D1 packet sync'
   },
   {
     title: 'Williams Arcade Classics',
-    gameId: '$2402',
-    mode: '2-Player Co-Op / Vs. High Score',
-    notes: 'Joust, Robotron 2084, Defender II, Sinistar, Bubbles link support'
+    gameId: '$1200',
+    mode: '2-Player Co-Op / Vs. Arcade Link',
+    notes: 'Joust, Robotron: 2084, Defender II, Sinistar & Bubbles compete.com link play'
   },
   {
-    title: 'Centipede',
-    gameId: '$3208',
-    mode: '2-Player Head-to-Head Arcade',
-    notes: 'Competitive mushroom field & spider attack link play'
-  },
-  {
-    title: 'Frogger',
-    gameId: '$3309',
-    mode: '2-Player Head-to-Head Race',
-    notes: 'Simultaneous river/road crossing multiplayer'
+    title: 'Jeopardy!',
+    gameId: '$1500',
+    mode: 'Multi-Console Game Show Link',
+    notes: 'Synchronizes buzzer lockouts, clues, and player bankrolls via compete.com cable'
   },
   {
     title: 'Monopoly',
-    gameId: '$340A',
-    mode: 'Multi-Console Board Link',
-    notes: 'Synchronizes board state, dice rolls, and property auctions'
+    gameId: '$1A00',
+    mode: 'Multi-Console Board Game Link',
+    notes: 'Synchronizes board state, dice rolls, trades, and property auctions'
   },
   {
-    title: 'Jeopardy! / Wheel of Fortune',
-    gameId: '$2106',
-    mode: 'Multi-Player Game Show Link',
-    notes: 'Synchronizes buzzer lockouts, puzzles, and player bankrolls'
+    title: 'Scrabble',
+    gameId: '$1800',
+    mode: '2-Player Crossword Link',
+    notes: 'Head-to-Head rack, board tile placement, and word score synchronization'
+  },
+  {
+    title: 'Compete.Com Link Test (Built-In)',
+    gameId: '$C0DE',
+    mode: 'Hardware Diagnostic & 2P Input Suite',
+    notes: 'Tests P3 crossover lines, UART ping-pong, 68-byte burst checksums & live 2P input'
   }
 ];
 
 interface LinkPacket {
+  seq: number;
   senderUid: string;
   instanceId: 1 | 2;
   room: string;
@@ -141,6 +124,8 @@ export class CompeteComLinkManager {
   private heartbeatTimer: number | null = null;
   private pendingTxBytes: number[] = [];
   private txFlushScheduled: boolean = false;
+  private txSeq: number = 1;
+  private lastRxSeqByPeer: Map<string, number> = new Map();
   private onStateChange?: () => void;
   private storageListener?: (e: StorageEvent) => void;
   private ipcUnsubscribe?: () => void;
@@ -169,6 +154,9 @@ export class CompeteComLinkManager {
     };
     this.cpu.onLinkPort3Change = (lowBits: number) => {
       this.handleCpuPort3Change(lowBits);
+    };
+    this.cpu.onLinkPoll = () => {
+      this.flushPendingUartTx();
     };
 
     // Auto-start Same-PC link if launched with ?autolink=1 or ?instance=2
@@ -346,6 +334,7 @@ export class CompeteComLinkManager {
         senderUid: this.uid,
         instanceId: this.instanceId,
         room: this.roomCode,
+        seq: this.txSeq++,
         type: 'bye',
         timestamp: Date.now()
       });
@@ -383,8 +372,9 @@ export class CompeteComLinkManager {
     this.peerInstanceId = null;
     this.pendingTxBytes = [];
     this.txFlushScheduled = false;
+    this.lastRxSeqByPeer.clear();
     this.cpu.linkConnected = false;
-    this.cpu.setRemotePort3Bits(0x00);
+    this.cpu.setRemotePort3Bits(0x00, false);
 
     if (notifyUi) {
       this.pushLog('SYS', 'Compete.Com Link Cable disconnected');
@@ -456,6 +446,7 @@ export class CompeteComLinkManager {
       senderUid: this.uid,
       instanceId: this.instanceId,
       room: this.roomCode,
+      seq: this.txSeq++,
       type: 'hello',
       p3Bits: this.cpu.localPort3Bits & 0x03,
       timestamp: Date.now()
@@ -469,7 +460,7 @@ export class CompeteComLinkManager {
     const cleanBits = lowBits & 0x03;
 
     if (this.mode === 'loopback') {
-      this.cpu.setRemotePort3Bits(cleanBits);
+      this.cpu.setRemotePort3Bits(cleanBits, true);
       return;
     }
 
@@ -480,6 +471,7 @@ export class CompeteComLinkManager {
       senderUid: this.uid,
       instanceId: this.instanceId,
       room: this.roomCode,
+      seq: this.txSeq++,
       type: 'p3',
       p3Bits: cleanBits,
       timestamp: Date.now()
@@ -525,6 +517,7 @@ export class CompeteComLinkManager {
       senderUid: this.uid,
       instanceId: this.instanceId,
       room: this.roomCode,
+      seq: this.txSeq++,
       type: 'uart-burst',
       p3Bits: this.cpu.localPort3Bits & 0x03,
       bytes: burst,
@@ -543,18 +536,22 @@ export class CompeteComLinkManager {
 
   private sendPacket(pkt: LinkPacket) {
     if (this.mode === 'same-pc') {
+      let sentViaChannel = false;
       if (this.broadcastChannel) {
         try {
           this.broadcastChannel.postMessage(pkt);
+          sentViaChannel = true;
         } catch {
           // Ignore channel error
         }
       }
       if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(STORAGE_FALLBACK_KEY, JSON.stringify(pkt));
-        } catch {
-          // Ignore storage quota
+        if (!sentViaChannel) {
+          try {
+            localStorage.setItem(STORAGE_FALLBACK_KEY, JSON.stringify(pkt));
+          } catch {
+            // Ignore storage quota
+          }
         }
         const desktop = (window as any).gamecomDesktop;
         if (desktop?.sendLinkPacket) {
@@ -576,6 +573,15 @@ export class CompeteComLinkManager {
     if (!pkt || pkt.senderUid === this.uid) return;
     if (pkt.room && pkt.room.toUpperCase() !== this.roomCode) return;
 
+    // Deduplicate packets delivered across redundant same-pc transports (BroadcastChannel + Electron IPC + localStorage)
+    if (typeof pkt.seq === 'number') {
+      const prevSeq = this.lastRxSeqByPeer.get(pkt.senderUid) ?? 0;
+      if (pkt.seq <= prevSeq) {
+        return;
+      }
+      this.lastRxSeqByPeer.set(pkt.senderUid, pkt.seq);
+    }
+
     this.lastPacketTime = Date.now();
     const wasConnected = this.status === 'connected' && this.peerUid === pkt.senderUid;
 
@@ -584,7 +590,8 @@ export class CompeteComLinkManager {
         this.status = 'waiting';
         this.peerUid = null;
         this.peerInstanceId = null;
-        this.cpu.setRemotePort3Bits(0x00);
+        this.lastRxSeqByPeer.delete(pkt.senderUid);
+        this.cpu.setRemotePort3Bits(0x00, false);
         this.pushLog('SYS', 'Peer console disconnected');
         this.onStateChange?.();
       }
@@ -602,15 +609,15 @@ export class CompeteComLinkManager {
     this.status = 'connected';
     this.cpu.linkConnected = true;
 
-    if (typeof pkt.p3Bits === 'number') {
-      this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03);
-    }
-
     if (pkt.type === 'hello') {
+      if (typeof pkt.p3Bits === 'number') {
+        this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, false);
+      }
       this.sendPacket({
         senderUid: this.uid,
         instanceId: this.instanceId,
         room: this.roomCode,
+        seq: this.txSeq++,
         type: 'ack',
         p3Bits: this.cpu.localPort3Bits & 0x03,
         timestamp: Date.now()
@@ -623,6 +630,9 @@ export class CompeteComLinkManager {
     }
 
     if (pkt.type === 'ack') {
+      if (typeof pkt.p3Bits === 'number') {
+        this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, false);
+      }
       if (!wasConnected) {
         this.pushLog('SYS', `Handshake verified with Peer Console #${this.peerInstanceId}`);
         this.onStateChange?.();
@@ -632,11 +642,14 @@ export class CompeteComLinkManager {
 
     if (pkt.type === 'p3' && typeof pkt.p3Bits === 'number') {
       this.p3Handshakes++;
-      this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03);
+      this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, true);
       return;
     }
 
     if (pkt.type === 'uart-burst' && Array.isArray(pkt.bytes)) {
+      if (typeof pkt.p3Bits === 'number') {
+        this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, false);
+      }
       for (const b of pkt.bytes) {
         const clean = b & 0xff;
         this.rxBytes++;

@@ -25,8 +25,15 @@ export const DebuggerModal: React.FC<DebuggerModalProps> = ({
   const regs = cpu.getRegisters();
 
   const handleStep = () => {
+    if (system.retroAchievements.config.hardcoreMode) {
+      system.onHardcoreViolation?.(
+        'CPU single-stepping is disabled in Competitive Hardcore Mode.'
+      );
+      return;
+    }
+    system.retroAchievements.taintSession('debugger');
     cpu.step();
-    setRefreshKey(k => k + 1);
+    setRefreshKey((k) => k + 1);
   };
 
   // Generate disassembly lines around PC

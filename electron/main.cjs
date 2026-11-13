@@ -355,7 +355,105 @@ function startLanRelayServer() {
     return { messages, consumed: offset, closed };
   }
 
-  const server = http.createServer((_req, res) => {
+  const lbDbPath = path.join(app.getPath('userData'), 'leaderboards-db.json');
+  function loadLbDb() {
+    try {
+      if (fs.existsSync(lbDbPath)) {
+        const parsed = JSON.parse(fs.readFileSync(lbDbPath, 'utf8'));
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+  function saveLbDb(entries) {
+    try {
+      fs.writeFileSync(lbDbPath, JSON.stringify(entries.slice(0, 1000), null, 2), 'utf8');
+    } catch {}
+  }
+
+  const server = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    if ((req.url || '').startsWith('/api/leaderboards')) {
+      if (req.method === 'GET') {
+        const entries = loadLbDb();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            service: 'Cub Spiele.Com Online Leaderboard Relay',
+            count: entries.length,
+            entries
+          })
+        );
+        return;
+      }
+      if (req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk) => {
+          body += chunk.toString();
+        });
+        req.on('end', () => {
+          try {
+            const parsedBody = JSON.parse(body);
+            const entry = parsedBody?.entry || parsedBody;
+            const proof = entry?.verification || entry?.proof;
+            const sigHex = proof?.signature || proof?.signatureHex;
+            const numScore =
+              typeof entry?.numericScore === 'number' ? entry.numericScore : entry?.score;
+            if (
+              entry &&
+              typeof numScore === 'number' &&
+              numScore > 0 &&
+              proof &&
+              typeof sigHex === 'string' &&
+              sigHex.length === 32 &&
+              !proof.saveStateUsed &&
+              !proof.slowdownUsed &&
+              !proof.debuggerUsed
+            ) {
+              const entries = loadLbDb();
+              const existingIdx = entries.findIndex(
+                (e) =>
+                  e.id === entry.id ||
+                  (e.verification?.signature ||
+                    e.verification?.signatureHex ||
+                    e.proof?.signature) === sigHex ||
+                  (e.gameId === entry.gameId &&
+                    String(e.playerName || '').toLowerCase() ===
+                      String(entry.playerName || '').toLowerCase() &&
+                    (e.numericScore ?? e.score) === numScore)
+              );
+              if (existingIdx >= 0) {
+                if (numScore >= (entries[existingIdx].numericScore ?? entries[existingIdx].score)) {
+                  entries[existingIdx] = entry;
+                }
+              } else {
+                entries.push(entry);
+              }
+              entries.sort(
+                (a, b) => (b.numericScore ?? b.score) - (a.numericScore ?? a.score)
+              );
+              saveLbDb(entries);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: true, count: entries.length, entries }));
+              return;
+            }
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'Invalid or unverified score proof' }));
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'Invalid JSON' }));
+          }
+        });
+        return;
+      }
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ service: 'Cub Spiele.Com Compete.Com LAN Relay', activeClients: clients.size }));
   });

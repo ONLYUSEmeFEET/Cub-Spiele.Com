@@ -19,13 +19,15 @@ The interface follows standalone handheld emulators such as **mGBA** and **melon
 | `src/emulator/sm8521.ts` | Cycle-accurate **Sharp SM8521 CPU** (4.9152 MHz), MMU (`$0010–$0013`), DMA Blitter (`$0020–$002D`), 16KB VRAM (`$A000–$DFFF`), 8KB NVRAM (`$E000–$FFFF`), and hardware P3 bit 6 dual cartridge slot isolation. |
 | `src/emulator/lcd.ts` | 200×160 2-bpp (4-shade) passive-matrix STN LCD renderer with calibrated reflective olive-green palette (`#b9c48a`) and frame ghosting. |
 | `src/emulator/sound.ts` | Hardware audio engine: `SGDA ($004E)` 8-bit DAC streamer (~7,877 Hz sample-rate conversion), `SG0`/`SG1`/`SG2` programmable tone generators, and 28mm internal speaker band-pass filter (`310 Hz – 3,450 Hz`). Default volume: `20%` (`0.2`). |
-| `src/emulator/nvramHighScores.ts` | Battery-backed NVRAM High Score & binary save manager (`$FC60–$FEDF`). Preserves the full 64-byte hardware slot (`rawSlot`), including *Lights Out* (`Game ID $0917`) binary level progress bytes at offsets `+0x12..+0x17`. |
-| `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (Slot 1: *Lights Out*, Slot 2: *Sonic Jam*), and Recently Played ROM persistence. |
-| `src/components/TopBar.tsx` | mGBA / melonDS-style native menu bar (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`) and quick toolbar. |
+| `src/emulator/nvramHighScores.ts` | Multi-player battery-backed NVRAM High Score & binary save manager (`$FC60–$FEDF`). Supports player profile creation, renaming, multi-user `.json`/`.nvram` score import, and preserves the full 64-byte hardware slot (`rawSlot`), including *Lights Out* (`Game ID $0917`) binary level progress bytes at offsets `+0x12..+0x17`. |
+| `src/emulator/retroAchievements.ts` | Competitive Hardcore Mode & RetroAchievements (`rcheevos` / `dorequest.php`) engine with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, rolling input entropy attestation, and RAIntegration submission kit export. |
+| `src/emulator/onlineLeaderboard.ts` | Online Competitive Leaderboard manager (`/api/leaderboards` REST sync, `BroadcastChannel` peer sync, best-score-per-game aggregation, and `CSC1-...` Signed Score Certificates). |
+| `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (Slot 1 preloaded with *Lights Out*, Slot 2 user-loadable), Hardcore Mode enforcement, and Recently Played ROM persistence. |
+| `src/components/TopBar.tsx` | mGBA / melonDS-style native menu bar (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`) and quick toolbar with direct High Scores & Hardcore Mode controls. |
 | `src/components/ScreenOnlyView.tsx` | Standalone Screen-Only viewport with `2×`/`3×`/`4×` integer scaling and hardware status bar. |
 | `src/components/GameComConsole.tsx` | Full physical handheld console shell with sculpted D-Pad, A/B/C/D buttons, and dual cartridge bay ridges. |
 | `electron/main.cjs` & `preload.cjs` | Electron Native Windows desktop main process and IPC preload bridge (`window.gamecomDesktop`). |
-| `scripts/build-windows-release.py` | Compiles `CubSpieleCom.exe` (64-bit Windows PE32+ GUI executable) and packages `CubSpieleCom-v1.2.0-win64.zip`. |
+| `scripts/build-windows-release.py` | Compiles `CubSpieleCom.exe` (64-bit Windows PE32+ GUI executable) and packages `CubSpieleCom-v1.4.0-win64.zip`. |
 
 ---
 

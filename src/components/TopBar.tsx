@@ -475,6 +475,23 @@ export const TopBar: React.FC<TopBarProps> = ({
 
                 <button
                   onClick={() => {
+                    system.toggleHardcoreMode();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-amber-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Competitive Hardcore Mode</span>
+                  </span>
+                  {system.retroAchievements.config.hardcoreMode && (
+                    <Check className="w-3.5 h-3.5 text-amber-400" />
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
                     system.settings.backgroundInput = !system.settings.backgroundInput;
                     system.saveInputSettingsToStorage();
                     onUpdate();
@@ -492,20 +509,31 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                   Clock Speed
                 </div>
-                {[0.5, 1.0, 2.0].map((spd) => (
-                  <button
-                    key={spd}
-                    onClick={() => {
-                      system.settings.speed = spd;
-                      onUpdate();
-                      closeMenu();
-                    }}
-                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                  >
-                    <span>{spd === 1.0 ? '1.0x (4.9152 MHz Native)' : `${spd.toFixed(1)}x Speed`}</span>
-                    {system.settings.speed === spd && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                  </button>
-                ))}
+                {[0.5, 1.0, 2.0].map((spd) => {
+                  const lockedByHardcore =
+                    system.retroAchievements.config.hardcoreMode && spd < 1.0;
+                  return (
+                    <button
+                      key={spd}
+                      disabled={lockedByHardcore}
+                      onClick={() => {
+                        system.setClockSpeed(spd);
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span>
+                        {spd === 1.0
+                          ? '1.0x (4.9152 MHz Native)'
+                          : `${spd.toFixed(1)}x Speed${lockedByHardcore ? ' (Locked in Hardcore)' : ''}`}
+                      </span>
+                      {system.settings.speed === spd && (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </button>
+                  );
+                })}
 
                 <div className="my-1 border-t border-zinc-800" />
 
@@ -521,14 +549,18 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <span className="text-[10px] opacity-60 font-mono">F5</span>
                 </button>
                 <button
+                  disabled={system.retroAchievements.config.hardcoreMode}
                   onClick={() => {
                     system.loadState(0);
                     onUpdate();
                     closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Quick Load State</span>
+                  <span>
+                    Quick Load State
+                    {system.retroAchievements.config.hardcoreMode ? ' (Locked)' : ''}
+                  </span>
                   <span className="text-[10px] opacity-60 font-mono">F8</span>
                 </button>
 
@@ -892,7 +924,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
                 >
                   <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                  <span>NVRAM High Score Vault ($FC60)...</span>
+                  <span>High Scores, Leaderboards & RetroAchievements...</span>
                 </button>
                 <button
                   onClick={() => {
@@ -942,7 +974,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* Right: Minimal Quick Actions (Compete.Com Link + Phone Book + Cartridge Name + View Mode + Mute) */}
+        {/* Right: Quick Actions (Hardcore Mode + High Scores/Leaderboards + Compete.Com Link + Cartridge Name + View Mode + Mute) */}
         <div className="flex items-center gap-2 text-[11px] text-zinc-400">
           {system.linkCable.instanceNumber > 1 && (
             <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold">
@@ -963,6 +995,40 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span>Stylus Mode</span>
             </button>
           )}
+
+          <button
+            onClick={() => {
+              system.toggleHardcoreMode();
+              onUpdate();
+            }}
+            className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] font-semibold transition cursor-pointer border ${
+              system.retroAchievements.config.hardcoreMode
+                ? system.retroAchievements.isSessionHardcoreClean()
+                  ? 'bg-amber-950/70 border-amber-500/60 text-amber-300 hover:bg-amber-900/70'
+                  : 'bg-rose-950/70 border-rose-500/60 text-rose-300 hover:bg-rose-900/70'
+                : 'bg-zinc-800/70 border-zinc-700 text-zinc-400 hover:text-zinc-200'
+            }`}
+            title={
+              system.retroAchievements.config.hardcoreMode
+                ? 'Competitive Hardcore Mode Active (Save states & slowdown locked; scores cryptographically attested)'
+                : 'Softcore Mode (Click to enable Competitive Hardcore Mode)'
+            }
+          >
+            <ShieldCheck className="w-3 h-3" />
+            <span>{system.retroAchievements.config.hardcoreMode ? 'HARDCORE' : 'SOFTCORE'}</span>
+          </button>
+
+          <button
+            onClick={onOpenHighScores}
+            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 transition cursor-pointer"
+            title="High Scores, Multi-Player Profiles, Online Leaderboards & RetroAchievements"
+          >
+            <Trophy className="w-3 h-3 text-amber-400" />
+            <span className="font-medium">High Scores</span>
+            <span className="font-mono text-[10px] text-amber-400">
+              ({system.highScores.getActiveProfile().name})
+            </span>
+          </button>
 
           <button
             onClick={onOpenLinkCable}
@@ -991,20 +1057,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                 ? 'Linking...'
                 : 'Compete.Com'}
             </span>
-          </button>
-
-          <button
-            onClick={onOpenPhoneBook}
-            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
-            title="Expanded Game.Com Phone Book Vault ($E000-$F3FF)"
-          >
-            <BookUser className="w-3 h-3 text-emerald-400" />
-            <span className="font-medium">Phone Book</span>
-            {system.phoneBook.getTotalEntriesCount() > 0 && (
-              <span className="font-mono text-[10px] text-emerald-400">
-                ({system.phoneBook.getTotalEntriesCount()})
-              </span>
-            )}
           </button>
 
           <button

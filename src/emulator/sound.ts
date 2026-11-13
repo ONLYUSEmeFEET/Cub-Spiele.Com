@@ -20,7 +20,6 @@ export class SoundEngine {
   private midResonanceFilter: BiquadFilterNode | null = null;
   private speakerDistortion: WaveShaperNode | null = null;
   private lowPassFilter: BiquadFilterNode | null = null;
-  private noiseBuffer: AudioBuffer | null = null;
 
   private volume: number = 0.2;
   private isMuted: boolean = false;
@@ -142,14 +141,15 @@ export class SoundEngine {
         this.speakerDistortion.connect(this.lowPassFilter);
         this.lowPassFilter.connect(this.masterGain);
         this.masterGain.connect(this.ctx.destination);
-
-        this.createNoiseBuffer();
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().then(() => {
-        this.tryPlayPendingBootCapture();
-      }).catch(() => {});
+      this.ctx
+        .resume()
+        .then(() => {
+          this.tryPlayPendingBootCapture();
+        })
+        .catch(() => {});
     }
   }
 
@@ -369,21 +369,6 @@ export class SoundEngine {
     }
   }
 
-  private createNoiseBuffer() {
-    if (!this.ctx) return;
-    const bufferSize = this.ctx.sampleRate * 2; // 2 seconds
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let lastOut = 0.0;
-    for (let i = 0; i < bufferSize; i++) {
-      // 4-bit digitized noise emulation (quantized 16 levels)
-      const white = Math.random() * 2 - 1;
-      lastOut = (lastOut + 0.02 * white) / 1.02;
-      data[i] = Math.round(lastOut * 8) / 8;
-    }
-    this.noiseBuffer = buffer;
-  }
-
   public setVolume(vol: number) {
     this.volume = Math.max(0, Math.min(1, vol));
     if (this.masterGain && this.ctx) {
@@ -399,7 +384,7 @@ export class SoundEngine {
   }
 
   /**
-   * Channel 1: Play raw tone with frequency and duration through the internal speaker filter chain
+   * Play hardware programmable tone with frequency and duration through the internal speaker filter chain
    */
   public playTone(
     freq: number,
@@ -428,29 +413,6 @@ export class SoundEngine {
     } catch {
       // Ignore audio errors during suspended state
     }
-  }
-
-  /**
-   * Channel 2: Noise / Percussive explosion / hit through the internal speaker filter chain
-   */
-  public playNoise(durationSec: number = 0.15, gainVal: number = 0.3) {
-    this.initContext();
-    const outNode = this.getOutputNode();
-    if (!this.ctx || !outNode || !this.noiseBuffer || this.isMuted) return;
-
-    try {
-      const source = this.ctx.createBufferSource();
-      source.buffer = this.noiseBuffer;
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + durationSec);
-
-      source.connect(gain);
-      gain.connect(outNode);
-
-      source.start();
-      source.stop(this.ctx.currentTime + durationSec);
-    } catch {}
   }
 
   /**
@@ -514,187 +476,6 @@ export class SoundEngine {
   }
 
   /**
-   * Fallback synthesized boot jingle routed through the internal speaker band-pass & distortion stage
-   */
-  public playBootJingle() {
-    this.initContext();
-    const outNode = this.getOutputNode();
-    if (!this.ctx || !outNode || this.isMuted) return;
-
-    const t = this.ctx.currentTime;
-    const notes = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99];
-    notes.forEach((freq, idx) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(freq, t + idx * 0.08);
-
-      gain.gain.setValueAtTime(0.18, t + idx * 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.22);
-
-      osc.connect(gain);
-      gain.connect(outNode);
-
-      osc.start(t + idx * 0.08);
-      osc.stop(t + idx * 0.08 + 0.25);
-    });
-  }
-
-  /**
-   * Stylus Tap — Emulator UI sound effects removed for pure SM8521 hardware audio accuracy.
-   */
-  public playTouchBeep() {
-    this.initContext();
-  }
-
-  /**
-   * Button Press — Emulator UI sound effects removed for pure SM8521 hardware audio accuracy.
-   */
-  public playButtonPress() {
-    this.initContext();
-  }
-
-  /**
-   * Cartridge Insert / Eject — Emulator UI sound effects removed for pure SM8521 hardware audio accuracy.
-   */
-  public playCartridgeClick() {
-    this.initContext();
-  }
-
-  /**
-   * Resident Evil 2: Gunshot
-   */
-  public playHandgunShot() {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    this.playTone(120, 0.05, 'sawtooth', 0.4);
-    this.playNoise(0.2, 0.45);
-  }
-
-  /**
-   * Resident Evil 2: Zombie Groan
-   */
-  public playZombieGroan() {
-    this.initContext();
-    const outNode = this.getOutputNode();
-    if (!this.ctx || !outNode || this.isMuted) return;
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(90, t);
-    osc.frequency.linearRampToValueAtTime(65, t + 0.4);
-    gain.gain.setValueAtTime(0.25, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
-    osc.connect(gain);
-    gain.connect(outNode);
-    osc.start(t);
-    osc.stop(t + 0.45);
-  }
-
-  /**
-   * Sonic Jam: Ring Collect Sound
-   */
-  public playRingSound() {
-    this.initContext();
-    const outNode = this.getOutputNode();
-    if (!this.ctx || !outNode || this.isMuted) return;
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1046.5, t); // C6
-    osc.frequency.setValueAtTime(1318.51, t + 0.05); // E6
-    gain.gain.setValueAtTime(0.22, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-    osc.connect(gain);
-    gain.connect(outNode);
-    osc.start(t);
-    osc.stop(t + 0.22);
-  }
-
-  /**
-   * Sonic Jam: Jump Spring Sound
-   */
-  public playJumpSound() {
-    this.initContext();
-    const outNode = this.getOutputNode();
-    if (!this.ctx || !outNode || this.isMuted) return;
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(220, t);
-    osc.frequency.exponentialRampToValueAtTime(880, t + 0.15);
-    gain.gain.setValueAtTime(0.2, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    osc.connect(gain);
-    gain.connect(outNode);
-    osc.start(t);
-    osc.stop(t + 0.18);
-  }
-
-  /**
-   * 14.4k Dial-up Modem Connect sound emulation
-   */
-  public playModemDialup(onComplete?: () => void) {
-    this.initContext();
-    const outNode = this.getOutputNode();
-    if (!this.ctx || !outNode || this.isMuted) {
-      if (onComplete) setTimeout(onComplete, 1200);
-      return;
-    }
-
-    const t = this.ctx.currentTime;
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc1.frequency.value = 350;
-    osc2.frequency.value = 440;
-    gain.gain.setValueAtTime(0.15, t);
-    gain.gain.setValueAtTime(0, t + 0.4);
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(outNode);
-    osc1.start(t);
-    osc2.start(t);
-    osc1.stop(t + 0.4);
-    osc2.stop(t + 0.4);
-
-    const dtmfPairs = [
-      [697, 1209],
-      [770, 1336],
-      [852, 1477],
-      [941, 1336]
-    ];
-    dtmfPairs.forEach((pair, i) => {
-      const dt = t + 0.5 + i * 0.1;
-      const d1 = this.ctx!.createOscillator();
-      const d2 = this.ctx!.createOscillator();
-      const dg = this.ctx!.createGain();
-      d1.frequency.value = pair[0];
-      d2.frequency.value = pair[1];
-      dg.gain.setValueAtTime(0.12, dt);
-      dg.gain.setValueAtTime(0.001, dt + 0.07);
-      d1.connect(dg);
-      d2.connect(dg);
-      dg.connect(outNode);
-      d1.start(dt);
-      d2.start(dt);
-      d1.stop(dt + 0.08);
-      d2.stop(dt + 0.08);
-    });
-
-    setTimeout(() => {
-      this.playNoise(0.6, 0.18);
-      this.playTone(2100, 0.4, 'sawtooth', 0.15);
-      if (onComplete) {
-        setTimeout(onComplete, 1000);
-      }
-    }, 950);
-  }
-
-  /**
    * Hardware Sound Generator (SM8521 $0040-$004E: SGC, SG0, SG1, SG2)
    * Note table at $4095 in Bank 5 uses 262144 / period (e.g. Middle C4 = $03EC = 1004 -> 261.1 Hz).
    */
@@ -744,5 +525,3 @@ export class SoundEngine {
     }
   }
 }
-
-

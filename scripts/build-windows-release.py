@@ -474,7 +474,7 @@ def main():
     with open(exe_path, 'wb') as f:
         f.write(exe_bytes)
 
-    versions = ['v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
+    versions = ['v1.4.0', 'v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
     zip_paths = {}
     for ver in versions:
         zname = f'CubSpieleCom-{ver}-win64.zip'
@@ -505,22 +505,55 @@ def main():
     manifest = {
         "project": "cub-spiele-com-emulator",
         "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-        "latestVersion": "v1.3.0",
+        "latestVersion": "v1.4.0",
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "releases": [
             {
-                "tag": "v1.3.0",
-                "title": "Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender & RTC Date Sync",
-                "publishedAt": "2026-11-12T22:30:00Z",
+                "tag": "v1.4.0",
+                "title": "Cub Spiele.Com v1.4.0 — Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
+                "publishedAt": "2026-11-13T18:00:00Z",
                 "isLatest": True,
                 "Prerelease": False,
-                "commitRef": "HEAD (tag: v1.3.0)",
+                "commitRef": "HEAD (tag: v1.4.0)",
+                "highlights": [
+                    "Added Competitive Hardcore Mode (RetroAchievements compatible): locks save state loading (F8), enforces >=1.0x native 4.9152 MHz clock speed, blocks CPU debugger stepping, and performs clean cold-boot session attestation",
+                    "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
+                    "Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)",
+                    "Added RetroAchievements (rcheevos / dorequest.php) ecosystem integration with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, live Rich Presence, and RAIntegration submission export kit",
+                    "Removed Sega-copyrighted Sonic Jam ROMs and streamlined top-right quick-action bar with direct High Scores & Hardcore Mode controls"
+                ],
+                "assets": [
+                    {
+                        "name": zip_paths['v1.4.0'][0],
+                        "label": "Windows x64 Portable Build (v1.4.0 .zip)",
+                        "url": f"./releases/{zip_paths['v1.4.0'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.4.0'][1]),
+                        "sha256": sha256_file(zip_paths['v1.4.0'][1]),
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    },
+                    {
+                        "name": "CubSpieleCom.exe",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.4.0 .exe)",
+                        "url": "./releases/CubSpieleCom.exe",
+                        "sizeBytes": exe_size,
+                        "sha256": exe_sha,
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    }
+                ]
+            },
+            {
+                "tag": "v1.3.0",
+                "title": "Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & DS Virtual Stylus",
+                "publishedAt": "2026-11-12T22:30:00Z",
+                "isLatest": False,
+                "Prerelease": False,
+                "commitRef": "tag: v1.3.0",
                 "highlights": [
                     "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings",
                     "Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors",
+                    "Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and DS-Style Virtual Stylus",
                     "Synchronized internal Game.Com Real-Time Clock ($0120-$0129) and NVRAM Calendar ($FEE2-$FEE7) to the user device date and time",
-                    "Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)",
-                    "Streamlined standalone desktop UI with a single compact menu bar and bottom status bar"
+                    "Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)"
                 ],
                 "assets": [
                     {
@@ -532,7 +565,7 @@ def main():
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
                     },
                     {
-                        "name": "CubSpieleCom.exe",
+                        "name": "CubSpieleCom-v1.3.0.exe",
                         "label": "Standalone Windows x64 Emulator Executable (v1.3.0 .exe)",
                         "url": "./releases/CubSpieleCom.exe",
                         "sizeBytes": exe_size,
@@ -581,7 +614,7 @@ def main():
                 "Prerelease": False,
                 "commitRef": "tag: v1.1.0",
                 "highlights": [
-                    "Preloaded Slot 1 (Lights Out) & Slot 2 (Sonic Jam) with hardware P3 chip-select isolation",
+                    "Added Dual Cartridge Bay support with hardware P3 chip-select isolation",
                     "Fixed Lights Out '1?5' starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM",
                     "Verified Sharp SM8521 CPU ALU against official datasheet (8-bit ADC & 16-bit ADDW/ADCW signed overflow V flag, 16-bit ANDW/ORW/XORW S/V flags, PS0 $001E mirror)",
                     "Calibrated default audio volume to 20% with internal speaker band-pass filter"

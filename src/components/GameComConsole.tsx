@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { GameComButtons } from '../emulator/types';
 import { LCDScreen } from './LCDScreen';
@@ -21,70 +21,6 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 }) => {
   const [pressedButtons, setPressedButtons] = useState<Partial<GameComButtons>>({});
   const [contrastValue, setContrastValue] = useState(system.settings.contrast);
-
-  // Keyboard bindings
-  useEffect(() => {
-    const keyMap: Record<string, keyof GameComButtons> = {
-      ArrowUp: 'up',
-      KeyW: 'up',
-      ArrowDown: 'down',
-      KeyS: 'down',
-      ArrowLeft: 'left',
-      KeyA: 'left',
-      ArrowRight: 'right',
-      KeyD: 'right',
-      KeyZ: 'a',
-      KeyJ: 'a',
-      Space: 'a',
-      KeyX: 'b',
-      KeyK: 'b',
-      KeyC: 'c',
-      KeyL: 'c',
-      KeyV: 'd',
-      KeyI: 'd',
-      Enter: 'menu',
-      KeyM: 'menu',
-      KeyP: 'pause',
-      Backspace: 'pause'
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA' ||
-        document.activeElement?.tagName === 'SELECT'
-      ) {
-        return;
-      }
-
-      const btn = keyMap[e.code];
-      if (btn) {
-        e.preventDefault();
-        if (!pressedButtons[btn]) {
-          setPressedButtons((prev) => ({ ...prev, [btn]: true }));
-          system.setButton(btn, true);
-          onStateChange?.();
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const btn = keyMap[e.code];
-      if (btn) {
-        e.preventDefault();
-        setPressedButtons((prev) => ({ ...prev, [btn]: false }));
-        system.setButton(btn, false);
-        onStateChange?.();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [system, pressedButtons, onStateChange]);
 
   const handleBtnPress = (btn: keyof GameComButtons) => {
     setPressedButtons((prev) => ({ ...prev, [btn]: true }));
@@ -153,7 +89,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           </button>
         </div>
 
-        {/* SLOT 2 CARTRIDGE (Default: Sonic Jam TOSEC ROM) */}
+        {/* SLOT 2 CARTRIDGE */}
         <div
           onClick={() => {
             if (system.slot2) {

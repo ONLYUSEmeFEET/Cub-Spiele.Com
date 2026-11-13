@@ -13,6 +13,8 @@ import { SM8521CPU } from './sm8521';
 import { NvramHighScoreManager } from './nvramHighScores';
 import { NvramPhoneBookManager } from './nvramPhoneBook';
 import { CompeteComLinkManager } from './linkCable';
+import { RetroAchievementsEngine } from './retroAchievements';
+import { OnlineLeaderboardManager } from './onlineLeaderboard';
 import {
   GameComButtons,
   TouchPoint,
@@ -60,6 +62,10 @@ export class GameComSystem {
   public highScores: NvramHighScoreManager;
   public phoneBook: NvramPhoneBookManager;
   public linkCable: CompeteComLinkManager;
+  public retroAchievements: RetroAchievementsEngine;
+  public onlineLeaderboard: OnlineLeaderboardManager;
+  public onHardcoreViolation?: (reason: string) => void;
+  public onScoreRecorded?: (entry: any) => void;
 
   // Dual cartridge slots
   public slot1: CartridgeInfo | null = null;
@@ -166,6 +172,15 @@ export class GameComSystem {
     this.highScores = new NvramHighScoreManager();
     this.phoneBook = new NvramPhoneBookManager();
     this.linkCable = new CompeteComLinkManager(this.cpu);
+    this.retroAchievements = new RetroAchievementsEngine();
+    this.onlineLeaderboard = new OnlineLeaderboardManager();
+
+    // Wire competitive Hardcore & Online Leaderboard attestation into NVRAM High Score Manager
+    this.highScores.attachCompetitiveEngines(
+      this.retroAchievements,
+      this.onlineLeaderboard,
+      (entry) => this.onScoreRecorded?.(entry)
+    );
 
     // Wire hardware sound generator, 8-bit SGDA ($004E) DAC streamer, & BIOS digitized waveform callbacks
     this.cpu.onSoundRegWrite = (audioState) => {
@@ -213,9 +228,9 @@ export class GameComSystem {
     this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
     this.highScores.saveRawNvram(this.cpu.nvram);
 
-    // Preload Slot 1 (Lights Out) & Slot 2 (Sonic Jam)
+    // Preload Slot 1 (Lights Out); Slot 2 remains empty until the user loads a cartridge
     this.slot1 = PRELOADED_CARTRIDGES[0] || null;
-    this.slot2 = PRELOADED_CARTRIDGES[1] || null;
+    this.slot2 = null;
     for (const c of PRELOADED_CARTRIDGES) {
       this.loadedCartridgeCache.set(c.id, c);
     }
@@ -224,6 +239,55 @@ export class GameComSystem {
     this.loadPreloadedCartridges();
 
     this.resetSystem('MAIN_MENU');
+  }
+
+  public getActiveCartridge(): CartridgeInfo | null {
+    return this.activeSlot === 1 ? this.slot1 : this.slot2;
+  }
+
+  /**
+   * Toggles Competitive / RetroAchievements Hardcore Mode.
+   * When enabled:
+   * - Forces 1.0x+ native speed (disables 0.5x slowdown)
+   * - Locks calibrated 4.9152 MHz clock timing
+   * - Disables loading Save States (F8) and CPU debugger stepping
+   * - Performs a clean cold hardware reset so the session starts untainted from frame 0
+   */
+  public toggleHardcoreMode(enabled?: boolean): boolean {
+    const nextState =
+      enabled !== undefined ? enabled : !this.retroAchievements.config.hardcoreMode;
+    this.retroAchievements.config.hardcoreMode = nextState;
+    this.retroAchievements.saveConfig();
+    if (nextState) {
+      if (this.settings.speed < 1.0) {
+        this.settings.speed = 1.0;
+      }
+      this.accuracyFixes.correctClockSpeed = true;
+      const bootTarget: FastBootTarget =
+        this.activeApp === 'CARTRIDGE'
+          ? this.activeSlot === 1
+            ? 'CART_1'
+            : 'CART_2'
+          : 'MAIN_MENU';
+      this.resetSystem(bootTarget);
+    } else {
+      this.retroAchievements.session.hardcoreActive = false;
+    }
+    return nextState;
+  }
+
+  public setClockSpeed(spd: number): boolean {
+    if (this.retroAchievements.config.hardcoreMode && spd < 1.0) {
+      this.onHardcoreViolation?.(
+        'Hardcore Mode prohibits sub-1.0x slowdown. Disable Hardcore Mode to use 0.5x speed.'
+      );
+      return false;
+    }
+    this.settings.speed = spd;
+    if (spd < 1.0) {
+      this.retroAchievements.taintSession('slowdown');
+    }
+    return true;
   }
 
   private loadDisplaySettingsFromStorage() {
@@ -394,8 +458,15 @@ export class GameComSystem {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          this.recentGames = parsed;
-          return;
+          this.recentGames = parsed.filter(
+            (g: any) =>
+              g &&
+              g.id !== 'sonic_jam' &&
+              !String(g.title || '').toLowerCase().includes('sonic jam')
+          );
+          if (this.recentGames.length > 0) {
+            return;
+          }
         }
       }
     } catch {
@@ -532,6 +603,15 @@ export class GameComSystem {
     this.activeApp = 'OS';
     this.touchLockedUntilRelease = false;
     this.stylusPulseFrames = 0;
+
+    // Start a fresh, untainted cryptographic session on cold hardware reset
+    const targetCart =
+      target === 'CART_1'
+        ? this.slot1
+        : target === 'CART_2'
+          ? this.slot2
+          : this.getActiveCartridge();
+    this.retroAchievements.createCleanSession(targetCart);
   }
 
   public promptKeepClearData() {
@@ -761,6 +841,10 @@ export class GameComSystem {
       }
     }
 
+    if (speedMult < 1.0) {
+      this.retroAchievements.taintSession('slowdown');
+    }
+
     this.cpu.runFrame(speedMult);
     this.sound.endFrameDacCheck();
 
@@ -769,6 +853,13 @@ export class GameComSystem {
     } else {
       this.activeApp = 'OS';
     }
+
+    // Evaluate RetroAchievements rcheevos conditions & leaderboards for the current frame
+    this.retroAchievements.stepFrame(
+      this.cpu,
+      this.getActiveCartridge(),
+      this.highScores.getActiveProfile().name
+    );
   }
 
   /**
@@ -850,7 +941,7 @@ export class GameComSystem {
     this.touch.y = Math.max(0, Math.min(SCREEN_HEIGHT - 1, Math.floor(y)));
     this.touch.isDown = true;
     this.stylusPulseFrames = frames;
-    this.sound.playTouchBeep();
+    this.retroAchievements.recordHardwareInput((this.touch.x << 8) | this.touch.y);
   }
 
   public handlePointerDown(normX: number, normY: number) {
@@ -867,7 +958,7 @@ export class GameComSystem {
     this.virtualStylus.y = py;
     this.touchLockedUntilRelease = true;
     this.stylusPulseFrames = 8;
-    this.sound.playTouchBeep();
+    this.retroAchievements.recordHardwareInput((px << 8) | py);
   }
 
   /**
@@ -925,7 +1016,7 @@ export class GameComSystem {
       this.touch.y = py;
       this.touch.isDown = true;
       this.stylusPulseFrames = Math.max(this.stylusPulseFrames, 8);
-      this.sound.playTouchBeep();
+      this.retroAchievements.recordHardwareInput((px << 8) | py);
     } else if (!isDown && this.virtualStylus.isDown) {
       this.virtualStylus.isDown = false;
       this.touch.isDown = false;
@@ -958,7 +1049,8 @@ export class GameComSystem {
   public setButton(btn: keyof GameComButtons, isDown: boolean) {
     this.buttons[btn] = isDown;
     if (isDown) {
-      this.sound.playButtonPress();
+      const btnCode = btn.charCodeAt(0) | ((btn.charCodeAt(1) || 0) << 8);
+      this.retroAchievements.recordHardwareInput(btnCode);
     }
   }
 
@@ -1003,11 +1095,21 @@ export class GameComSystem {
   }
 
   public loadState(slotIndex: number = 0): boolean {
+    if (this.retroAchievements.config.hardcoreMode) {
+      this.onHardcoreViolation?.(
+        'Save State loading is disabled in Competitive Hardcore Mode to guarantee score legitimacy.'
+      );
+      return false;
+    }
+
     try {
       const raw = localStorage.getItem(`gamecom_hw_save_state_${slotIndex}`);
       if (!raw) return false;
       const stateData = JSON.parse(raw);
       if (!stateData || typeof stateData.pc !== 'number') return false;
+
+      // Loading a save state taints the current session for Hardcore leaderboard attestation
+      this.retroAchievements.taintSession('save_state');
 
       this.fastBootTarget = 'NONE';
       this.cpu.m_PC = stateData.pc;

@@ -50,11 +50,29 @@ export function App() {
     }, 3000);
   }, []);
 
-  // Periodic UI refresh for FPS and status bar + Electron menu bridge
+  // Periodic UI refresh for FPS and status bar + Electron menu bridge + Competitive callbacks
   useEffect(() => {
     const interval = setInterval(() => {
       forceUpdate();
     }, 500);
+
+    system.onHardcoreViolation = (reason) => {
+      showToast(reason);
+    };
+
+    system.onScoreRecorded = (entry) => {
+      showToast(
+        `New High Score! ${entry.playerName}: ${entry.scoreText} in ${entry.gameTitle} (${
+          entry.verification?.hardcoreVerified ? 'HARDCORE VERIFIED' : 'Softcore'
+        })`
+      );
+      forceUpdate();
+    };
+
+    system.retroAchievements.setNotificationHandler((title, subtitle) => {
+      showToast(`${title} — ${subtitle}`);
+      forceUpdate();
+    });
 
     const desktop = (window as any).gamecomDesktop;
     if (desktop && typeof desktop.onMenuAction === 'function') {
@@ -73,7 +91,7 @@ export function App() {
           forceUpdate();
         } else if (action === 'open-library') {
           setIsLibraryOpen(true);
-        } else if (action === 'open-high-scores') {
+        } else if (action === 'open-high-scores' || action === 'open-vault') {
           setIsHighScoresOpen(true);
         } else if (action === 'open-debugger') {
           setIsDebuggerOpen(true);
@@ -183,6 +201,11 @@ export function App() {
 
       if (e.code === 'F8') {
         e.preventDefault();
+        if (system.retroAchievements.config.hardcoreMode) {
+          system.loadState(0);
+          forceUpdate();
+          return;
+        }
         const loaded = system.loadState(0);
         showToast(loaded ? 'Loaded State (Slot 0)' : 'No Save State Found');
         forceUpdate();

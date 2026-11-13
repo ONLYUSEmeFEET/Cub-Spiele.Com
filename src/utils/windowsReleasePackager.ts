@@ -366,8 +366,8 @@ export async function downloadStandaloneWindowsExe(fileName: string = 'CubSpiele
  * Downloads or packages a byte-verified CubSpieleCom-<tag>-win64.zip portable archive
  */
 export async function downloadWindowsPortableZip(
-  zipFileName: string = 'CubSpieleCom-v1.3.0-win64.zip',
-  staticUrl: string = './releases/CubSpieleCom-v1.3.0-win64.zip'
+  zipFileName: string = 'CubSpieleCom-v1.4.0-win64.zip',
+  staticUrl: string = './releases/CubSpieleCom-v1.4.0-win64.zip'
 ): Promise<number> {
   try {
     const res = await fetch(staticUrl);
@@ -451,8 +451,7 @@ FEATURES:
   const assetPaths = [
     'bios/internal.bin',
     'bios/external.bin',
-    'roms/lightsout.bin',
-    'roms/sonicjam.bin'
+    'roms/lightsout.bin'
   ];
   for (const rel of assetPaths) {
     try {
