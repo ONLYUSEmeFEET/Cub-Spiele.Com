@@ -27,8 +27,8 @@ HARDWARE, ARCHITECTURE & EMULATION REFERENCES
   * Historical hardware register map and SM8500/SM8521 instruction set reference
     (Wilbert Pol, Robbbert, and the MAMEdev team).
 
-- mGBA & melonDS Projects
-  * https://mgba.io/ | https://melonds.kuribo64.net/
+- mGBA Project
+  * https://mgba.io/
   * Desktop UI/UX design inspiration for standalone handheld emulator menu bar
     (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`), Screen-Only integer
     scaling (`2x`/`3x`/`4x`), and multi-window link cable ergonomics.

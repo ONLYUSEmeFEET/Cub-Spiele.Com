@@ -48,7 +48,7 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
 
   const keyMap = [
     {
-      action: 'Move Stylus Cursor (DS Style)',
+      action: 'Move Virtual Stylus Cursor',
       keys: ['I / J / K / L', 'Numpad 8 / 4 / 5 / 6', 'Tab + Arrows / WASD'],
       gamepad: 'Right Stick  OR  L2/LT + Left Stick / D-Pad'
     },
@@ -88,17 +88,17 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
       gamepad: 'Y / Triangle (Top Face Button)'
     },
     {
-      action: 'MENU (Game.Com Main Menu)',
+      action: 'MENU (Main Menu)',
       keys: ['M', 'Backspace'],
       gamepad: 'Select / Back / Share Button'
     },
     {
-      action: 'PAUSE (Hardware Pause Key)',
+      action: 'PAUSE (Pause Game)',
       keys: ['P'],
       gamepad: 'Start / Options Button'
     },
     {
-      action: 'SOUND (Hardware Sound Key)',
+      action: 'SOUND (Toggle Sound)',
       keys: ['O'],
       gamepad: 'L1 / LB Shoulder Button'
     }
@@ -115,10 +115,10 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">
-                Controls, DS-Style Stylus &amp; Gamepad Mapping
+                Controls, Virtual Stylus &amp; Gamepad Mapping
               </h2>
               <p className="text-xs text-slate-400">
-                Move &amp; tap the stylus with Keyboard or Controller, plus Background Input for 2-Instance Multiplayer
+                Move &amp; tap the stylus with Keyboard or Controller, plus Background Input for 2-Player Multiplayer
               </p>
             </div>
           </div>
@@ -135,12 +135,12 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
           {/* Interactive Stylus & Background Input Settings */}
           {system && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* DS-Style Virtual Stylus Configuration */}
+              {/* Virtual Stylus Configuration */}
               <div className="p-4 bg-slate-950/90 border border-slate-800 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
                     <Crosshair className="w-4 h-4" />
-                    <span>DS-Style Virtual Stylus</span>
+                    <span>Virtual Stylus</span>
                   </div>
                   <button
                     onClick={() => {

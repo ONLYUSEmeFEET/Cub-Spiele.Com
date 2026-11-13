@@ -226,6 +226,10 @@ export class SM8521CPU {
   // Scanline renderer & 200x160 output bitmap (values 0..3 for LCDSubsystem)
   public m_scanline: number = 0;
   public displayBuffer: Uint8Array = new Uint8Array(200 * 160);
+  public cartridgeExecutedThisFrame: boolean = false;
+  private committedVramPage: Uint8Array = new Uint8Array(0x2000);
+  private committedVramValid: boolean = false;
+  private lastLcdcPageBit: number = 0x00;
 
   // Input state
   public buttonsState: GameComButtons = {
@@ -266,6 +270,9 @@ export class SM8521CPU {
     this.dmaCount = 0;
     this.m_scanline = 0;
     this.clockTimerAccumCycles = 0;
+    this.cartridgeExecutedThisFrame = false;
+    this.committedVramValid = false;
+    this.lastLcdcPageBit = 0x00;
 
     // MAME machine_reset defaults
     this.mmu[0] = 0;
@@ -532,7 +539,7 @@ export class SM8521CPU {
     } else if (p3 === 0x80) {
       this.activeCartRom = this.cart2Rom;
     } else {
-      this.activeCartRom = null;
+      this.activeCartRom = this.latchedCartSlot === 2 ? this.cart2Rom : this.cart1Rom;
     }
   }
 
@@ -907,11 +914,14 @@ export class SM8521CPU {
       if (addr >= 0x0014 && addr <= 0x0017) {
         if (addr === SM8521_P3) {
           // Check if CPU is currently executing inside cartridge ROM space ($2000-$9FFF with MMU >= 0x20)
+          // or if any MMU bank currently maps cartridge ROM while an application is active.
           const pcBankIdx = this.m_PC >> 13;
           const inCartridgeSpace =
-            this.m_PC >= 0x2000 &&
-            this.m_PC < 0xa000 &&
-            this.mmu[pcBankIdx] >= 0x20;
+            (this.m_PC >= 0x2000 &&
+              this.m_PC < 0xa000 &&
+              this.mmu[pcBankIdx] >= 0x20) ||
+            this.mmu[3] >= 0x20 ||
+            this.mmu[4] >= 0x20;
 
           if (!inCartridgeSpace) {
             // BIOS is selecting a cartridge slot ($3FC4 = 0x40 Slot 1, $3FC9 = 0x80 Slot 2)
@@ -921,9 +931,8 @@ export class SM8521CPU {
               this.latchedCartSlot = 2;
             }
           } else if (this.dualCartridgeSlotFix) {
-            // Fix for Frogger & Centipede Dual Cartridge Slot Bug:
             // Preserve the active BIOS-selected slot chip-select bit (0x40 or 0x80) when a cartridge
-            // writes to P3 (e.g., Frogger's AND P3, #$F0 at $4078 or MOV P3, #$50), without leaking data.
+            // or BIOS helper called by a cartridge writes to P3, without leaking data.
             const slotBits = this.latchedCartSlot === 2 ? 0x80 : 0x40;
             data = (data & 0x3f) | slotBits;
           }
@@ -951,10 +960,23 @@ export class SM8521CPU {
 
       if (addr >= 0x0020 && addr <= 0x007f) {
         switch (addr) {
-          case SM8521_MMU1: this.mmu[1] = data; break;
-          case SM8521_MMU2: this.mmu[2] = data; break;
-          case SM8521_MMU3: this.mmu[3] = data; break;
-          case SM8521_MMU4: this.mmu[4] = data; break;
+          case SM8521_MMU1: this.mmu[1] = data; if (data >= 0x20) this.cartridgeExecutedThisFrame = true; break;
+          case SM8521_MMU2: this.mmu[2] = data; if (data >= 0x20) this.cartridgeExecutedThisFrame = true; break;
+          case SM8521_MMU3: this.mmu[3] = data; if (data >= 0x20) this.cartridgeExecutedThisFrame = true; break;
+          case SM8521_MMU4: this.mmu[4] = data; if (data >= 0x20) this.cartridgeExecutedThisFrame = true; break;
+          case SM8521_LCDC: {
+            const newPageBit = data & 0x40;
+            if (newPageBit !== this.lastLcdcPageBit) {
+              // Double-buffered games (e.g. Castlevania: Symphony of the Night via BIOS $5B60 XOR LCDC, #$40)
+              // flip LCDC bit 6 as soon as a backbuffer page is completed and immediately start clearing the
+              // other VRAM page. Snapshot the newly selected completed 8KB VRAM page for tear-free display.
+              const pageOffset = newPageBit ? 0x2000 : 0x0000;
+              this.committedVramPage.set(this.videoram.subarray(pageOffset, pageOffset + 0x2000));
+              this.committedVramValid = true;
+              this.lastLcdcPageBit = newPageBit;
+            }
+            break;
+          }
           case SM8521_URTT:
             // Writing a byte to UART Transmit Data ($002B) transmits over the Compete.Com link cable:
             // Keep TXRDY (bit 1 = 0x02) and TXEMPTY (bit 6 = 0x40) asserted in URTS ($002D) so BIOS
@@ -1392,10 +1414,12 @@ export class SM8521CPU {
         case 0x30: p0 = 0; p1 = 2; p2 = 2; p3 = 3; break;
       }
       const pal = [p0, p1, p2, p3];
-      const lineOffset = base_address + 40 * x;
+      const useSnapshot = this.committedVramValid && (lcdc & 0x40) === this.lastLcdcPageBit;
+      const vramSource = useSnapshot ? this.committedVramPage : this.videoram;
+      const lineOffset = (useSnapshot ? 0 : base_address) + 40 * x;
 
       for (let i = 0; i < 40; i++) {
-        const p = this.videoram[lineOffset + i];
+        const p = vramSource[lineOffset + i];
         const yBase = i * 4;
         this.displayBuffer[(yBase + 0) * 200 + x] = pal[(p >> 6) & 3];
         this.displayBuffer[(yBase + 1) * 200 + x] = pal[(p >> 4) & 3];
@@ -1420,6 +1444,9 @@ export class SM8521CPU {
     this.process_interrupts();
 
     if (!this.m_halted) {
+      if (this.m_PC >= 0x2000 && this.m_PC < 0xa000 && this.mmu[this.m_PC >> 13] >= 0x20) {
+        this.cartridgeExecutedThisFrame = true;
+      }
       // 1. Suppress BIOS "DATA FOUND.. PRESS A TO KEEP / PRESS B TO CLEAR" prompt ($5E11 in Bank 3)
       //    unless explicitly requested by the user via allowDataFoundPrompt.
       if (this.m_PC === 0x5e11 && this.mmu[2] === 3) {
@@ -2859,6 +2886,11 @@ default:
     this.linkYieldFrame = false;
     this.p3ReadsThisFrame = 0;
     this.uartPollsThisFrame = 0;
+    this.cartridgeExecutedThisFrame =
+      this.mmu[1] >= 0x20 ||
+      this.mmu[2] >= 0x20 ||
+      this.mmu[3] >= 0x20 ||
+      this.mmu[4] >= 0x20;
     const baseScanlineCycles = this.correctClockSpeed ? 411 : 462;
     const cyclesPerScanline = Math.max(64, Math.floor(baseScanlineCycles * speedMultiplier));
     for (let line = 0; line < 200; line++) {
@@ -2876,6 +2908,7 @@ default:
       }
       this.renderScanline();
     }
+    this.committedVramValid = false;
     if (this.linkConnected) {
       if (this.linkFrameHadWait) {
         this.linkWaitFrames++;

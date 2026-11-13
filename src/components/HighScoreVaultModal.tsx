@@ -346,7 +346,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
-                <span>High Scores, Multi-Player Profiles &amp; Competitive Leaderboards</span>
+                <span>High Scores &amp; Leaderboards</span>
                 <span
                   className={`px-2 py-0.5 text-[10px] font-mono rounded border flex items-center gap-1 ${
                     ra.config.hardcoreMode
@@ -355,16 +355,22 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                   }`}
                 >
                   <ShieldCheck className="w-3 h-3" />
-                  {ra.config.hardcoreMode ? 'HARDCORE MODE ACTIVE' : 'SOFTCORE MODE'}
+                  {ra.config.hardcoreMode ? 'HARDCORE MODE' : 'SOFTCORE MODE'}
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
                 Active Player:{' '}
-                <strong className="text-amber-300 font-mono">{activeProfile.name}</strong> (
-                <code className="text-slate-300">
-                  {activeProfile.importedFromFingerprint || ra.getUserFingerprint()}
-                </code>
-                ) · Cryptographic Score Attestation &amp; RetroAchievements Ecosystem
+                <strong className="text-amber-300 font-mono">{activeProfile.name}</strong>
+                {system.settings.advancedMode && (
+                  <>
+                    {' '}
+                    (
+                    <code className="text-slate-300">
+                      {activeProfile.importedFromFingerprint || ra.getUserFingerprint()}
+                    </code>
+                    )
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -402,17 +408,19 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
             <span>Players &amp; Import ({hs.profiles.length})</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('nvram')}
-            className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'nvram'
-                ? 'bg-slate-900 text-purple-300 border-purple-400'
-                : 'text-slate-400 border-transparent hover:text-white hover:bg-slate-900/40'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-purple-400" />
-            <span>Hardware NVRAM Vault ($FC60)</span>
-          </button>
+          {system.settings.advancedMode && (
+            <button
+              onClick={() => setActiveTab('nvram')}
+              className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'nvram'
+                  ? 'bg-slate-900 text-purple-300 border-purple-400'
+                  : 'text-slate-400 border-transparent hover:text-white hover:bg-slate-900/40'
+              }`}
+            >
+              <Layers className="w-4 h-4 text-purple-400" />
+              <span>Hardware NVRAM ($FC60)</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('retroachievements')}
@@ -423,7 +431,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
             }`}
           >
             <Award className="w-4 h-4 text-sky-400" />
-            <span>Hardcore &amp; RetroAchievements</span>
+            <span>Achievements &amp; Hardcore</span>
           </button>
         </div>
 
@@ -448,13 +456,16 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                       }
                       className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-medium"
                     >
-                      <option value="ALL">All Tiger Game.Com Titles ({lb.entries.length})</option>
+                      <option value="ALL">All Games ({lb.entries.length})</option>
                       {knownGamesList.map((g) => {
                         const gid = g.gameIds?.[0] || 0;
                         if (!gid) return null;
                         return (
                           <option key={g.id} value={gid}>
-                            {g.title} (${gid.toString(16).toUpperCase().padStart(4, '0')})
+                            {g.title}
+                            {system.settings.advancedMode
+                              ? ` ($${gid.toString(16).toUpperCase().padStart(4, '0')})`
+                              : ''}
                           </option>
                         );
                       })}
@@ -497,31 +508,37 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                 </div>
 
                 {/* Online Server Endpoint & Signed Certificate Bar */}
-                <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={customEndpoint}
-                      onChange={(e) => setCustomEndpoint(e.target.value)}
-                      placeholder="Online Relay URL (Default: Built-in /api/leaderboards)"
-                      className="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 font-mono"
-                    />
-                  </div>
+                <div
+                  className={`pt-3 border-t border-slate-800/80 grid grid-cols-1 ${
+                    system.settings.advancedMode ? 'md:grid-cols-2' : ''
+                  } gap-3 text-xs`}
+                >
+                  {system.settings.advancedMode && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <input
+                        type="text"
+                        value={customEndpoint}
+                        onChange={(e) => setCustomEndpoint(e.target.value)}
+                        placeholder="Online Relay URL (Default: Built-in /api/leaderboards)"
+                        className="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 font-mono"
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
                     <input
                       type="text"
                       value={certificateInput}
                       onChange={(e) => setCertificateInput(e.target.value)}
-                      placeholder="Paste Signed Score Certificate (CSC1-...) from another player"
+                      placeholder="Paste Score Certificate (CSC1-...) from another player"
                       className="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 font-mono"
                     />
                     <button
                       onClick={handleImportCertificate}
                       className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg shrink-0 cursor-pointer"
                     >
-                      Verify &amp; Add
+                      Add Score
                     </button>
                   </div>
                 </div>
@@ -1236,39 +1253,41 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                 </div>
 
                 {/* Live Session Cryptographic Telemetry */}
-                <div className="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                    <div className="text-[10px] text-slate-400 uppercase">Session Integrity</div>
-                    <div
-                      className={`font-bold mt-0.5 ${
-                        ra.isSessionHardcoreClean() ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      {ra.isSessionHardcoreClean() ? 'CLEAN (HARDCORE)' : 'SOFTCORE / TAINTED'}
+                {system.settings.advancedMode && (
+                  <div className="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                      <div className="text-[10px] text-slate-400 uppercase">Session Integrity</div>
+                      <div
+                        className={`font-bold mt-0.5 ${
+                          ra.isSessionHardcoreClean() ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {ra.isSessionHardcoreClean() ? 'CLEAN (HARDCORE)' : 'SOFTCORE / TAINTED'}
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                      <div className="text-[10px] text-slate-400 uppercase">Frames / Inputs</div>
+                      <div className="font-bold text-white mt-0.5">
+                        {ra.session.framesExecuted.toLocaleString()}f / {ra.session.inputEventCount}i
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                      <div className="text-[10px] text-slate-400 uppercase">Input Entropy Hash</div>
+                      <div className="font-bold text-amber-300 mt-0.5">
+                        0x{ra.session.inputRollingHash.toString(16).toUpperCase().padStart(8, '0')}
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                      <div className="text-[10px] text-slate-400 uppercase">ROM MD5 (rcheevos)</div>
+                      <div
+                        className="font-bold text-sky-300 mt-0.5 truncate"
+                        title={ra.session.activeRomMd5}
+                      >
+                        {ra.session.activeRomMd5.slice(0, 16)}...
+                      </div>
                     </div>
                   </div>
-                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                    <div className="text-[10px] text-slate-400 uppercase">Frames / Inputs</div>
-                    <div className="font-bold text-white mt-0.5">
-                      {ra.session.framesExecuted.toLocaleString()}f / {ra.session.inputEventCount}i
-                    </div>
-                  </div>
-                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                    <div className="text-[10px] text-slate-400 uppercase">Input Entropy Hash</div>
-                    <div className="font-bold text-amber-300 mt-0.5">
-                      0x{ra.session.inputRollingHash.toString(16).toUpperCase().padStart(8, '0')}
-                    </div>
-                  </div>
-                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                    <div className="text-[10px] text-slate-400 uppercase">ROM MD5 (rcheevos)</div>
-                    <div
-                      className="font-bold text-sky-300 mt-0.5 truncate"
-                      title={ra.session.activeRomMd5}
-                    >
-                      {ra.session.activeRomMd5.slice(0, 16)}...
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* RetroAchievements.org Account & Rich Presence */}
@@ -1277,7 +1296,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                       <Award className="w-4 h-4" />
-                      <span>RetroAchievements Account (dorequest.php)</span>
+                      <span>RetroAchievements Account</span>
                     </h4>
                     <span
                       className={`text-[10px] font-mono px-2 py-0.5 rounded ${
@@ -1286,7 +1305,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                           : 'bg-slate-800 text-slate-400'
                       }`}
                     >
-                      {ra.connectionStatus.toUpperCase()}
+                      {ra.connectionStatus === 'connected' ? 'CONNECTED' : 'LOCAL'}
                     </span>
                   </div>
 
@@ -1311,7 +1330,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                         disabled={raConnecting}
                         className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg cursor-pointer"
                       >
-                        {raConnecting ? 'Authenticating...' : 'Connect to RetroAchievements'}
+                        {raConnecting ? 'Signing in...' : 'Sign In to RetroAchievements'}
                       </button>
                       {ra.config.connectToken && (
                         <button
@@ -1322,7 +1341,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                           }}
                           className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer"
                         >
-                          Disconnect
+                          Sign Out
                         </button>
                       )}
                     </div>
@@ -1336,26 +1355,25 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                 <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
-                      Live Rich Presence &amp; Ecosystem Submission Kit
+                      Current Status
                     </h4>
                     <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-xs font-mono text-emerald-300">
                       {ra.lastRichPresence}
                     </div>
                     <p className="text-[11px] text-slate-400 mt-2">
-                      Exposes the flat 32KB SM8521 address space (<code>$0000–$03FF</code> Internal
-                      RAM, <code>$E000–$FFFF</code> 8KB NVRAM, <code>$A000–$DFFF</code> 16KB VRAM)
-                      and RFC 1321 MD5 ROM hashing for official <code>rcheevos</code> /{' '}
-                      <code>RAIntegration</code> integration.
+                      Achievements and leaderboards are tracked in real time while you play.
                     </p>
                   </div>
 
-                  <button
-                    onClick={handleExportRaSpec}
-                    className="w-full px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 text-xs font-bold rounded-lg flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <FileCode className="w-4 h-4" />
-                    <span>Export RetroAchievements Integration &amp; Memory Map Spec (.txt)</span>
-                  </button>
+                  {system.settings.advancedMode && (
+                    <button
+                      onClick={handleExportRaSpec}
+                      className="w-full px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 text-xs font-bold rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <FileCode className="w-4 h-4" />
+                      <span>Export RetroAchievements Integration &amp; Memory Map Spec (.txt)</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

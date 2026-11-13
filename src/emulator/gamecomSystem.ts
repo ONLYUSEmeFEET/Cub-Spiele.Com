@@ -84,6 +84,7 @@ export class GameComSystem {
   public fastBootTarget: FastBootTarget = 'NONE';
   private nvramDirtyFrames: number = 0;
   private phoneBookDirtyFrames: number = 0;
+  private biosOnlyFrames: number = 0;
 
   // Single-touch discrete lock (strictly 1 touch input per pointer press)
   private touchLockedUntilRelease: boolean = false;
@@ -112,7 +113,7 @@ export class GameComSystem {
     isDown: false
   };
 
-  // DS-Style Virtual Stylus (Keyboard & Gamepad/Controller control)
+  // Virtual Stylus (Keyboard & Gamepad/Controller control)
   public virtualStylus: VirtualStylusState = {
     x: 100,
     y: 80,
@@ -151,13 +152,14 @@ export class GameComSystem {
     volume: 0.2,
     muted: false,
     speed: 1.0,
-    showFps: true,
+    showFps: false,
     smoothMode: false,
     stylusCursor: false,
     backgroundInput: true,
     stylusSpeed: 2.5,
     gamepadIndex: -1,
-    gamepadDeadzone: 0.15
+    gamepadDeadzone: 0.15,
+    advancedMode: false
   };
 
   // Timing
@@ -228,8 +230,8 @@ export class GameComSystem {
     this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
     this.highScores.saveRawNvram(this.cpu.nvram);
 
-    // Preload Slot 1 (Lights Out); Slot 2 remains empty until the user loads a cartridge
-    this.slot1 = PRELOADED_CARTRIDGES[0] || null;
+    // Both slots start empty until the user loads a cartridge
+    this.slot1 = null;
     this.slot2 = null;
     for (const c of PRELOADED_CARTRIDGES) {
       this.loadedCartridgeCache.set(c.id, c);
@@ -347,6 +349,9 @@ export class GameComSystem {
         if (typeof parsedI.snapToGrid === 'boolean') {
           this.virtualStylus.snapToGrid = parsedI.snapToGrid;
         }
+        if (typeof parsedI.advancedMode === 'boolean') {
+          this.settings.advancedMode = parsedI.advancedMode;
+        }
       }
     } catch {
       // Ignore storage errors
@@ -362,7 +367,8 @@ export class GameComSystem {
           stylusSpeed: this.settings.stylusSpeed,
           gamepadIndex: this.settings.gamepadIndex,
           gamepadDeadzone: this.settings.gamepadDeadzone,
-          snapToGrid: this.virtualStylus.snapToGrid
+          snapToGrid: this.virtualStylus.snapToGrid,
+          advancedMode: this.settings.advancedMode
         })
       );
     } catch {
@@ -461,8 +467,7 @@ export class GameComSystem {
           this.recentGames = parsed.filter(
             (g: any) =>
               g &&
-              g.id !== 'sonic_jam' &&
-              !String(g.title || '').toLowerCase().includes('sonic jam')
+              g.id !== 'lightsout'
           );
           if (this.recentGames.length > 0) {
             return;
@@ -472,17 +477,7 @@ export class GameComSystem {
     } catch {
       // Ignore storage error
     }
-    this.recentGames = PRELOADED_CARTRIDGES.map((c, idx) => ({
-      id: c.id,
-      title: c.title,
-      publisher: c.publisher,
-      year: c.year,
-      slot: (idx === 0 ? 1 : 2) as 1 | 2,
-      lastPlayedAt: Date.now() - idx * 60000,
-      playCount: 1,
-      sizeBytes: c.sizeBytes,
-      isPreloaded: true
-    }));
+    this.recentGames = [];
   }
 
   private saveRecentGamesToStorage() {
@@ -600,7 +595,8 @@ export class GameComSystem {
     this.cpu.allowDataFoundPrompt = target === 'KEEP_CLEAR_PROMPT';
     this.bootFrameCounter = 0;
     this.fastBootTarget = target;
-    this.activeApp = 'OS';
+    this.activeApp = target === 'CART_1' || target === 'CART_2' ? 'CARTRIDGE' : 'OS';
+    this.biosOnlyFrames = 0;
     this.touchLockedUntilRelease = false;
     this.stylusPulseFrames = 0;
 
@@ -807,11 +803,16 @@ export class GameComSystem {
           this.cpu.stylusPressed = false;
         }
 
-        // Finish fast-boot once cartridge starts executing or after cartridge load animation completes
-        if ((this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) || f >= 820) {
+        // Finish fast-boot once CPU actually begins executing cartridge code (after BIOS Cartridge animation)
+        const pcInCart =
+          this.cpu.m_PC >= 0x2000 &&
+          this.cpu.m_PC < 0xa000 &&
+          this.cpu.mmu[this.cpu.m_PC >> 13] >= 0x20;
+        if ((f >= 600 && pcInCart) || f >= 840) {
           this.cpu.stylusPressed = false;
           this.fastBootTarget = 'NONE';
           this.activeApp = 'CARTRIDGE';
+          this.biosOnlyFrames = 0;
           // Re-attach both cartridge slots now that the target cartridge has booted
           this.syncBothCartridgeSlotsToCpu();
         }
@@ -848,10 +849,25 @@ export class GameComSystem {
     this.cpu.runFrame(speedMult);
     this.sound.endFrameDacCheck();
 
-    if (this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) {
+    // Check all 4 MMU banks, frame cartridge execution flag, and BIOS appId ($0168 == 4) with hysteresis
+    // so cartridges that call BIOS subroutines in MMU1/MMU2 never flash the bezel or switch to 'OS'.
+    const anyCartBankMapped =
+      this.cpu.cartridgeExecutedThisFrame ||
+      this.cpu.mmu[1] >= 0x20 ||
+      this.cpu.mmu[2] >= 0x20 ||
+      this.cpu.mmu[3] >= 0x20 ||
+      this.cpu.mmu[4] >= 0x20 ||
+      this.cpu.m_p_ram[0x0168] === 4;
+
+    if (anyCartBankMapped || this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') {
       this.activeApp = 'CARTRIDGE';
+      this.biosOnlyFrames = 0;
     } else {
-      this.activeApp = 'OS';
+      this.biosOnlyFrames++;
+      // Only transition back to 'OS' after 45 consecutive BIOS-only frames (~0.75s) when user exits to Main Menu
+      if (this.biosOnlyFrames >= 45 || this.cpu.m_p_ram[0x0168] === 0) {
+        this.activeApp = 'OS';
+      }
     }
 
     // Evaluate RetroAchievements rcheevos conditions & leaderboards for the current frame
@@ -890,7 +906,8 @@ export class GameComSystem {
     const baseMult = 1.0 * this.settings.speed;
 
     if (this.fastBootTarget !== 'NONE') {
-      const burstFrames = 28;
+      const burstFrames =
+        this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2' ? 56 : 28;
       for (let i = 0; i < burstFrames; i++) {
         this.stepHardwareFrame(1.8);
         if ((this.fastBootTarget as FastBootTarget) === 'NONE') break;
@@ -962,7 +979,7 @@ export class GameComSystem {
   }
 
   /**
-   * Moves the DS-style virtual stylus cursor across the 200x160 LCD screen
+   * Moves the virtual stylus cursor across the 200x160 LCD screen
    * via Keyboard (IJKL / Numpad / D-Pad Stylus Mode) or Gamepad Analog Stick.
    */
   public moveVirtualStylus(dx: number, dy: number) {
@@ -1002,7 +1019,7 @@ export class GameComSystem {
 
   /**
    * Presses or releases the virtual stylus tip against the resistive touchscreen
-   * at the current virtualStylus coordinates (DS emulation style).
+   * at the current virtualStylus coordinates.
    */
   public setVirtualStylusTouch(isDown: boolean) {
     if (!this.isPoweredOn) return;

@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { GameComButtons } from '../emulator/types';
 import { LCDScreen } from './LCDScreen';
-import { Disc, Volume2, VolumeX, RotateCcw } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw } from 'lucide-react';
 
 interface GameComConsoleProps {
   system: GameComSystem;
   scale?: number;
-  onOpenLibrary: () => void;
+  onOpenLibrary?: () => void;
   onFpsUpdate?: (fps: number) => void;
   onStateChange?: () => void;
 }
@@ -15,7 +15,6 @@ interface GameComConsoleProps {
 export const GameComConsole: React.FC<GameComConsoleProps> = ({
   system,
   scale = 2.35,
-  onOpenLibrary,
   onFpsUpdate,
   onStateChange
 }) => {
@@ -43,99 +42,8 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
   return (
     <div className="relative flex flex-col items-center select-none">
-      {/* Top Dual Cartridge Bay Assembly (Authentic 1997 Tiger Game.Com Dual Slot Ridges) */}
-      <div className="relative z-0 flex items-end justify-center gap-3 -mb-3 px-10">
-        {/* SLOT 1 CARTRIDGE */}
-        <div
-          onClick={() => {
-            if (system.slot1) {
-              system.launchCartridge(1);
-              onStateChange?.();
-            } else {
-              onOpenLibrary();
-            }
-          }}
-          title={system.slot1 ? `Click to Boot Slot 1: ${system.slot1.title}` : 'Insert Cartridge in Slot 1'}
-          className={`group cursor-pointer transition-all duration-200 w-52 h-12 rounded-t-[14px] border-t-2 border-x-2 px-3.5 pt-1.5 pb-3 flex items-center justify-between ${
-            system.activeSlot === 1 && system.activeApp === 'CARTRIDGE'
-              ? 'bg-gradient-to-b from-[#2c2f38] to-[#1b1d23] border-[#a3ae76]/60 -translate-y-1 shadow-[0_-4px_14px_rgba(163,174,118,0.2)]'
-              : 'bg-gradient-to-b from-[#252830] to-[#17191e] border-[#3a3e4a] hover:-translate-y-0.5'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-2.5 h-6 rounded-[2px] shrink-0 border border-black/40"
-              style={{ backgroundColor: system.slot1?.coverAccent || '#3f3f46' }}
-            />
-            <div className="truncate">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#9ca3af] font-bold">
-                  SLOT 1 {system.activeSlot === 1 && system.activeApp === 'CARTRIDGE' ? '• ACTIVE' : ''}
-                </span>
-              </div>
-              <div className="text-[11px] font-bold text-[#e5e7eb] truncate">
-                {system.slot1 ? system.slot1.title : 'Empty Slot 1'}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenLibrary();
-            }}
-            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#14161b] hover:bg-[#323642] text-[#d1d5db] border border-[#3a3e4a] shrink-0"
-          >
-            SWAP
-          </button>
-        </div>
-
-        {/* SLOT 2 CARTRIDGE */}
-        <div
-          onClick={() => {
-            if (system.slot2) {
-              system.launchCartridge(2);
-              onStateChange?.();
-            } else {
-              onOpenLibrary();
-            }
-          }}
-          title={system.slot2 ? `Click to Boot Slot 2: ${system.slot2.title}` : 'Insert Cartridge in Slot 2'}
-          className={`group cursor-pointer transition-all duration-200 w-56 h-12 rounded-t-[14px] border-t-2 border-x-2 px-3.5 pt-1.5 pb-3 flex items-center justify-between ${
-            system.activeSlot === 2 && system.activeApp === 'CARTRIDGE'
-              ? 'bg-gradient-to-b from-[#2c2f38] to-[#1b1d23] border-[#38bdf8]/70 -translate-y-1 shadow-[0_-4px_14px_rgba(56,189,248,0.22)]'
-              : 'bg-gradient-to-b from-[#252830] to-[#17191e] border-[#3a3e4a] hover:-translate-y-0.5'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-2.5 h-6 rounded-[2px] shrink-0 border border-black/40"
-              style={{ backgroundColor: system.slot2?.coverAccent || '#38bdf8' }}
-            />
-            <div className="truncate">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#9ca3af] font-bold">
-                  SLOT 2 {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' ? '• ACTIVE' : ''}
-                </span>
-              </div>
-              <div className="text-[11px] font-bold text-[#e5e7eb] truncate">
-                {system.slot2 ? system.slot2.title : 'Empty Slot 2'}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenLibrary();
-            }}
-            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#14161b] hover:bg-[#323642] text-[#d1d5db] border border-[#3a3e4a] shrink-0"
-          >
-            SWAP
-          </button>
-        </div>
-      </div>
-
       {/* ===================================================================== */}
-      {/* MAIN 1997 TIGER GAME.COM HANDHELD SHELL (AUTHENTIC CHARCOAL-SLATE ABS) */}
+      {/* MAIN TIGER GAME.COM HANDHELD SHELL (AUTHENTIC CHARCOAL-SLATE ABS)     */}
       {/* ===================================================================== */}
       <div
         className="relative z-10 rounded-[48px] p-6 sm:p-8 border-[3px] border-[#3d414d] transition-all"
@@ -162,12 +70,12 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
         <div className="flex items-center justify-between px-8 mb-3">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black tracking-[0.28em] text-[#8d93a1]/80 uppercase drop-shadow-[0_1px_0_rgba(0,0,0,0.9)]">
-              CUB SPIELE.COM • SM8521
+              CUB SPIELE.COM
             </span>
           </div>
           <div className="h-[2px] flex-1 mx-6 rounded-full bg-[#17191f] shadow-[0_1px_0_rgba(255,255,255,0.07)]" />
           <div className="text-[9px] font-mono tracking-[0.2em] text-[#8d93a1]/75 uppercase">
-            MODEL NO. CS-8521 • 1997
+            HANDHELD SYSTEM
           </div>
         </div>
 
@@ -488,10 +396,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             <div className="mt-2.5 flex items-center justify-between px-2 text-[8px] font-mono tracking-[0.2em] text-[#94a3b8] uppercase">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#a3ae76]" />
-                DOT MATRIX WITH TOUCH SCREEN
+                TOUCH SCREEN
               </span>
               <span className="text-[#cbd5e1]/75 font-bold">
-                200 × 160 STN • 4-SHADE
+                DOT MATRIX
               </span>
             </div>
           </div>
@@ -499,46 +407,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           {/* --------------------------------------------------------------- */}
           {/* RIGHT WING: DIAMOND A/B/C/D CLUSTER & DOCKED TIGER STYLUS       */}
           {/* --------------------------------------------------------------- */}
-          <div className="flex flex-row lg:flex-col items-center justify-between w-full lg:w-44 gap-4 py-1">
-            {/* Top-Right Cartridge Bay Quick-Select Switcher */}
-            <div className="flex flex-col items-center gap-1.5 w-full px-2">
-              <div className="text-[8px] font-mono tracking-[0.18em] text-[#9ca3af] uppercase">
-                DUAL SLOT SELECTOR
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 w-full bg-[#15171c] p-1 rounded-xl border border-[#2f333f] shadow-inner">
-                <button
-                  onClick={() => {
-                    if (system.slot1) {
-                      system.launchCartridge(1);
-                      onStateChange?.();
-                    }
-                  }}
-                  className={`py-1.5 px-2 rounded-lg text-[9px] font-mono font-bold transition-all ${
-                    system.activeSlot === 1 && system.activeApp === 'CARTRIDGE'
-                      ? 'bg-[#a3ae76] text-[#141a0c] shadow'
-                      : 'text-[#9ca3af] hover:text-white hover:bg-[#22252e]'
-                  }`}
-                >
-                  BAY 1
-                </button>
-                <button
-                  onClick={() => {
-                    if (system.slot2) {
-                      system.launchCartridge(2);
-                      onStateChange?.();
-                    }
-                  }}
-                  className={`py-1.5 px-2 rounded-lg text-[9px] font-mono font-bold transition-all ${
-                    system.activeSlot === 2 && system.activeApp === 'CARTRIDGE'
-                      ? 'bg-[#10b981] text-[#052e16] shadow'
-                      : 'text-[#9ca3af] hover:text-white hover:bg-[#22252e]'
-                  }`}
-                >
-                  BAY 2
-                </button>
-              </div>
-            </div>
-
+          <div className="flex flex-row lg:flex-col items-center justify-center w-full lg:w-44 gap-6 py-1">
             {/* Authentic 1997 Tiger Game.Com 4-Button Diamond Cluster (A, B, C, D) */}
             <div
               className="relative w-40 h-40 rounded-full p-3 border border-[#14161b] flex items-center justify-center"
@@ -562,7 +431,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                       ? 'translate-y-0.5 scale-95 bg-[#3b3054] shadow-inner'
                       : 'bg-gradient-to-b from-[#524373] to-[#34294a] shadow-[0_4px_6px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.28)]'
                   }`}
-                  title="Button C (Key C / L)"
+                  title="Button C (Key C)"
                 >
                   C
                 </button>
@@ -579,7 +448,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                       ? 'translate-y-0.5 scale-95 bg-[#3b3054] shadow-inner'
                       : 'bg-gradient-to-b from-[#524373] to-[#34294a] shadow-[0_4px_6px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.28)]'
                   }`}
-                  title="Button D (Key V / I)"
+                  title="Button D (Key V)"
                 >
                   D
                 </button>
@@ -596,7 +465,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                       ? 'translate-y-0.5 scale-95 bg-[#591643] shadow-inner'
                       : 'bg-gradient-to-b from-[#832565] via-[#681b4f] to-[#471136] shadow-[0_4px_7px_rgba(0,0,0,0.85),inset_0_1px_2px_rgba(255,255,255,0.32)]'
                   }`}
-                  title="Button A — Action / Keep / Confirm (Key Z / Space)"
+                  title="Button A (Key Z / Enter)"
                 >
                   A
                 </button>
@@ -613,33 +482,24 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                       ? 'translate-y-0.5 scale-95 bg-[#591643] shadow-inner'
                       : 'bg-gradient-to-b from-[#832565] via-[#681b4f] to-[#471136] shadow-[0_4px_7px_rgba(0,0,0,0.85),inset_0_1px_2px_rgba(255,255,255,0.32)]'
                   }`}
-                  title="Button B — Back / Clear (Key X / K)"
+                  title="Button B (Key X / Shift)"
                 >
                   B
                 </button>
               </div>
             </div>
 
-            {/* Docked Original Tiger Game.Com Stylus & Cartridge Library Trigger */}
-            <div className="hidden lg:flex items-center justify-between w-full px-2 pt-1 gap-2">
-              <button
-                onClick={onOpenLibrary}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#181a20] hover:bg-[#23262f] border border-[#323642] text-[10px] font-mono font-bold text-[#d1d5db] transition-colors shadow-inner"
-              >
-                <Disc className="w-3.5 h-3.5 text-[#a3ae76]" />
-                CARTRIDGES
-              </button>
-
-              {/* Holstered Crimson-Tip Stylus */}
+            {/* Holstered Crimson-Tip Stylus */}
+            <div className="hidden lg:flex items-center justify-center w-full px-2 pt-1">
               <div
                 onClick={() => {
                   system.settings.stylusCursor = !system.settings.stylusCursor;
                   onStateChange?.();
                 }}
-                title="Toggle Holstered Tiger Stylus Cursor"
-                className="cursor-pointer flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-[#14161b] border border-[#2c303c] hover:border-[#be123c]"
+                title="Toggle Stylus Cursor"
+                className="cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#14161b] border border-[#2c303c] hover:border-[#be123c]"
               >
-                <div className="w-2 h-5 rounded-full bg-gradient-to-b from-[#e11d48] to-[#4c0519]" />
+                <div className="w-2 h-4 rounded-full bg-gradient-to-b from-[#e11d48] to-[#4c0519]" />
                 <span className="text-[8px] font-mono uppercase tracking-wider text-[#9ca3af]">
                   STYLUS
                 </span>

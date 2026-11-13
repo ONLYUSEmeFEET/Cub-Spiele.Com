@@ -627,14 +627,7 @@ def build_rom() -> bytes:
     asm.resolve()
 
     bank0 = bytes(asm.buf) + bytes(8192 - len(asm.buf))
-
-    lightsout_path = os.path.join(os.path.dirname(__file__), '..', 'public', 'roms', 'lightsout.bin')
-    if os.path.exists(lightsout_path):
-        with open(lightsout_path, 'rb') as f:
-            lo_rom = f.read()
-        bank1 = lo_rom[0x2000:0x4000]
-    else:
-        bank1 = bytes(8192)
+    bank1 = bytes(8192)
 
     full_rom = bank0 + bank1 + bank0 + bank1
     assert len(full_rom) == 32768

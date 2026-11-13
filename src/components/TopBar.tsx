@@ -191,27 +191,29 @@ export const TopBar: React.FC<TopBarProps> = ({
               File
             </button>
             {openMenu === 'file' && (
-              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
+              <div className="absolute left-0 top-full mt-0.5 w-68 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
                 <button
                   onClick={() => fileSlot1Ref.current?.click()}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
                   <span className="flex items-center gap-2">
                     <FolderOpen className="w-3.5 h-3.5" />
-                    <span>Load ROM into Slot 1...</span>
+                    <span>{system.settings.advancedMode ? 'Load ROM into Slot 1...' : 'Open Game...'}</span>
                   </span>
                   <span className="text-[10px] opacity-60 font-mono">Ctrl+O</span>
                 </button>
-                <button
-                  onClick={() => fileSlot2Ref.current?.click()}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    <span>Load ROM into Slot 2...</span>
-                  </span>
-                  <span className="text-[10px] opacity-60 font-mono">Ctrl+Shift+O</span>
-                </button>
+                {system.settings.advancedMode && (
+                  <button
+                    onClick={() => fileSlot2Ref.current?.click()}
+                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>Load ROM into Slot 2...</span>
+                    </span>
+                    <span className="text-[10px] opacity-60 font-mono">Ctrl+Shift+O</span>
+                  </button>
+                )}
 
                 {/* RECENTLY PLAYED SUBMENU */}
                 <div
@@ -225,15 +227,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <History className="w-3.5 h-3.5" />
-                      <span>Recently Played</span>
+                      <span>Recent Games</span>
                     </span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
                   {recentSubmenuOpen && (
-                    <div className="absolute left-full top-0 ml-0.5 w-80 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50">
+                    <div className="absolute left-full top-0 ml-0.5 w-76 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50">
                       <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400 border-b border-zinc-800 flex items-center justify-between">
-                        <span>Recent Cartridges ({system.recentGames.length})</span>
+                        <span>Recent Games ({system.recentGames.length})</span>
                         {system.recentGames.length > 0 && (
                           <button
                             onClick={(e) => {
@@ -249,7 +251,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       </div>
                       {system.recentGames.length === 0 ? (
                         <div className="px-3 py-3 text-zinc-500 text-center text-[11px]">
-                          No recently played ROMs
+                          No recently played games
                         </div>
                       ) : (
                         system.recentGames.map((item) => (
@@ -265,23 +267,25 @@ export const TopBar: React.FC<TopBarProps> = ({
                                 {item.title}
                               </div>
                               <div className="text-[10px] text-zinc-400 font-mono">
-                                Slot {item.slot} · {(item.sizeBytes / 1024).toFixed(0)} KB
+                                {item.publisher} · {item.year}
                               </div>
                             </button>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => handleLaunchRecent(item, 1)}
-                                className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-emerald-600 text-[10px] font-mono text-zinc-200 hover:text-white cursor-pointer"
-                              >
-                                S1
-                              </button>
-                              <button
-                                onClick={() => handleLaunchRecent(item, 2)}
-                                className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-emerald-600 text-[10px] font-mono text-zinc-200 hover:text-white cursor-pointer"
-                              >
-                                S2
-                              </button>
-                            </div>
+                            {system.settings.advancedMode && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => handleLaunchRecent(item, 1)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-emerald-600 text-[10px] font-mono text-zinc-200 hover:text-white cursor-pointer"
+                                >
+                                  S1
+                                </button>
+                                <button
+                                  onClick={() => handleLaunchRecent(item, 2)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-emerald-600 text-[10px] font-mono text-zinc-200 hover:text-white cursor-pointer"
+                                >
+                                  S2
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -298,75 +302,91 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Disc className="w-3.5 h-3.5" />
-                    <span>Cartridge Slot Manager...</span>
+                    <span>Game Library...</span>
                   </span>
                 </button>
 
                 <div className="my-1 border-t border-zinc-800" />
 
-                <button
-                  onClick={() => {
-                    if (system.slot1) {
-                      system.launchCartridge(1);
-                      onUpdate();
-                    } else {
-                      onOpenLibrary();
-                    }
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="truncate">
-                    Boot Slot 1: {system.slot1 ? system.slot1.title : '(Empty)'}
-                  </span>
-                  {system.activeSlot === 1 && system.activeApp === 'CARTRIDGE' && (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    if (system.slot2) {
-                      system.launchCartridge(2);
-                      onUpdate();
-                    } else {
-                      onOpenLibrary();
-                    }
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="truncate">
-                    Boot Slot 2: {system.slot2 ? system.slot2.title : '(Empty)'}
-                  </span>
-                  {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' && (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  )}
-                </button>
+                {system.settings.advancedMode ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (system.slot1) {
+                          system.launchCartridge(1);
+                          onUpdate();
+                        } else {
+                          onOpenLibrary();
+                        }
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span className="truncate">
+                        Boot Slot 1: {system.slot1 ? system.slot1.title : '(Empty)'}
+                      </span>
+                      {system.activeSlot === 1 && system.activeApp === 'CARTRIDGE' && (
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (system.slot2) {
+                          system.launchCartridge(2);
+                          onUpdate();
+                        } else {
+                          onOpenLibrary();
+                        }
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span className="truncate">
+                        Boot Slot 2: {system.slot2 ? system.slot2.title : '(Empty)'}
+                      </span>
+                      {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' && (
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      )}
+                    </button>
 
-                <div className="my-1 border-t border-zinc-800" />
+                    <div className="my-1 border-t border-zinc-800" />
 
-                <button
-                  onClick={() => {
-                    system.ejectCartridge(1);
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  disabled={!system.slot1}
-                  className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span>Eject Slot 1</span>
-                </button>
-                <button
-                  onClick={() => {
-                    system.ejectCartridge(2);
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  disabled={!system.slot2}
-                  className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span>Eject Slot 2</span>
-                </button>
+                    <button
+                      onClick={() => {
+                        system.ejectCartridge(1);
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      disabled={!system.slot1}
+                      className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span>Eject Slot 1</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        system.ejectCartridge(2);
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      disabled={!system.slot2}
+                      className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span>Eject Slot 2</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      system.ejectCartridge(system.activeSlot);
+                      onUpdate();
+                      closeMenu();
+                    }}
+                    disabled={!activeCart}
+                    className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
+                  >
+                    <span>Close Game</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -396,7 +416,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     {system.isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                    <span>{system.isPaused ? 'Resume Emulation' : 'Pause Emulation'}</span>
+                    <span>{system.isPaused ? 'Resume' : 'Pause'}</span>
                   </span>
                   <span className="text-[10px] opacity-60 font-mono">P</span>
                 </button>
@@ -411,103 +431,76 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Soft Reset (BIOS Main Menu)</span>
+                    <span>Reset</span>
                   </span>
                   <span className="text-[10px] opacity-60 font-mono">Ctrl+R</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    system.resetSystem('NONE');
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Cold Boot (Full Startup)</span>
-                  </span>
-                </button>
+                {system.settings.advancedMode && (
+                  <>
+                    <button
+                      onClick={() => {
+                        system.resetSystem('NONE');
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Cold Boot (Full Startup)</span>
+                      </span>
+                    </button>
 
-                <button
-                  onClick={() => {
-                    system.openBiosPhoneBookScreen();
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <BookUser className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Boot to BIOS Phone Book</span>
-                  </span>
-                </button>
+                    <button
+                      onClick={() => {
+                        system.openBiosPhoneBookScreen();
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <BookUser className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Open Built-In Phone Book</span>
+                      </span>
+                    </button>
+                  </>
+                )}
 
                 <div className="my-1 border-t border-zinc-800" />
 
                 <button
                   onClick={() => {
-                    onOpenLinkCable();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Cable className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Compete.Com Link Cable...</span>
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    system.linkCable.launchSecondInstanceWindow();
+                    system.saveState(0);
                     onUpdate();
                     closeMenu();
                   }}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Launch 2nd Instance (Multiplayer)</span>
-                  </span>
+                  <span>Save State</span>
+                  <span className="text-[10px] opacity-60 font-mono">F5</span>
                 </button>
-
                 <button
+                  disabled={system.retroAchievements.config.hardcoreMode}
                   onClick={() => {
-                    system.toggleHardcoreMode();
+                    system.loadState(0);
                     onUpdate();
                     closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 hover:bg-amber-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Competitive Hardcore Mode</span>
+                  <span>
+                    Load State
+                    {system.retroAchievements.config.hardcoreMode ? ' (Hardcore Locked)' : ''}
                   </span>
-                  {system.retroAchievements.config.hardcoreMode && (
-                    <Check className="w-3.5 h-3.5 text-amber-400" />
-                  )}
-                </button>
-
-                <button
-                  onClick={() => {
-                    system.settings.backgroundInput = !system.settings.backgroundInput;
-                    system.saveInputSettingsToStorage();
-                    onUpdate();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span>Background Input (Unfocused)</span>
-                  {system.settings.backgroundInput && (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
+                  <span className="text-[10px] opacity-60 font-mono">F8</span>
                 </button>
 
                 <div className="my-1 border-t border-zinc-800" />
 
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Clock Speed
+                  Game Speed
                 </div>
                 {[0.5, 1.0, 2.0].map((spd) => {
                   const lockedByHardcore =
@@ -525,8 +518,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                     >
                       <span>
                         {spd === 1.0
-                          ? '1.0x (4.9152 MHz Native)'
-                          : `${spd.toFixed(1)}x Speed${lockedByHardcore ? ' (Locked in Hardcore)' : ''}`}
+                          ? '1x (Normal Speed)'
+                          : spd === 2.0
+                            ? '2x (Fast Forward)'
+                            : `0.5x (Slow Motion)${lockedByHardcore ? ' [Locked]' : ''}`}
                       </span>
                       {system.settings.speed === spd && (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -539,30 +534,65 @@ export const TopBar: React.FC<TopBarProps> = ({
 
                 <button
                   onClick={() => {
-                    system.saveState(0);
+                    system.toggleHardcoreMode();
                     onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-amber-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Hardcore Mode</span>
+                  </span>
+                  {system.retroAchievements.config.hardcoreMode && (
+                    <Check className="w-3.5 h-3.5 text-amber-400" />
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenLinkCable();
                     closeMenu();
                   }}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Quick Save State</span>
-                  <span className="text-[10px] opacity-60 font-mono">F5</span>
-                </button>
-                <button
-                  disabled={system.retroAchievements.config.hardcoreMode}
-                  onClick={() => {
-                    system.loadState(0);
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span>
-                    Quick Load State
-                    {system.retroAchievements.config.hardcoreMode ? ' (Locked)' : ''}
+                  <span className="flex items-center gap-2">
+                    <Cable className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>2-Player Link Cable...</span>
                   </span>
-                  <span className="text-[10px] opacity-60 font-mono">F8</span>
                 </button>
+
+                {system.settings.advancedMode && (
+                  <>
+                    <button
+                      onClick={() => {
+                        system.linkCable.launchSecondInstanceWindow();
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Launch 2nd Window (Multiplayer)</span>
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        system.settings.backgroundInput = !system.settings.backgroundInput;
+                        system.saveInputSettingsToStorage();
+                        onUpdate();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span>Background Input</span>
+                      {system.settings.backgroundInput && (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </button>
+                  </>
+                )}
 
                 <div className="my-1 border-t border-zinc-800" />
 
@@ -574,7 +604,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   }}
                   className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>{system.isPoweredOn ? 'Power Off System' : 'Power On System'}</span>
+                  <span>{system.isPoweredOn ? 'Power Off' : 'Power On'}</span>
                 </button>
               </div>
             )}
@@ -594,9 +624,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               Audio/Video
             </button>
             {openMenu === 'av' && (
-              <div className="absolute left-0 top-full mt-0.5 w-80 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
+              <div className="absolute left-0 top-full mt-0.5 w-76 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Game.Com Screen Model Presets
+                  Screen Color Presets
                 </div>
 
                 {GAMECOM_SCREEN_PRESET_ORDER.map((presetId) => {
@@ -632,38 +662,6 @@ export const TopBar: React.FC<TopBarProps> = ({
 
                 <div className="my-1 border-t border-zinc-800" />
 
-                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Custom 2-Shade Color Blend
-                </div>
-
-                {/* Inline 2-Shade Quick Swatches */}
-                <div className="px-3 py-1.5 flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 cursor-pointer flex-1">
-                    <input
-                      type="color"
-                      value={lightShade}
-                      onChange={(e) => {
-                        system.setTwoShadeBlend(e.target.value, darkShade);
-                        onUpdate();
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer border-0 bg-transparent"
-                    />
-                    <span className="text-[11px] text-zinc-300">Light</span>
-                  </label>
-                  <label className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 cursor-pointer flex-1">
-                    <input
-                      type="color"
-                      value={darkShade}
-                      onChange={(e) => {
-                        system.setTwoShadeBlend(lightShade, e.target.value);
-                        onUpdate();
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer border-0 bg-transparent"
-                    />
-                    <span className="text-[11px] text-zinc-300">Dark</span>
-                  </label>
-                </div>
-
                 <button
                   onClick={() => {
                     onOpenColorCustomizer();
@@ -673,22 +671,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Palette className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Screen Presets & 2-Shade Blender...</span>
-                  </span>
-                </button>
-
-                <div className="my-1 border-t border-zinc-800" />
-
-                <button
-                  onClick={() => {
-                    onOpenAccuracy();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span>STN Ghosting Intensity & Persistence...</span>
-                  <span className="text-[10px] font-mono text-amber-400">
-                    {Math.round(system.settings.ghosting * 100)}%
+                    <span>Custom Screen Colors...</span>
                   </span>
                 </button>
 
@@ -699,9 +682,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                   }}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>STN Pixel Matrix Grid</span>
+                  <span>Pixel Grid</span>
                   {system.settings.pixelGrid && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                 </button>
+
+                {system.settings.advancedMode && (
+                  <button
+                    onClick={() => {
+                      onOpenAccuracy();
+                      closeMenu();
+                    }}
+                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                  >
+                    <span>LCD Motion Blur & Accuracy...</span>
+                    <span className="text-[10px] font-mono text-amber-400">
+                      {Math.round(system.settings.ghosting * 100)}%
+                    </span>
+                  </button>
+                )}
 
                 <div className="my-1 border-t border-zinc-800" />
 
@@ -719,7 +717,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       ) : (
                         <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                       )}
-                      <span>Master Volume</span>
+                      <span>Volume</span>
                     </button>
                     <span className="font-mono text-emerald-400">
                       {system.settings.muted ? 'Muted' : `${Math.round(system.settings.volume * 100)}%`}
@@ -755,7 +753,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             {openMenu === 'view' && (
               <div className="absolute left-0 top-full mt-0.5 w-68 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Viewport Mode
+                  Layout
                 </div>
                 <button
                   onClick={() => {
@@ -767,7 +765,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Gamepad2 className="w-3.5 h-3.5" />
-                    <span>Handheld Console Bezel</span>
+                    <span>Handheld Console View</span>
                   </span>
                   {!isScreenOnly && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                 </button>
@@ -781,14 +779,14 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Monitor className="w-3.5 h-3.5" />
-                    <span>Screen-Only Viewport</span>
+                    <span>Screen-Only View</span>
                   </span>
                   {isScreenOnly && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                 </button>
 
                 <div className="my-1 border-t border-zinc-800" />
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Integer Screen Scale
+                  Screen Size
                 </div>
                 {[2, 3, 4].map((scale) => (
                   <button
@@ -802,7 +800,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                   >
                     <span>
-                      {scale}x Integer ({200 * scale}×{160 * scale})
+                      {scale}x ({200 * scale}×{160 * scale})
                     </span>
                     {isScreenOnly && system.settings.screenScale === scale && (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -832,6 +830,21 @@ export const TopBar: React.FC<TopBarProps> = ({
 
                 <div className="my-1 border-t border-zinc-800" />
                 <button
+                  onClick={() => {
+                    system.settings.advancedMode = !system.settings.advancedMode;
+                    system.saveInputSettingsToStorage();
+                    onUpdate();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Cpu className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Advanced Mode</span>
+                  </span>
+                  {system.settings.advancedMode && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                </button>
+
+                <button
                   onClick={handleToggleFullscreen}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
@@ -859,63 +872,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               Tools
             </button>
             {openMenu === 'tools' && (
-              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
-                <button
-                  onClick={() => {
-                    onOpenAccuracy();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Hardware Accuracy & STN Ghosting...</span>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenColorCustomizer();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <Palette className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>2-Shade LCD Color Blender...</span>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenLinkCable();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <Cable className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Compete.Com Link Cable (2-Player)...</span>
-                </button>
-                <button
-                  onClick={() => {
-                    system.toggleDpadStylusMode();
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Crosshair className="w-3.5 h-3.5 text-rose-400" />
-                    <span>DS-Style D-Pad Stylus Mode (Tab)</span>
-                  </span>
-                  {system.virtualStylus.dpadStylusMode && (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenPhoneBook();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <BookUser className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Expanded Phone Book ($E000)...</span>
-                </button>
+              <div className="absolute left-0 top-full mt-0.5 w-68 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
                 <button
                   onClick={() => {
                     onOpenHighScores();
@@ -924,27 +881,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
                 >
                   <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                  <span>High Scores, Leaderboards & RetroAchievements...</span>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenDebugger();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <Terminal className="w-3.5 h-3.5 text-sky-400" />
-                  <span>SM8521 CPU Debugger...</span>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenBios();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <HardDrive className="w-3.5 h-3.5 text-purple-400" />
-                  <span>BIOS ROM Manager...</span>
+                  <span>High Scores & Leaderboards...</span>
                 </button>
                 <button
                   onClick={() => {
@@ -956,25 +893,107 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Keyboard className="w-3.5 h-3.5 text-zinc-400" />
                   <span>Controls & Keybindings...</span>
                 </button>
-
-                <div className="my-1 border-t border-zinc-800" />
-
                 <button
                   onClick={() => {
-                    onOpenWindowsRelease();
+                    onOpenLinkCable();
                     closeMenu();
                   }}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Windows x64 Releases (.exe / .zip)...</span>
+                  <Cable className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>2-Player Link Cable...</span>
                 </button>
+                <button
+                  onClick={() => {
+                    system.toggleDpadStylusMode();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Crosshair className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Virtual Stylus Mode (Tab)</span>
+                  </span>
+                  {system.virtualStylus.dpadStylusMode && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenColorCustomizer();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Palette className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Screen Colors...</span>
+                </button>
+
+                {system.settings.advancedMode && (
+                  <>
+                    <div className="my-1 border-t border-zinc-800" />
+                    <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                      Advanced Tools
+                    </div>
+                    <button
+                      onClick={() => {
+                        onOpenAccuracy();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Hardware Accuracy & Ghosting...</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onOpenPhoneBook();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                    >
+                      <BookUser className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Phone Book Manager...</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onOpenDebugger();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                    >
+                      <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                      <span>CPU Debugger...</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onOpenBios();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                    >
+                      <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+                      <span>BIOS ROM Manager...</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onOpenWindowsRelease();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Windows Releases (.exe / .zip)...</span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right: Quick Actions (Hardcore Mode + High Scores/Leaderboards + Compete.Com Link + Cartridge Name + View Mode + Mute) */}
+        {/* Right: Clean Quick Actions */}
         <div className="flex items-center gap-2 text-[11px] text-zinc-400">
           {system.linkCable.instanceNumber > 1 && (
             <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold">
@@ -989,10 +1008,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 onUpdate();
               }}
               className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono text-[10px] cursor-pointer"
-              title="D-Pad Stylus Mode Active (Press Tab to switch back to D-Pad)"
+              title="Virtual Stylus Mode Active (Press Tab to switch back to D-Pad)"
             >
               <Crosshair className="w-3 h-3" />
-              <span>Stylus Mode</span>
+              <span>Stylus</span>
             </button>
           )}
 
@@ -1010,64 +1029,31 @@ export const TopBar: React.FC<TopBarProps> = ({
             }`}
             title={
               system.retroAchievements.config.hardcoreMode
-                ? 'Competitive Hardcore Mode Active (Save states & slowdown locked; scores cryptographically attested)'
-                : 'Softcore Mode (Click to enable Competitive Hardcore Mode)'
+                ? 'Hardcore Mode (Save states & slow motion disabled for verified leaderboards)'
+                : 'Softcore Mode (Click to switch to Hardcore Mode)'
             }
           >
             <ShieldCheck className="w-3 h-3" />
-            <span>{system.retroAchievements.config.hardcoreMode ? 'HARDCORE' : 'SOFTCORE'}</span>
+            <span>{system.retroAchievements.config.hardcoreMode ? 'Hardcore' : 'Softcore'}</span>
           </button>
 
           <button
             onClick={onOpenHighScores}
             className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 transition cursor-pointer"
-            title="High Scores, Multi-Player Profiles, Online Leaderboards & RetroAchievements"
+            title="High Scores, Leaderboards & Achievements"
           >
             <Trophy className="w-3 h-3 text-amber-400" />
             <span className="font-medium">High Scores</span>
-            <span className="font-mono text-[10px] text-amber-400">
-              ({system.highScores.getActiveProfile().name})
-            </span>
-          </button>
-
-          <button
-            onClick={onOpenLinkCable}
-            className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded transition cursor-pointer border ${
-              system.linkCable.status === 'connected'
-                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
-                : system.linkCable.status === 'waiting'
-                ? 'bg-amber-950/60 border-amber-500/50 text-amber-300'
-                : 'border-transparent hover:bg-zinc-800 text-zinc-300'
-            }`}
-            title="Compete.Com Link Cable (2-Player Local Network & Same-PC Dual Instance)"
-          >
-            <Cable
-              className={`w-3 h-3 ${
-                system.linkCable.status === 'connected'
-                  ? 'text-emerald-400'
-                  : system.linkCable.status === 'waiting'
-                  ? 'text-amber-400 animate-pulse'
-                  : 'text-sky-400'
-              }`}
-            />
-            <span className="font-medium">
-              {system.linkCable.status === 'connected'
-                ? 'Linked'
-                : system.linkCable.status === 'waiting'
-                ? 'Linking...'
-                : 'Compete.Com'}
-            </span>
           </button>
 
           <button
             onClick={onOpenLibrary}
             className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
-            title="Active Cartridge Slot (Click to manage slots)"
+            title="Open Game Library"
           >
             <Disc className="w-3 h-3 text-emerald-400" />
-            <span className="font-mono text-[10px] text-zinc-500">S{system.activeSlot}:</span>
             <span className="truncate max-w-[150px] font-medium">
-              {activeCart ? activeCart.title : 'Empty'}
+              {activeCart ? activeCart.title : 'Open Game'}
             </span>
           </button>
 
@@ -1077,7 +1063,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               onUpdate();
             }}
             className="px-2 py-0.5 rounded bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 font-medium transition cursor-pointer"
-            title="Switch between Handheld Console Shell and Screen-Only Viewport"
+            title="Switch between Console View and Screen-Only View"
           >
             {isScreenOnly ? `Screen ${system.settings.screenScale}×` : 'Console'}
           </button>

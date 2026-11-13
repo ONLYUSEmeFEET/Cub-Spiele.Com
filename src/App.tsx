@@ -108,7 +108,7 @@ export function App() {
     return () => clearInterval(interval);
   }, [system, forceUpdate, showToast]);
 
-  // Global Keyboard Controls, DS-Style Virtual Stylus & Gamepad Polling
+  // Global Keyboard Controls, Virtual Stylus & Gamepad Polling
   useEffect(() => {
     const heldStylusDirs = {
       up: false,
@@ -174,7 +174,7 @@ export function App() {
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyR') {
         e.preventDefault();
         system.resetSystem('MAIN_MENU');
-        showToast('Soft Reset to BIOS Main Menu');
+        showToast('System Reset');
         forceUpdate();
         return;
       }
@@ -184,8 +184,8 @@ export function App() {
         const active = system.toggleDpadStylusMode();
         showToast(
           active
-            ? 'D-Pad Stylus Mode ON (Arrow/WASD moves Stylus, Space/E taps)'
-            : 'D-Pad Stylus Mode OFF (Arrow/WASD controls D-Pad)'
+            ? 'Virtual Stylus Mode ON (Arrow/WASD moves Stylus, Space/E taps)'
+            : 'Virtual Stylus Mode OFF (Arrow/WASD controls D-Pad)'
         );
         forceUpdate();
         return;
@@ -499,7 +499,7 @@ export function App() {
 
     try {
       const cart = await system.loadRomFromFile(file, 1);
-      showToast(`Loaded "${cart.title}" into Slot 1`);
+      showToast(`Loaded "${cart.title}"`);
       forceUpdate();
     } catch (err) {
       showToast(`ROM Error: ${(err as Error).message}`);
@@ -519,10 +519,7 @@ export function App() {
       {/* Drag & Drop ROM Overlay */}
       {isDraggingOver && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm border-2 border-dashed border-emerald-500 m-3 rounded-xl flex flex-col items-center justify-center pointer-events-none">
-          <p className="text-lg font-bold text-white">Drop Game.Com ROM (.bin, .tgc, .zip)</p>
-          <p className="text-xs text-emerald-400 mt-1">
-            Reads official TigerDMGC cartridge header and boots into Slot 1
-          </p>
+          <p className="text-lg font-bold text-white">Drop Game ROM (.bin, .tgc, .zip) to Play</p>
         </div>
       )}
 
@@ -577,7 +574,7 @@ export function App() {
               }`}
             />
             <span className="text-zinc-300">
-              {!system.isPoweredOn ? 'OFF' : system.isPaused ? 'PAUSED' : 'RUNNING'}
+              {!system.isPoweredOn ? 'Off' : system.isPaused ? 'Paused' : 'Ready'}
             </span>
           </span>
 
@@ -585,10 +582,12 @@ export function App() {
 
           <span className="truncate text-zinc-300">
             {system.activeApp === 'CARTRIDGE' && activeCart
-              ? `Slot ${system.activeSlot}: ${activeCart.title}${
-                  activeCart.headerTitle ? ` [${activeCart.headerTitle}]` : ''
-                }`
-              : 'BIOS Built-In PDA / Menu'}
+              ? system.settings.advancedMode
+                ? `Slot ${system.activeSlot}: ${activeCart.title}${
+                    activeCart.headerTitle ? ` [${activeCart.headerTitle}]` : ''
+                  }`
+                : activeCart.title
+              : 'System Menu'}
           </span>
         </div>
 
@@ -600,7 +599,10 @@ export function App() {
                   system.linkCable.status === 'connected' ? 'text-emerald-400' : 'text-amber-400'
                 }
               >
-                Link: {system.linkCable.status === 'connected' ? 'Connected' : 'Waiting'} (TX:{system.linkCable.txBytes}/RX:{system.linkCable.rxBytes})
+                Link: {system.linkCable.status === 'connected' ? 'Connected' : 'Waiting'}
+                {system.settings.advancedMode
+                  ? ` (TX:${system.linkCable.txBytes}/RX:${system.linkCable.rxBytes})`
+                  : ''}
               </span>
               <span className="text-zinc-700">|</span>
             </>
@@ -611,13 +613,18 @@ export function App() {
               <span className="text-zinc-700">|</span>
             </>
           )}
-          <span className="hidden sm:inline">
-            Ghosting: {Math.round(system.settings.ghosting * 100)}% /{' '}
-            {Math.round(system.settings.ghostingPersistence * 100)}%
-          </span>
-          <span className="hidden sm:inline text-zinc-700">|</span>
-          <span>Vol: {system.settings.muted ? 'Mute' : `${Math.round(system.settings.volume * 100)}%`}</span>
-          <span className="text-zinc-700">|</span>
+          {system.settings.advancedMode && (
+            <>
+              <span className="hidden sm:inline">
+                Ghosting: {Math.round(system.settings.ghosting * 100)}%
+              </span>
+              <span className="hidden sm:inline text-zinc-700">|</span>
+              <span>
+                Vol: {system.settings.muted ? 'Mute' : `${Math.round(system.settings.volume * 100)}%`}
+              </span>
+              <span className="text-zinc-700">|</span>
+            </>
+          )}
           <span className="text-emerald-400">{system.fps} FPS</span>
         </div>
       </footer>

@@ -55,11 +55,11 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
       isLatest: true,
       commitRef: 'HEAD (tag: v1.4.0)',
       highlights: [
-        'Added Competitive Hardcore Mode (RetroAchievements compatible): locks save state loading (F8), enforces >=1.0x native 4.9152 MHz clock speed, blocks CPU debugger stepping, and performs clean cold-boot session attestation',
+        'Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection',
+        'Added Competitive Hardcore Mode (RetroAchievements compatible, defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation',
         'Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players\' scores side-by-side)',
         'Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)',
-        'Added RetroAchievements (rcheevos / dorequest.php) ecosystem integration with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, live Rich Presence, and RAIntegration submission export kit',
-        'Removed Sega-copyrighted Sonic Jam ROMs and streamlined top-right quick-action bar with direct High Scores & Hardcore Mode controls'
+        'Streamlined emulator interface by default with an optional Advanced Mode (View -> Advanced Mode) for hardware debugging, raw NVRAM inspection, and dual-slot manual controls'
       ],
       assets: [
         {
@@ -82,14 +82,14 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
     },
     {
       tag: 'v1.3.0',
-      title: 'Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & DS Virtual Stylus',
+      title: 'Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus',
       publishedAt: '2026-11-12T22:30:00Z',
       isLatest: false,
       commitRef: 'tag: v1.3.0',
       highlights: [
         'Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings',
         'Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors',
-        'Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and DS-Style Virtual Stylus',
+        'Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and Virtual Stylus',
         'Synchronized internal Game.Com Real-Time Clock ($0120–$0129) and NVRAM Calendar ($FEE2–$FEE7) to the user device date and time',
         'Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)'
       ],

@@ -20,7 +20,7 @@ import { SM8521CPU } from './sm8521';
 import { CartridgeInfo } from './types';
 import { calculateMd5Hex, calculateChecksum, resolveKnownGameByGameIdOrTitle } from './cartridge';
 
-const RA_CONFIG_STORAGE_KEY = 'cub_spiele_ra_config_v1';
+const RA_CONFIG_STORAGE_KEY = 'cub_spiele_ra_config_v2';
 const RA_UNLOCKS_STORAGE_KEY = 'cub_spiele_ra_unlocks_v1';
 
 /** Proposed / Pending rcheevos Console ID for Tiger Game.Com (SM8521) */
@@ -121,7 +121,7 @@ export const GAMECOM_RA_LEADERBOARDS: RALeaderboardDefinition[] = [
     gameId: 0x0917,
     gameTitle: 'Lights Out',
     title: 'Lights Out — Highest Puzzle Level Cleared',
-    description: 'Highest puzzle level saved to hardware NVRAM ($FC60-$FEDF, Game ID $0917).',
+    description: 'Highest puzzle level saved to NVRAM (Game ID $0917).',
     format: 'VALUE',
     lowerIsBetter: false,
     sta: '0xH0168=0_0x 0xfc60=0x0917',
@@ -132,9 +132,9 @@ export const GAMECOM_RA_LEADERBOARDS: RALeaderboardDefinition[] = [
   {
     id: 890002,
     gameId: 0xfee0,
-    gameTitle: 'Built-In Solitaire (BIOS)',
-    title: 'Solitaire — High Score ($FEE0-$FEE1)',
-    description: 'Highest Klondike Solitaire score recorded in battery-backed NVRAM ($FEE0-$FEE1).',
+    gameTitle: 'Built-In Solitaire',
+    title: 'Solitaire — High Score',
+    description: 'Highest Klondike Solitaire score recorded in NVRAM ($FEE0-$FEE1).',
     format: 'SCORE',
     lowerIsBetter: false,
     sta: '0xH0168=3',
@@ -144,15 +144,15 @@ export const GAMECOM_RA_LEADERBOARDS: RALeaderboardDefinition[] = [
   },
   {
     id: 890003,
-    gameId: 0x0617,
+    gameId: 0x1a15,
     gameTitle: 'Williams Arcade Classics',
     title: 'Williams Arcade Classics — High Score',
     description: 'Highest score recorded across Joust, Defender, Robotron: 2084, or Sinistar.',
     format: 'SCORE',
     lowerIsBetter: false,
-    sta: '0x 0x601a=0x0617',
+    sta: '0x 0x601a=0x1a15',
     can: '0xH0168=1',
-    sub: '0x 0xfc60=0x0617',
+    sub: '0x 0xfc60=0x1a15',
     val: '0x 0xfc6e'
   },
   {
@@ -170,41 +170,67 @@ export const GAMECOM_RA_LEADERBOARDS: RALeaderboardDefinition[] = [
   },
   {
     id: 890005,
-    gameId: 0x1b18,
+    gameId: 0x1a21,
     gameTitle: 'Centipede',
     title: 'Centipede — High Score',
-    description: 'Highest arcade score recorded in Centipede (Game ID $1B18).',
+    description: 'Highest arcade score recorded in Centipede (Game ID $1A21).',
     format: 'SCORE',
     lowerIsBetter: false,
-    sta: '0x 0x601a=0x1b18',
+    sta: '0x 0x601a=0x1a21',
     can: '0xH0168=1',
-    sub: '0x 0xfc60=0x1b18',
+    sub: '0x 0xfc60=0x1a21',
     val: '0x 0xfc6e'
   },
   {
     id: 890006,
-    gameId: 0x1d18,
+    gameId: 0x1b3a,
     gameTitle: 'Resident Evil 2',
     title: 'Resident Evil 2 — Survival Score',
-    description: 'Best completion score saved to NVRAM in Resident Evil 2 (Game ID $1D18).',
+    description: 'Best completion score saved to NVRAM in Resident Evil 2 (Game ID $1B3A).',
     format: 'SCORE',
     lowerIsBetter: false,
-    sta: '0x 0x601a=0x1d18',
+    sta: '0x 0x601a=0x1b3a',
     can: '0xH0168=1',
-    sub: '0x 0xfc60=0x1d18',
+    sub: '0x 0xfc60=0x1b3a',
     val: '0x 0xfc6e'
   },
   {
     id: 890007,
-    gameId: 0x0b17,
+    gameId: 0x1b2b,
     gameTitle: 'Duke Nukem 3D',
     title: 'Duke Nukem 3D — High Score',
-    description: 'Highest score saved to NVRAM in Duke Nukem 3D (Game ID $0B17).',
+    description: 'Highest score saved to NVRAM in Duke Nukem 3D (Game ID $1B2B).',
     format: 'SCORE',
     lowerIsBetter: false,
-    sta: '0x 0x601a=0x0b17',
+    sta: '0x 0x601a=0x1b2b',
     can: '0xH0168=1',
-    sub: '0x 0xfc60=0x0b17',
+    sub: '0x 0xfc60=0x1b2b',
+    val: '0x 0xfc6e'
+  },
+  {
+    id: 890008,
+    gameId: 0x0432,
+    gameTitle: 'Sonic Jam',
+    title: 'Sonic Jam — High Score',
+    description: 'Highest score saved to NVRAM in Sonic Jam (Game ID $0432).',
+    format: 'SCORE',
+    lowerIsBetter: false,
+    sta: '0x 0x601a=0x0432',
+    can: '0xH0168=1',
+    sub: '0x 0xfc60=0x0432',
+    val: '0x 0xfc6e'
+  },
+  {
+    id: 890009,
+    gameId: 0x0448,
+    gameTitle: 'Castlevania: Symphony of the Night',
+    title: 'Castlevania: Symphony of the Night — High Score',
+    description: 'Highest score and castle completion saved in Castlevania: Symphony of the Night (Game ID $0448).',
+    format: 'SCORE',
+    lowerIsBetter: false,
+    sta: '0x 0x601a=0x0448',
+    can: '0xH0168=1',
+    sub: '0x 0xfc60=0x0448',
     val: '0x 0xfc6e'
   }
 ];
@@ -215,7 +241,7 @@ export const GAMECOM_RA_ACHIEVEMENTS: RAAchievementDefinition[] = [
     gameId: 0x0917,
     gameTitle: 'Lights Out',
     title: 'Grid Tactician',
-    description: 'Clear Level 1 in Lights Out and advance to Level 2 without using save states.',
+    description: 'Clear Level 1 in Lights Out and advance to Level 2.',
     points: 5,
     badgeName: '891001',
     memAddr: '0xH01bc>=2',
@@ -246,9 +272,9 @@ export const GAMECOM_RA_ACHIEVEMENTS: RAAchievementDefinition[] = [
   {
     id: 891004,
     gameId: 0xfee0,
-    gameTitle: 'Built-In Solitaire (BIOS)',
-    title: 'PDA Card Shark',
-    description: 'Score at least 100 points in Built-In BIOS Solitaire ($FEE0-$FEE1).',
+    gameTitle: 'Built-In Solitaire',
+    title: 'Card Shark',
+    description: 'Score at least 100 points in Built-In Solitaire.',
     points: 5,
     badgeName: '891004',
     memAddr: '0x 0xfee0>=100',
@@ -257,9 +283,9 @@ export const GAMECOM_RA_ACHIEVEMENTS: RAAchievementDefinition[] = [
   {
     id: 891005,
     gameId: 0xfee0,
-    gameTitle: 'Built-In Solitaire (BIOS)',
+    gameTitle: 'Built-In Solitaire',
     title: 'Executive Klondike Champion',
-    description: 'Score 500 or more points in Built-In BIOS Solitaire ($FEE0-$FEE1).',
+    description: 'Score 500 or more points in Built-In Solitaire.',
     points: 15,
     badgeName: '891005',
     memAddr: '0x 0xfee0>=500',
@@ -269,11 +295,33 @@ export const GAMECOM_RA_ACHIEVEMENTS: RAAchievementDefinition[] = [
     id: 891006,
     gameId: 0x0000,
     gameTitle: 'Game.Com System',
-    title: 'First NVRAM High Score',
-    description: 'Record a verified cartridge high score into battery-backed NVRAM ($FC60-$FEDF).',
+    title: 'First High Score',
+    description: 'Record a verified cartridge high score into battery-backed NVRAM.',
     points: 5,
     badgeName: '891006',
     memAddr: '0x 0xfc60!=0_0x 0xfc60!=0xffff',
+    category: 'core'
+  },
+  {
+    id: 891007,
+    gameId: 0x0432,
+    gameTitle: 'Sonic Jam',
+    title: 'Supersonic Speedster',
+    description: 'Enter a Sonic Jam zone and begin high-speed gameplay.',
+    points: 10,
+    badgeName: '891007',
+    memAddr: '0xH0168=4_0xH0022>=32',
+    category: 'core'
+  },
+  {
+    id: 891008,
+    gameId: 0x0448,
+    gameTitle: 'Castlevania: Symphony of the Night',
+    title: 'Awakening in Dracula\'s Castle',
+    description: 'Enter Dracula\'s Castle in Castlevania: Symphony of the Night.',
+    points: 10,
+    badgeName: '891008',
+    memAddr: '0xH0168=4_0xH0023>=32',
     category: 'core'
   }
 ];
@@ -289,7 +337,7 @@ interface UserCryptographicIdentity {
 export class RetroAchievementsEngine {
   public config: RetroAchievementsConfig = {
     enabled: true,
-    hardcoreMode: true, // Default ON for authentic competitive play
+    hardcoreMode: false, // Default to Softcore initially; user-specified mode is persisted afterward
     username: '',
     connectToken: '',
     webApiKey: '',
@@ -300,10 +348,10 @@ export class RetroAchievementsEngine {
 
   public session: SessionIntegrityState;
   public unlocks: RAAchievementUnlock[] = [];
-  public lastRichPresence: string = 'In BIOS Main Menu [Hardcore]';
+  public lastRichPresence: string = 'In Main Menu [Softcore]';
   public connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'local_hardcore' =
     'local_hardcore';
-  public lastSyncMessage: string = 'Local Hardcore Verification Active (rcheevos Memory Map Ready)';
+  public lastSyncMessage: string = 'Ready';
 
   private identity: UserCryptographicIdentity;
   private prevInternalRam: Uint8Array = new Uint8Array(0x0400);
@@ -731,12 +779,18 @@ export class RetroAchievementsEngine {
 
   private updateRichPresence(cpu: SM8521CPU, activeCart: CartridgeInfo | null) {
     const modeTag = this.isSessionHardcoreClean() ? '[HARDCORE]' : '[Softcore]';
-    const isCartRunning = cpu.mmu[1] >= 0x20 || cpu.mmu[2] >= 0x20;
+    const isCartRunning =
+      cpu.cartridgeExecutedThisFrame ||
+      cpu.mmu[1] >= 0x20 ||
+      cpu.mmu[2] >= 0x20 ||
+      cpu.mmu[3] >= 0x20 ||
+      cpu.mmu[4] >= 0x20 ||
+      cpu.m_p_ram[0x0168] === 4;
 
     if (isCartRunning && activeCart) {
       if (activeCart.headerGameId === 0x0917) {
         const lvl = Math.max(1, cpu.m_p_ram[0x01bc] || 1);
-        this.lastRichPresence = `Playing Lights Out • Puzzle Level ${lvl} ${modeTag}`;
+        this.lastRichPresence = `Playing Lights Out • Level ${lvl} ${modeTag}`;
       } else {
         const known = resolveKnownGameByGameIdOrTitle(activeCart.headerGameId || 0, activeCart.title);
         this.lastRichPresence = `Playing ${known?.title || activeCart.title} ${modeTag}`;
@@ -747,7 +801,7 @@ export class RetroAchievementsEngine {
       if (appId === 3) {
         this.lastRichPresence = `Playing Built-In Solitaire • Best: ${solScore < 0xffff ? solScore : 0} pts ${modeTag}`;
       } else {
-        this.lastRichPresence = `BIOS System Menu • Solitaire Best: ${solScore < 0xffff ? solScore : 0} ${modeTag}`;
+        this.lastRichPresence = `System Menu • Solitaire Best: ${solScore < 0xffff ? solScore : 0} ${modeTag}`;
       }
     }
   }

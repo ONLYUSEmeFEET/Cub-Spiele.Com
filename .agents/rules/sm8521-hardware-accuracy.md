@@ -1,5 +1,5 @@
 ---
-description: Enforce Sharp SM8521 hardware accuracy, NVRAM slot integrity, and mGBA/melonDS standalone desktop UX standards.
+description: Enforce Sharp SM8521 hardware accuracy, NVRAM slot integrity, and standalone desktop UX standards.
 globs:
   - "src/**/*"
   - "electron/**/*"

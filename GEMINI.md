@@ -3,7 +3,7 @@
 ## Project Overview
 **Cub Spiele.Com** is a cycle-accurate standalone handheld emulator for the 1997 **Sharp SM8521** 8/16-bit microcontroller architecture (originally used in the Tiger Game.Com handheld console), designed for both **Native Windows x64 Desktop** (`CubSpieleCom.exe` / Electron) and **Web** execution.
 
-The interface follows standalone handheld emulators such as **mGBA** and **melonDS**, offering:
+The interface follows standalone handheld emulators such as **mGBA**, offering:
 - **Native Desktop Menu Bar** (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`)
 - **Screen-Only Mode** (`2×`, `3×`, `4×` integer scaling of the 200×160 2-bpp STN LCD) & **Full Handheld Console Bezel Mode**
 - **Recently Played ROMs** tracking with 1-click boot into **Cartridge Slot 1** or **Cartridge Slot 2**
@@ -22,8 +22,8 @@ The interface follows standalone handheld emulators such as **mGBA** and **melon
 | `src/emulator/nvramHighScores.ts` | Multi-player battery-backed NVRAM High Score & binary save manager (`$FC60–$FEDF`). Supports player profile creation, renaming, multi-user `.json`/`.nvram` score import, and preserves the full 64-byte hardware slot (`rawSlot`), including *Lights Out* (`Game ID $0917`) binary level progress bytes at offsets `+0x12..+0x17`. |
 | `src/emulator/retroAchievements.ts` | Competitive Hardcore Mode & RetroAchievements (`rcheevos` / `dorequest.php`) engine with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, rolling input entropy attestation, and RAIntegration submission kit export. |
 | `src/emulator/onlineLeaderboard.ts` | Online Competitive Leaderboard manager (`/api/leaderboards` REST sync, `BroadcastChannel` peer sync, best-score-per-game aggregation, and `CSC1-...` Signed Score Certificates). |
-| `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (Slot 1 preloaded with *Lights Out*, Slot 2 user-loadable), Hardcore Mode enforcement, and Recently Played ROM persistence. |
-| `src/components/TopBar.tsx` | mGBA / melonDS-style native menu bar (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`) and quick toolbar with direct High Scores & Hardcore Mode controls. |
+| `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (unloaded by default, user-loadable), Hardcore/Softcore Mode enforcement, and Recently Played ROM persistence. |
+| `src/components/TopBar.tsx` | Standalone desktop menu bar (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`) and quick toolbar with streamlined Standard Mode and optional Advanced Mode. |
 | `src/components/ScreenOnlyView.tsx` | Standalone Screen-Only viewport with `2×`/`3×`/`4×` integer scaling and hardware status bar. |
 | `src/components/GameComConsole.tsx` | Full physical handheld console shell with sculpted D-Pad, A/B/C/D buttons, and dual cartridge bay ridges. |
 | `electron/main.cjs` & `preload.cjs` | Electron Native Windows desktop main process and IPC preload bridge (`window.gamecomDesktop`). |

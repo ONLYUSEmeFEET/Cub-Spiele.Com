@@ -2,7 +2,7 @@
   "project": "cub-spiele-com-emulator",
   "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
   "latestVersion": "v1.4.0",
-  "generatedAt": "2026-11-13T20:43:42.375064+00:00",
+  "generatedAt": "2026-11-13T23:28:44.937712+00:00",
   "releases": [
     {
       "tag": "v1.4.0",
@@ -12,19 +12,19 @@
       "Prerelease": false,
       "commitRef": "HEAD (tag: v1.4.0)",
       "highlights": [
-        "Added Competitive Hardcore Mode (RetroAchievements compatible): locks save state loading (F8), enforces >=1.0x native 4.9152 MHz clock speed, blocks CPU debugger stepping, and performs clean cold-boot session attestation",
+        "Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection",
+        "Added Competitive Hardcore Mode (RetroAchievements compatible, defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
         "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
         "Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)",
-        "Added RetroAchievements (rcheevos / dorequest.php) ecosystem integration with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, live Rich Presence, and RAIntegration submission export kit",
-        "Removed Sega-copyrighted Sonic Jam ROMs and streamlined top-right quick-action bar with direct High Scores & Hardcore Mode controls"
+        "Streamlined emulator interface by default with an optional Advanced Mode (View -> Advanced Mode) for hardware debugging, raw NVRAM inspection, and dual-slot manual controls"
       ],
       "assets": [
         {
           "name": "CubSpieleCom-v1.4.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.4.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.4.0-win64.zip",
-          "sizeBytes": 774541,
-          "sha256": "6c99b9faaeeb8ba5028bbd72dc2d3a712da43cefa4bfe5ae4186563d898d1efd",
+          "sizeBytes": 694797,
+          "sha256": "d7a5560bd7754532d6a1366678081280180067e75c94964409e61a1dc1475557",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         },
         {
@@ -39,7 +39,7 @@
     },
     {
       "tag": "v1.3.0",
-      "title": "Cub Spiele.Com v1.3.0 \u2014 STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & DS Virtual Stylus",
+      "title": "Cub Spiele.Com v1.3.0 \u2014 STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus",
       "publishedAt": "2026-11-12T22:30:00Z",
       "isLatest": false,
       "Prerelease": false,
@@ -47,7 +47,7 @@
       "highlights": [
         "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings",
         "Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors",
-        "Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and DS-Style Virtual Stylus",
+        "Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and Virtual Stylus",
         "Synchronized internal Game.Com Real-Time Clock ($0120-$0129) and NVRAM Calendar ($FEE2-$FEE7) to the user device date and time",
         "Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)"
       ],
@@ -56,8 +56,8 @@
           "name": "CubSpieleCom-v1.3.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.3.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.3.0-win64.zip",
-          "sizeBytes": 774540,
-          "sha256": "695ec08c9f94ffc21faeefb9abd11148232d4d31b82d2e696d58f450a42e6663",
+          "sizeBytes": 694796,
+          "sha256": "74e8af3fda007e829cc0dc7b035322b9334f239ed10c61a0c7f5fb629b55e34f",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         },
         {
@@ -88,8 +88,8 @@
           "name": "CubSpieleCom-v1.2.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.2.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
-          "sizeBytes": 774539,
-          "sha256": "835b4944b459c048fd11ecc6995a803d33c43fef7c4d956040ae98ce9e0da634",
+          "sizeBytes": 694795,
+          "sha256": "00f22433a92f884e534be3e0f37281b2880ceb0ed40e278c71afa693bbece5a8",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         },
         {
@@ -120,8 +120,8 @@
           "name": "CubSpieleCom-v1.1.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.1.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
-          "sizeBytes": 774539,
-          "sha256": "89c370026e39ed425b42ccefebf40a0db11920b8bab91181a4785b90b7028d7d",
+          "sizeBytes": 694795,
+          "sha256": "fa9a9cbc73cab3c5de3137893ec21bb840d2f3ab5516f6b6638adf62919bb9b9",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         },
         {
@@ -152,8 +152,8 @@
           "name": "CubSpieleCom-v1.0.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.0.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.0.0-win64.zip",
-          "sizeBytes": 774540,
-          "sha256": "c05d60dc212065c5c0af5c0c7817f8e29ac98fa7e9725bff9da1edc87134752d",
+          "sizeBytes": 694796,
+          "sha256": "b785df5d4318971e0576ac35bd670d4c097654e1bc7af1b952bc36140623895d",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
         },
         {

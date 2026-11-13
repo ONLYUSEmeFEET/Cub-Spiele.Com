@@ -267,7 +267,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         </div>
       )}
 
-      {/* DS-Style Virtual Stylus Reticle & Tip (Keyboard / Controller Stylus) */}
+      {/* Virtual Stylus Reticle & Tip (Keyboard / Controller Stylus) */}
       {system.isPoweredOn && vStylusPos.visible && (
         <div
           className="pointer-events-none absolute z-30"
@@ -276,7 +276,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
             top: Math.round((vStylusPos.y / SCREEN_HEIGHT) * canvasHeight) + 7
           }}
         >
-          {/* DS-style precision target reticle centered on (0,0) */}
+          {/* Precision target reticle centered on (0,0) */}
           <svg
             width="28"
             height="28"

@@ -30,21 +30,49 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Puzzle / Logic',
     description:
-      'The pack-in touchscreen puzzle cartridge. Tap cells to toggle adjacent lights and clear the 5x5 or 6x6 board.',
+      'Touchscreen puzzle game. Tap cells to toggle adjacent lights and clear the 5x5 or 6x6 board.',
     gameIds: [0x0917],
-    headerMatches: ['LIGHTSOUT', 'LIGHTS OUT'],
+    headerMatches: ['LIGHTSOUT', 'LIGHTS OUT', 'LIGHT OUT'],
     coverColor: '#18181b',
     coverAccent: '#22c55e',
     scoreUnit: 'Level / Puzzles'
   },
+  sonicjam: {
+    id: 'sonicjam',
+    title: 'Sonic Jam',
+    publisher: 'Sega / Tiger Electronics',
+    year: 1998,
+    genre: 'Platformer',
+    description:
+      'High-speed platforming featuring Sonic, Tails, and Knuckles across classic Sonic 2, Sonic 3, and Sonic & Knuckles zones.',
+    gameIds: [0x0432, 0x0518],
+    headerMatches: ['SONIC JAM', 'SONICJAM'],
+    coverColor: '#1e3a8a',
+    coverAccent: '#38bdf8',
+    scoreUnit: 'Points'
+  },
+  castlevania: {
+    id: 'castlevania',
+    title: 'Castlevania: Symphony of the Night',
+    publisher: 'Konami / Tiger Electronics',
+    year: 1998,
+    genre: 'Action RPG / Metroidvania',
+    description:
+      'Explore Dracula\'s castle as Alucard with RPG leveling, sub-weapons, relics, and boss battles.',
+    gameIds: [0x0448, 0x4804],
+    headerMatches: ['CVA', 'CASTLEVAN', 'SOTN'],
+    coverColor: '#3b0764',
+    coverAccent: '#c084fc',
+    scoreUnit: 'Points / Gold'
+  },
   solitaire: {
     id: 'solitaire',
-    title: 'Built-In Solitaire (BIOS)',
+    title: 'Built-In Solitaire',
     publisher: 'Tiger Electronics',
     year: 1997,
-    genre: 'Card / PDA Built-In',
+    genre: 'Card Game',
     description:
-      'Built-in BIOS Klondike Solitaire stored in external.bin with dedicated NVRAM high score register at $FEE0-$FEE1.',
+      'Built-in Klondike Solitaire with automatic high score tracking.',
     gameIds: [0xfee0],
     headerMatches: ['SOLITAIRE'],
     coverColor: '#064e3b',
@@ -58,7 +86,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Arcade Classics',
     description: 'Compilation of Joust, Defender, Defender II, Robotron: 2084, and Sinistar.',
-    gameIds: [0x0617],
+    gameIds: [0x1a15, 0x0617],
     headerMatches: ['WILLIAMS', 'ARCADE CL'],
     coverColor: '#581c87',
     coverAccent: '#c084fc',
@@ -72,8 +100,8 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     genre: 'Survival Horror',
     description:
       'Isometric survival horror adaptation following Leon S. Kennedy through the R.P.D. station.',
-    gameIds: [0x1d18],
-    headerMatches: ['RESIDENT2', 'RES EVIL2', 'RESIDENT'],
+    gameIds: [0x1b3a, 0x1d18],
+    headerMatches: ['RESIDENT2', 'RES EVIL2', 'RESIDENT', 'GAMECOM'],
     coverColor: '#1c1917',
     coverAccent: '#dc2626',
     scoreUnit: 'Points'
@@ -86,10 +114,38 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     genre: 'First-Person Shooter',
     description:
       'First-person shooter adaptation featuring 3D corridor rendering, weapons, and digitized voice clips.',
-    gameIds: [0x0b17],
+    gameIds: [0x1b2b, 0x0b17],
     headerMatches: ['DUKE 3D', 'DUKENUKEM', 'DUKE3D'],
     coverColor: '#78350f',
     coverAccent: '#f59e0b',
+    scoreUnit: 'Points'
+  },
+  megamix: {
+    id: 'megamix',
+    title: 'Fighters Megamix',
+    publisher: 'Sega AM2 / Tiger Electronics',
+    year: 1998,
+    genre: 'Fighting',
+    description:
+      'Crossover fighting tournament featuring Virtua Fighter and Fighting Vipers characters with 2-player Link Cable support.',
+    gameIds: [0x0426, 0x1018],
+    headerMatches: ['FIGHTMEGA', 'FIGHTERS', 'MEGAMIX'],
+    coverColor: '#7c2d12',
+    coverAccent: '#fb923c',
+    scoreUnit: 'Points'
+  },
+  indy500: {
+    id: 'indy500',
+    title: 'Indy 500',
+    publisher: 'Sega / Tiger Electronics',
+    year: 1997,
+    genre: 'Racing',
+    description:
+      'High-speed open-wheel oval track racing with pit stops, drafting, and championship modes.',
+    gameIds: [0x1152, 0x0517],
+    headerMatches: ['INDY 500', 'INDY500'],
+    coverColor: '#1e3a8a',
+    coverAccent: '#facc15',
     scoreUnit: 'Points'
   },
   batman: {
@@ -100,7 +156,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     genre: "Action Beat 'Em Up",
     description:
       'Side-scrolling action beat-em-up across Gotham City with batarangs and boss encounters.',
-    gameIds: [0x0317],
+    gameIds: [0x0a31, 0x0317],
     headerMatches: ['BATMAN&R', 'BATMAN'],
     coverColor: '#0f172a',
     coverAccent: '#eab308',
@@ -113,7 +169,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Action Adventure',
     description: 'Top-down and side-scrolling action adventure across Isla Sorna.',
-    gameIds: [0x0817],
+    gameIds: [0x0a42, 0x0817],
     headerMatches: ['LOSTWORLD', 'JURASSIC'],
     coverColor: '#14532d',
     coverAccent: '#84cc16',
@@ -126,8 +182,8 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Fighting',
     description:
-      '2D martial arts fighting adaptation with digitized fighter sprites and special moves.',
-    gameIds: [0x0a17],
+      '2D martial arts fighting adaptation with digitized fighter sprites, special moves, and 2-player Link Cable play.',
+    gameIds: [0x0914, 0x0a17],
     headerMatches: ['MORTAL K', 'MKTRILOGY', 'MORTALKOM'],
     coverColor: '#450a0a',
     coverAccent: '#ef4444',
@@ -140,8 +196,8 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Game Show',
     description: 'Spin the wheel, guess consonants, and solve word puzzles using the touchscreen.',
-    gameIds: [0x0717],
-    headerMatches: ['WHEEL OF', 'WHEEL 1'],
+    gameIds: [0x2343, 0x0717],
+    headerMatches: ['WHEEL OF', 'WHEEL 1', 'W OF FORT'],
     coverColor: '#4c1d95',
     coverAccent: '#a855f7',
     scoreUnit: 'Cash ($)'
@@ -153,7 +209,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Game Show',
     description: 'Sequel edition featuring hundreds of new word puzzles and categories.',
-    gameIds: [0x1418],
+    gameIds: [0x2344, 0x1418],
     headerMatches: ['WHEEL 2', 'WHEEL2'],
     coverColor: '#1e3a8a',
     coverAccent: '#60a5fa',
@@ -167,7 +223,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     genre: 'Trivia Quiz',
     description:
       'Television quiz show adaptation with Daily Doubles, Final Jeopardy, and touchscreen input.',
-    gameIds: [0x0f18],
+    gameIds: [0x2371, 0x0f18],
     headerMatches: ['JEOPARDY!', 'JEOPARDY'],
     coverColor: '#1e1b4b',
     coverAccent: '#60a5fa',
@@ -181,7 +237,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     genre: 'Arcade Classic',
     description: 'Hop across highway traffic and river logs to guide your frogs safely home.',
     gameIds: [0x1a18],
-    headerMatches: ['FROGGER'],
+    headerMatches: ['FROGGER', 'FROGGMEGA'],
     coverColor: '#064e3b',
     coverAccent: '#10b981',
     scoreUnit: 'Points'
@@ -193,7 +249,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Arcade Shooter',
     description: 'Arcade insect shooter supporting both stylus and D-Pad control.',
-    gameIds: [0x1b18],
+    gameIds: [0x1a21, 0x1b18],
     headerMatches: ['CENTIPEDE'],
     coverColor: '#701a75',
     coverAccent: '#ec4899',
@@ -206,7 +262,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Board Game',
     description: 'Buy, trade, and develop properties using the touchscreen interface.',
-    gameIds: [0x1918],
+    gameIds: [0x3105, 0x1918],
     headerMatches: ['MONOPOLY'],
     coverColor: '#065f46',
     coverAccent: '#34d399',
@@ -219,7 +275,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1999,
     genre: 'Word Board Game',
     description: 'Touchscreen crossword board game with built-in word validation.',
-    gameIds: [0x1c18],
+    gameIds: [0x3114, 0x1c18],
     headerMatches: ['SCRABBLE'],
     coverColor: '#115e59',
     coverAccent: '#2dd4bf',
@@ -232,8 +288,8 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Card & Casino',
     description: 'Touchscreen casino suite featuring Blackjack, Poker, and Slot Machines.',
-    gameIds: [0x0e18],
-    headerMatches: ['TIGER CAS', 'CASINO'],
+    gameIds: [0x3011, 0x0e18],
+    headerMatches: ['TIGER CAS', 'CASINO', 'DMGCASINO'],
     coverColor: '#713f12',
     coverAccent: '#facc15',
     scoreUnit: 'Bankroll ($)'
@@ -245,7 +301,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1997,
     genre: 'Trivia',
     description: 'General knowledge trivia cartridge with touchscreen multiple-choice questions.',
-    gameIds: [0x0417],
+    gameIds: [0x2351, 0x0417],
     headerMatches: ['QUIZ WIZ', 'QUIZWIZ'],
     coverColor: '#312e81',
     coverAccent: '#818cf8',
@@ -258,8 +314,8 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Puzzle / Memory',
     description: 'Interactive pattern and word puzzle cartridge.',
-    gameIds: [0x0c17],
-    headerMatches: ['HENRY'],
+    gameIds: [0x0932, 0x0c17],
+    headerMatches: ['HENRY', 'DMG HENRY'],
     coverColor: '#581c87',
     coverAccent: '#d8b4fe',
     scoreUnit: 'Points'
@@ -614,23 +670,6 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
 }
 
 /**
- * Preloaded Cartridge ROM binary served from /roms/ (Lights Out pack-in cartridge only)
+ * Preloaded Cartridge ROM list (empty by default; users load their own ROM files)
  */
-export const PRELOADED_CARTRIDGES: CartridgeInfo[] = [
-  {
-    id: 'lightsout',
-    title: 'Lights Out',
-    headerTitle: 'LightsOut',
-    headerGameId: 0x0917,
-    publisher: 'Tiger Electronics',
-    year: 1997,
-    genre: 'Puzzle / Logic',
-    description:
-      'Official 32KB pack-in cartridge binary (Header: "LightsOut", ID: $0917). Executes natively on the cycle-accurate SM8521 CPU.',
-    sizeBytes: 32768,
-    isBuiltin: false,
-    coverColor: '#18181b',
-    coverAccent: '#22c55e',
-    romUrl: './roms/lightsout.bin'
-  }
-];
+export const PRELOADED_CARTRIDGES: CartridgeInfo[] = [];

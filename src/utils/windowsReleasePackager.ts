@@ -450,8 +450,7 @@ FEATURES:
 
   const assetPaths = [
     'bios/internal.bin',
-    'bios/external.bin',
-    'roms/lightsout.bin'
+    'bios/external.bin'
   ];
   for (const rel of assetPaths) {
     try {

@@ -80,12 +80,12 @@ export function blendTwoShades(
 export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   original: {
     id: 'original',
-    name: 'Original Game.Com (1997 STN)',
+    name: 'Original Olive Green',
     modelYear: '1997',
     modelCode: 'Model #71-500 (Dual-Slot Original)',
-    screenType: '3.5" Reflective Olive-Green STN + Matte Resistive Touch',
+    screenType: '3.5" Reflective Olive-Green LCD',
     description:
-      'Factory 1997 passive-matrix reflective yellow-olive polarizer with authentic ~180ms liquid-crystal response and column multiplexing.',
+      'Classic 1997 olive-green handheld display palette.',
     colors: ['#b9c48a', '#84915a', '#4c5931', '#192310'],
     rgbColors: [
       [185, 196, 138],
@@ -101,12 +101,12 @@ export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   },
   pocket_pro_el: {
     id: 'pocket_pro_el',
-    name: 'Game.Com Pocket Pro (EL Backlit)',
+    name: 'Pocket Pro (Backlit Green)',
     modelYear: 'Early 1999',
-    modelCode: 'Model #71-520 (Front/Backlit Edition)',
-    screenType: '3.1" Electroluminescent (EL) Cyan-Green Backlit STN',
+    modelCode: 'Model #71-520 (Backlit Edition)',
+    screenType: '3.1" Backlit Cyan-Green LCD',
     description:
-      'Early-1999 Pocket Pro with the switchable Indiglo-style electroluminescent cyan-green backlight panel.',
+      '1999 Pocket Pro backlit cyan-green display palette.',
     colors: ['#a6f2d4', '#4ec49b', '#1b7a5c', '#062c20'],
     rgbColors: [
       [166, 242, 212],
@@ -122,12 +122,12 @@ export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   },
   pocket_pro_fstn: {
     id: 'pocket_pro_fstn',
-    name: 'Game.Com Pocket Pro (Silver FSTN)',
+    name: 'Pocket Pro (Silver Grey)',
     modelYear: 'Late 1999',
-    modelCode: 'Model #71-530 (Translucent Shell Revision)',
-    screenType: '3.1" High-Contrast Reflective Silver-Sage FSTN',
+    modelCode: 'Model #71-530 (Translucent Revision)',
+    screenType: '3.1" Silver-Sage LCD',
     description:
-      'Late-1999 colored translucent Pocket Pro revision featuring a neutral silver-grey film-compensated STN polarizer with higher contrast.',
+      'Late-1999 Pocket Pro neutral silver-grey display palette.',
     colors: ['#ced4ca', '#949d90', '#515a4e', '#171d16'],
     rgbColors: [
       [206, 212, 202],
@@ -143,12 +143,12 @@ export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   },
   pocket_warm: {
     id: 'pocket_warm',
-    name: 'Game.Com Pocket (Warm Reflective)',
+    name: 'Pocket (Warm Amber)',
     modelYear: '1998–1999',
-    modelCode: 'Model #71-510 (Compact Non-Backlit)',
-    screenType: '3.1" Warm Amber-Olive Reflective STN',
+    modelCode: 'Model #71-510 (Compact Edition)',
+    screenType: '3.1" Warm Amber-Olive LCD',
     description:
-      'Compact reflective STN panel under warm indoor incandescent lighting with deep bronze-olive contrast.',
+      'Warm amber-olive handheld display palette.',
     colors: ['#d8cc98', '#9e915c', '#5d532b', '#211c0a'],
     rgbColors: [
       [216, 204, 152],
@@ -164,12 +164,12 @@ export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   },
   transflective: {
     id: 'transflective',
-    name: 'Modern Transflective FSTN (Crisp)',
-    modelYear: 'Aftermarket Mod',
-    modelCode: '200×160 Paper-White Transflective Panel',
-    screenType: 'Fast-Response Paper-White Monochrome LCD',
+    name: 'Crisp High Contrast',
+    modelYear: 'Modern',
+    modelCode: '200×160 Paper-White Profile',
+    screenType: 'High-Contrast Monochrome LCD',
     description:
-      'High-clarity paper-white and charcoal display profile for maximum legibility and minimal motion blur.',
+      'High-clarity paper-white and charcoal display profile with minimal motion blur.',
     colors: ['#e8ece6', '#a0a89e', '#525950', '#101410'],
     rgbColors: [
       [232, 236, 230],
@@ -185,11 +185,11 @@ export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   },
   custom: {
     id: 'custom',
-    name: 'Custom 2-Shade Blend',
+    name: 'Custom Colors',
     modelYear: 'Custom',
-    modelCode: 'User 2-Shade Interpolator',
-    screenType: 'Custom 2-bpp Linear Shade Blend',
-    description: 'Blends two user-selected shades across all four 2-bpp LCD levels.',
+    modelCode: 'Custom Color Blend',
+    screenType: 'Custom 4-Shade Blend',
+    description: 'Blends two user-selected colors across all four display shades.',
     colors: ['#b9c48a', '#84915a', '#4c5931', '#192310'],
     rgbColors: [
       [185, 196, 138],
@@ -303,6 +303,8 @@ export interface EmulatorSettings {
   gamepadIndex: number;
   /** Analog stick radial deadzone (0.05 to 0.40) */
   gamepadDeadzone: number;
+  /** Show advanced technical options, dual-slot manual controls, and developer tools */
+  advancedMode: boolean;
 }
 
 export interface CPURegisters {
