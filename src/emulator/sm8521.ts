@@ -328,6 +328,22 @@ export class SM8521CPU {
     this.externalRom.fill(0xff);
     const len = Math.min(data.length, 0x40000);
     this.externalRom.set(data.subarray(0, len));
+    // Fix original BIOS Calendar bug in Bank 3 ($5421, file offset 0x07421):
+    // When drawing the first Sunday (R$D5 == 0) in $541C, the BIOS executes `MOV R$08, #$02; CALL $3161`,
+    // which sets the global text foreground shade in R$9C to Shade 2 ($80) and never restores it to Shade 3 ($C0)
+    // before the next $5358 header redraw (causing the Month & Year header to draw in Shade 2 on top of the
+    // Shade 2 header banner whenever the user changes the month). Keeping R$08 = #$03 preserves Shade 3 ($C0).
+    if (
+      len > 0x07426 &&
+      this.externalRom[0x07421] === 0x58 &&
+      this.externalRom[0x07422] === 0x02 &&
+      this.externalRom[0x07423] === 0x08 &&
+      this.externalRom[0x07424] === 0x49 &&
+      this.externalRom[0x07425] === 0x31 &&
+      this.externalRom[0x07426] === 0x61
+    ) {
+      this.externalRom[0x07422] = 0x03;
+    }
   }
 
   /**
@@ -1203,6 +1219,11 @@ export class SM8521CPU {
             this.onBiosAudioClip(samples, clipBank, clipAddr);
           }
         }
+      }
+
+      // 4. Sync RTC & Calendar once on cold boot right after BIOS initializes $0124..$0129 ($20AE..$20CF in Bank 2)
+      if (this.m_PC === 0x20d0 && this.mmu[1] === 2) {
+        this.syncDeviceDateTime();
       }
 
       this.m_oldpc = this.m_PC;
@@ -2511,15 +2532,6 @@ default:
       }
       this.renderScanline();
     }
-    // If the BIOS cold-boot routine ($2074..$20DE) just zeroed $0124..$0129 or wrote its
-    // hardcoded 1996-10-10 factory fallback date, immediately overwrite with the user's device date & time.
-    if (
-      this.m_p_ram[0x0125] === 0 ||
-      (this.m_p_ram[0x0124] === 0x10 && this.m_p_ram[0x0125] === 0x0a && this.m_p_ram[0x0126] === 0x0a)
-    ) {
-      this.syncDeviceDateTime();
-    }
-
     // Assert VBLANK interrupt (LCDC_INT)
     this.set_input_line(LCDC_INT, true);
   }

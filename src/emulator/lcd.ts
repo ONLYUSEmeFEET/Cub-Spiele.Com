@@ -312,63 +312,81 @@ export class LCDSubsystem {
   }
 
   /**
-   * Render the 200x160 frame onto a target canvas with STN ghosting intensity & persistence
+   * Render the 200x160 frame onto a target canvas with authentic passive-matrix STN
+   * ghosting intensity & persistence, subtle column voltage crosstalk, and ITO pixel grid.
    */
   public renderToCanvas(targetCanvas: HTMLCanvasElement, targetCtx: CanvasRenderingContext2D) {
     const palette = PALETTES[this.paletteId] || PALETTES.original;
     const rgb = this.paletteId === 'custom' ? this.customRgbColors : palette.rgbColors;
     const pixels = this.imageData.data;
 
-    // STN passive-matrix LCD ghosting parameters:
-    // - intensity: how strongly the liquid-crystal persistence trail blends with the instantaneous pixel shade
-    // - persistence: how long previous pixel states linger across successive VBLANK frames
     const intensity = Math.min(0.90, Math.max(0, this.ghosting));
     const persistence = Math.min(0.95, Math.max(0, this.ghostingPersistence));
 
-    const totalPixels = SCREEN_WIDTH * SCREEN_HEIGHT;
-    for (let i = 0; i < totalPixels; i++) {
-      const targetShade = this.currentBuffer[i];
-      const currentVal = this.persistenceBuffer[i];
-
-      let newVal: number;
-      if (intensity <= 0.001) {
-        this.persistenceBuffer[i] = targetShade;
-        newVal = targetShade;
-      } else {
-        const persisted = currentVal * persistence + targetShade * (1.0 - persistence);
-        this.persistenceBuffer[i] = persisted;
-        newVal = targetShade * (1.0 - intensity) + persisted * intensity;
+    // Compute per-column average load for subtle passive-matrix STN vertical column crosstalk
+    // (on passive-matrix STN panels, heavily dark columns slightly bias the column driver voltage)
+    const colBias = new Float32Array(SCREEN_WIDTH);
+    if (intensity > 0.05) {
+      for (let x = 0; x < SCREEN_WIDTH; x++) {
+        let colSum = 0;
+        for (let y = 0; y < SCREEN_HEIGHT; y++) {
+          colSum += this.currentBuffer[y * SCREEN_WIDTH + x];
+        }
+        // Normalize column load (0.0 to 1.0) and apply a subtle 4.5% passive-matrix column shadow bias
+        colBias[x] = (colSum / (SCREEN_HEIGHT * 3)) * 0.045 * intensity;
       }
+    }
 
-      // Map floating shade to palette colors with sub-shade interpolation
-      const floorShade = Math.min(2, Math.max(0, Math.floor(newVal)));
-      const ceilShade = floorShade + 1;
-      const frac = newVal - floorShade;
+    for (let y = 0; y < SCREEN_HEIGHT; y++) {
+      const rowOffset = y * SCREEN_WIDTH;
+      for (let x = 0; x < SCREEN_WIDTH; x++) {
+        const i = rowOffset + x;
+        const targetShade = this.currentBuffer[i];
+        const currentVal = this.persistenceBuffer[i];
 
-      const c0 = rgb[floorShade];
-      const c1 = rgb[ceilShade];
+        let newVal: number;
+        if (intensity <= 0.001) {
+          this.persistenceBuffer[i] = targetShade;
+          newVal = targetShade;
+        } else {
+          const persisted = currentVal * persistence + targetShade * (1.0 - persistence);
+          this.persistenceBuffer[i] = persisted;
+          newVal = targetShade * (1.0 - intensity) + persisted * intensity;
+        }
 
-      let r = c0[0] + (c1[0] - c0[0]) * frac;
-      let g = c0[1] + (c1[1] - c0[1]) * frac;
-      let b = c0[2] + (c1[2] - c0[2]) * frac;
+        // Apply subtle passive-matrix column bias on unlit/midtone pixels
+        const effectiveShade = Math.min(3, Math.max(0, newVal + colBias[x] * (3 - newVal)));
 
-      // Apply contrast curve
-      if (this.contrast !== 1.0) {
-        r = Math.min(255, Math.max(0, ((r / 255 - 0.5) * this.contrast + 0.5) * 255));
-        g = Math.min(255, Math.max(0, ((g / 255 - 0.5) * this.contrast + 0.5) * 255));
-        b = Math.min(255, Math.max(0, ((b / 255 - 0.5) * this.contrast + 0.5) * 255));
+        // Map floating shade to palette colors with sub-shade interpolation
+        const floorShade = Math.min(2, Math.max(0, Math.floor(effectiveShade)));
+        const ceilShade = floorShade + 1;
+        const frac = effectiveShade - floorShade;
+
+        const c0 = rgb[floorShade];
+        const c1 = rgb[ceilShade];
+
+        let r = c0[0] + (c1[0] - c0[0]) * frac;
+        let g = c0[1] + (c1[1] - c0[1]) * frac;
+        let b = c0[2] + (c1[2] - c0[2]) * frac;
+
+        // Apply contrast curve
+        if (this.contrast !== 1.0) {
+          r = Math.min(255, Math.max(0, ((r / 255 - 0.5) * this.contrast + 0.5) * 255));
+          g = Math.min(255, Math.max(0, ((g / 255 - 0.5) * this.contrast + 0.5) * 255));
+          b = Math.min(255, Math.max(0, ((b / 255 - 0.5) * this.contrast + 0.5) * 255));
+        }
+
+        const pixelOffset = i * 4;
+        pixels[pixelOffset] = r;
+        pixels[pixelOffset + 1] = g;
+        pixels[pixelOffset + 2] = b;
+        pixels[pixelOffset + 3] = 255;
       }
-
-      const pixelOffset = i * 4;
-      pixels[pixelOffset] = r;
-      pixels[pixelOffset + 1] = g;
-      pixels[pixelOffset + 2] = b;
-      pixels[pixelOffset + 3] = 255;
     }
 
     this.offscreenCtx.putImageData(this.imageData, 0, 0);
 
-    // Now render offscreen canvas to target canvas
+    // Render offscreen canvas to target canvas with crisp nearest-neighbor scaling
     targetCtx.imageSmoothingEnabled = false;
     targetCtx.drawImage(
       this.offscreenCanvas,
@@ -382,24 +400,26 @@ export class LCDSubsystem {
       targetCanvas.height
     );
 
-    // Draw authentic 1997 passive-matrix STN 1x1 ITO electrode pixel grid & recessed polarizer shadow
+    // Draw authentic passive-matrix 200x160 ITO electrode inter-pixel gap grid
     if (this.pixelGrid && targetCanvas.width >= SCREEN_WIDTH * 2) {
       const scaleX = targetCanvas.width / SCREEN_WIDTH;
       const scaleY = targetCanvas.height / SCREEN_HEIGHT;
 
-      targetCtx.strokeStyle =
-        this.paletteId === 'original'
-          ? 'rgba(28, 38, 14, 0.13)'
-          : 'rgba(0, 0, 0, 0.10)';
+      // On reflective STN displays, the tiny inter-pixel gap between liquid-crystal segments
+      // shows the bright reflective substrate slightly lighter/darker depending on panel type
+      const isBacklit = Boolean(palette.isBacklit);
+      targetCtx.strokeStyle = isBacklit
+        ? 'rgba(10, 55, 40, 0.14)'
+        : this.paletteId === 'original' || this.paletteId === 'pocket_warm'
+        ? 'rgba(28, 38, 14, 0.14)'
+        : 'rgba(0, 0, 0, 0.11)';
       targetCtx.lineWidth = 0.65;
       targetCtx.beginPath();
-      // Every column (200 columns)
       for (let x = 0; x <= SCREEN_WIDTH; x++) {
         const px = Math.floor(x * scaleX) + 0.5;
         targetCtx.moveTo(px, 0);
         targetCtx.lineTo(px, targetCanvas.height);
       }
-      // Every scanline row (160 rows)
       for (let y = 0; y <= SCREEN_HEIGHT; y++) {
         const py = Math.floor(y * scaleY) + 0.5;
         targetCtx.moveTo(0, py);
@@ -408,17 +428,33 @@ export class LCDSubsystem {
       targetCtx.stroke();
     }
 
-    // Subtle recessed bezel cast shadow onto the reflective STN glass substrate
-    const topGrad = targetCtx.createLinearGradient(0, 0, 0, 14);
-    topGrad.addColorStop(0, 'rgba(12, 16, 6, 0.22)');
-    topGrad.addColorStop(1, 'rgba(12, 16, 6, 0)');
-    targetCtx.fillStyle = topGrad;
-    targetCtx.fillRect(0, 0, targetCanvas.width, 14);
+    if (palette.isBacklit) {
+      // Pocket Pro (1999 EL Backlit) electroluminescent edge-diffuser glow
+      const elGrad = targetCtx.createRadialGradient(
+        targetCanvas.width * 0.5,
+        targetCanvas.height * 0.5,
+        targetCanvas.width * 0.1,
+        targetCanvas.width * 0.5,
+        targetCanvas.height * 0.5,
+        targetCanvas.width * 0.65
+      );
+      elGrad.addColorStop(0, 'rgba(166, 255, 220, 0.06)');
+      elGrad.addColorStop(1, 'rgba(0, 40, 28, 0.14)');
+      targetCtx.fillStyle = elGrad;
+      targetCtx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+    } else {
+      // Authentic recessed bezel shadow cast onto the reflective STN glass substrate
+      const topGrad = targetCtx.createLinearGradient(0, 0, 0, 14);
+      topGrad.addColorStop(0, 'rgba(12, 16, 6, 0.24)');
+      topGrad.addColorStop(1, 'rgba(12, 16, 6, 0)');
+      targetCtx.fillStyle = topGrad;
+      targetCtx.fillRect(0, 0, targetCanvas.width, 14);
 
-    const leftGrad = targetCtx.createLinearGradient(0, 0, 12, 0);
-    leftGrad.addColorStop(0, 'rgba(12, 16, 6, 0.18)');
-    leftGrad.addColorStop(1, 'rgba(12, 16, 6, 0)');
-    targetCtx.fillStyle = leftGrad;
-    targetCtx.fillRect(0, 0, 12, targetCanvas.height);
+      const leftGrad = targetCtx.createLinearGradient(0, 0, 12, 0);
+      leftGrad.addColorStop(0, 'rgba(12, 16, 6, 0.19)');
+      leftGrad.addColorStop(1, 'rgba(12, 16, 6, 0)');
+      targetCtx.fillStyle = leftGrad;
+      targetCtx.fillRect(0, 0, 12, targetCanvas.height);
+    }
   }
 }

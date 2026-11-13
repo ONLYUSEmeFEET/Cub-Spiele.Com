@@ -18,6 +18,8 @@ import {
   EmulatorSettings,
   CPURegisters,
   RecentGameEntry,
+  LCDPaletteId,
+  PALETTES,
   DEFAULT_LIGHT_SHADE,
   DEFAULT_DARK_SHADE,
   blendTwoShades
@@ -105,7 +107,7 @@ export class GameComSystem {
     palette: 'original',
     twoShadeColors: [DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE],
     customPaletteColors: blendTwoShades(DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE),
-    ghosting: 0.40,
+    ghosting: 0.42,
     ghostingPersistence: 0.65,
     pixelGrid: true,
     showTouchGrid: false,
@@ -204,10 +206,11 @@ export class GameComSystem {
             parsed.twoShadeColors[0],
             parsed.twoShadeColors[1]
           );
-          if (parsed.activePalette === 'custom' || parsed.activePalette === 'original') {
-            this.settings.palette = parsed.activePalette;
+          if (parsed.activePalette && parsed.activePalette in PALETTES) {
+            this.settings.palette = parsed.activePalette as LCDPaletteId;
           }
           this.lcd.setCustomColors(this.settings.customPaletteColors);
+          this.lcd.paletteId = this.settings.palette;
         }
       }
 
@@ -252,6 +255,31 @@ export class GameComSystem {
   }
 
   /**
+   * Applies an official Game.Com hardware screen preset (1997 Original STN,
+   * 1999 Pocket Pro EL Backlit, Late 1999 Pocket Pro FSTN, Pocket Warm, or Transflective)
+   * and synchronizes the passive-matrix response time & endpoint shades.
+   */
+  public applyScreenPreset(paletteId: LCDPaletteId, syncHardwareResponse: boolean = true) {
+    const preset = PALETTES[paletteId] || PALETTES.original;
+    this.settings.palette = paletteId;
+    if (paletteId !== 'custom') {
+      this.settings.twoShadeColors = [preset.colors[0], preset.colors[3]];
+      this.settings.customPaletteColors = [...preset.colors];
+      this.lcd.setCustomColors(this.settings.customPaletteColors);
+    }
+    this.lcd.paletteId = paletteId;
+    if (syncHardwareResponse) {
+      this.settings.ghosting = preset.defaultGhosting;
+      this.settings.ghostingPersistence = preset.defaultPersistence;
+      this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0;
+      this.lcd.ghostingPersistence = this.accuracyFixes.stnGhostingAccurate
+        ? this.settings.ghostingPersistence
+        : 0;
+    }
+    this.saveDisplaySettingsToStorage();
+  }
+
+  /**
    * Blends the user's two chosen shades (Light/Background Shade 0 and Dark/Foreground Shade 3)
    * into the 4 hardware 2-bpp shades and applies them live.
    */
@@ -273,7 +301,7 @@ export class GameComSystem {
   }
 
   public resetTwoShadesToDefault() {
-    this.setTwoShadeBlend(DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE);
+    this.applyScreenPreset('original', true);
   }
 
   public setGhostingParameters(intensity: number, persistence: number) {
@@ -436,11 +464,6 @@ export class GameComSystem {
   public syncBiosToMemory() {
     this.cpu.loadInternalBIOS(this.bios.internalRom);
     this.cpu.loadExternalBIOS(this.bios.externalRom);
-  }
-
-  public recordHighScore(gameTitle: string, score: number | string, gameId: number = 0x1a18): boolean {
-    this.highScores.upsertScore(gameId, gameTitle, String(score), this.cpu.nvram);
-    return true;
   }
 
   public openBiosHighScoreScreen() {

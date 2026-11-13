@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import {
   Trophy,
-  Plus,
   Trash2,
   X,
   Layers,
@@ -30,9 +29,6 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
   onUpdated,
   onNotify
 }) => {
-  const [newTitle, setNewTitle] = useState('');
-  const [newScore, setNewScore] = useState('');
-  const [newGameIdHex, setNewGameIdHex] = useState('1A18');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
@@ -45,17 +41,6 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
   const handleSelectBank = (bankIdx: number) => {
     hs.syncBankToNvram(system.cpu.nvram, bankIdx);
     onUpdated();
-  };
-
-  const handleAddScore = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newScore.trim()) return;
-    const gameId = parseInt(newGameIdHex, 16) || 0x1a18;
-    hs.upsertScore(gameId, newTitle.trim(), newScore.trim(), system.cpu.nvram);
-    setNewTitle('');
-    setNewScore('');
-    onUpdated();
-    onNotify?.('High Score Saved to NVRAM', `${newTitle.trim().toUpperCase()} — ${newScore.trim().toUpperCase()}`, 'success');
   };
 
   const handleDelete = (globalIdx: number) => {
@@ -308,7 +293,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                       </>
                     ) : (
                       <div className="col-span-7 text-slate-600 italic">
-                        [Empty 64-byte Hardware Slot — Play a Game or Import/Add Score]
+                        [Empty 64-byte Hardware Slot — Play a Game or Import NVRAM Backup]
                       </div>
                     )}
                   </div>
@@ -316,62 +301,6 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
               })}
             </div>
           </div>
-
-          {/* Add New High Score Record Form */}
-          <form
-            onSubmit={handleAddScore}
-            className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-wrap items-end gap-3"
-          >
-            <div>
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                Game ID (Hex)
-              </label>
-              <input
-                type="text"
-                maxLength={4}
-                value={newGameIdHex}
-                onChange={e => setNewGameIdHex(e.target.value.toUpperCase())}
-                className="w-20 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-white"
-                placeholder="1A18"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                BIOS Game Title (Max 11 ASCII chars)
-              </label>
-              <input
-                type="text"
-                maxLength={11}
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-white uppercase"
-                placeholder="e.g. FROGGER"
-              />
-            </div>
-
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                High Score / Progress
-              </label>
-              <input
-                type="text"
-                maxLength={14}
-                value={newScore}
-                onChange={e => setNewScore(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-white uppercase"
-                placeholder="e.g. 24850"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Score to NVRAM
-            </button>
-          </form>
         </div>
 
         {/* Footer */}

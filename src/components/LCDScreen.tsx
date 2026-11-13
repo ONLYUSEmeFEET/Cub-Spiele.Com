@@ -95,12 +95,13 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
   };
 
   const activePalette = PALETTES[system.settings.palette] || PALETTES.original;
+  const isBacklitModel = Boolean(activePalette.isBacklit && system.isPoweredOn);
   const inactiveGlassBg =
     !system.isPoweredOn
       ? '#4b5239'
-      : system.settings.palette === 'original'
-      ? '#adb87f'
-      : activePalette.colors[0];
+      : system.settings.palette === 'custom'
+      ? system.settings.customPaletteColors[0]
+      : activePalette.bezelTint || activePalette.colors[0];
 
   const effectiveGridOpacity = system.settings.showTouchGrid
     ? Math.max(0.05, system.settings.touchGridOpacity || 0.45)
@@ -111,19 +112,22 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
       className="relative select-none overflow-hidden rounded-[4px] p-[7px] transition-colors duration-200"
       style={{
         backgroundColor: inactiveGlassBg,
-        boxShadow:
-          'inset 0 5px 12px rgba(0, 0, 0, 0.65), inset 0 2px 4px rgba(0, 0, 0, 0.75), inset 2px 0 6px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.08)'
+        boxShadow: isBacklitModel
+          ? 'inset 0 4px 10px rgba(0, 0, 0, 0.62), inset 0 0 18px rgba(80, 255, 195, 0.25), 0 0 14px rgba(78, 196, 155, 0.18), 0 1px 0 rgba(255, 255, 255, 0.12)'
+          : 'inset 0 5px 12px rgba(0, 0, 0, 0.65), inset 0 2px 4px rgba(0, 0, 0, 0.75), inset 2px 0 6px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.08)'
       }}
     >
-      {/* Authentic 1997 STN LCD Inactive Glass Perimeter Frame & Corner Registration Marks */}
+      {/* Authentic STN / FSTN / EL-Backlit LCD Inactive Glass Perimeter Frame & Registration Border */}
       <div
         className="relative rounded-[1px]"
         style={{
           border:
-            system.settings.palette === 'original'
-              ? '1.5px solid rgba(25, 35, 16, 0.48)'
-              : '1.5px solid rgba(0, 0, 0, 0.35)',
-          boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.12)'
+            system.settings.palette === 'custom'
+              ? `1.5px solid ${system.settings.customPaletteColors[2]}88`
+              : `1.5px solid ${activePalette.glassBorderColor}`,
+          boxShadow: isBacklitModel
+            ? '0 0 8px rgba(166, 242, 212, 0.22)'
+            : '0 0 0 1px rgba(255, 255, 255, 0.12)'
         }}
       >
         <canvas
@@ -169,12 +173,13 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         )}
       </div>
 
-      {/* Subtle resistive touchscreen membrane & glass glare overlay */}
+      {/* Subtle resistive touchscreen membrane & polarizer glare overlay */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            'linear-gradient(135deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.03) 34%, rgba(0,0,0,0.02) 65%, rgba(0,0,0,0.14) 100%)'
+          background: isBacklitModel
+            ? 'radial-gradient(circle at 50% 50%, rgba(166,242,212,0.10) 0%, rgba(6,44,32,0.15) 100%)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.03) 34%, rgba(0,0,0,0.02) 65%, rgba(0,0,0,0.14) 100%)'
         }}
       />
 

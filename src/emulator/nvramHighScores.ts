@@ -386,46 +386,6 @@ export class NvramHighScoreManager {
     }
   }
 
-  /**
-   * Adds or updates a high score record in the Unlimited Vault and syncs to NVRAM.
-   */
-  public upsertScore(gameId: number, title: string, scoreText: string, nvram: Uint8Array): number {
-    const cleanTitle = title.toUpperCase().slice(0, 11);
-    const cleanScore = scoreText.toUpperCase().slice(0, 16);
-    const numMatch = cleanScore.match(/\d+/);
-    const numericScore = numMatch ? parseInt(numMatch[0], 10) : 0;
-
-    const idx = this.records.findIndex(
-      r => r.gameId === gameId || r.title.toUpperCase() === cleanTitle
-    );
-
-    if (idx >= 0) {
-      this.records[idx] = {
-        gameId,
-        title: cleanTitle,
-        scoreText: cleanScore,
-        numericScore,
-        updatedAt: Date.now()
-      };
-      const bank = Math.floor(idx / 10);
-      this.saveVault();
-      this.syncBankToNvram(nvram, bank);
-      return bank;
-    } else {
-      this.records.push({
-        gameId,
-        title: cleanTitle,
-        scoreText: cleanScore,
-        numericScore,
-        updatedAt: Date.now()
-      });
-      const bank = Math.floor((this.records.length - 1) / 10);
-      this.saveVault();
-      this.syncBankToNvram(nvram, bank);
-      return bank;
-    }
-  }
-
   public deleteRecord(index: number, nvram: Uint8Array) {
     if (index >= 0 && index < this.records.length) {
       this.records.splice(index, 1);

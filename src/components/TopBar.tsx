@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
-import { RecentGameEntry, DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE } from '../emulator/types';
+import {
+  RecentGameEntry,
+  GAMECOM_SCREEN_PRESET_ORDER,
+  PALETTES
+} from '../emulator/types';
 import {
   Disc,
   Cpu,
@@ -493,13 +497,50 @@ export const TopBar: React.FC<TopBarProps> = ({
               Audio/Video
             </button>
             {openMenu === 'av' && (
-              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
+              <div className="absolute left-0 top-full mt-0.5 w-80 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  2-Shade LCD Color Blend
+                  Game.Com Screen Model Presets
+                </div>
+
+                {GAMECOM_SCREEN_PRESET_ORDER.map((presetId) => {
+                  const preset = PALETTES[presetId];
+                  const isSelected = system.settings.palette === presetId;
+                  return (
+                    <button
+                      key={presetId}
+                      onClick={() => {
+                        system.applyScreenPreset(presetId, true);
+                        onUpdate();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer group"
+                    >
+                      <span className="flex items-center gap-2 truncate pr-2">
+                        <span className="flex items-center rounded overflow-hidden border border-black/40 shrink-0">
+                          <span
+                            className="w-2.5 h-2.5 block"
+                            style={{ backgroundColor: preset.colors[0] }}
+                          />
+                          <span
+                            className="w-2.5 h-2.5 block"
+                            style={{ backgroundColor: preset.colors[3] }}
+                          />
+                        </span>
+                        <span className="truncate">{preset.name}</span>
+                      </span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white shrink-0" />}
+                    </button>
+                  );
+                })}
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  Custom 2-Shade Color Blend
                 </div>
 
                 {/* Inline 2-Shade Quick Swatches */}
-                <div className="px-3 py-2 flex items-center justify-between gap-2">
+                <div className="px-3 py-1.5 flex items-center justify-between gap-2">
                   <label className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 cursor-pointer flex-1">
                     <input
                       type="color"
@@ -535,23 +576,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Palette className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Open 2-Shade Color Blender...</span>
+                    <span>Screen Presets & 2-Shade Blender...</span>
                   </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    system.resetTwoShadesToDefault();
-                    onUpdate();
-                    closeMenu();
-                  }}
-                  disabled={
-                    lightShade.toLowerCase() === DEFAULT_LIGHT_SHADE &&
-                    darkShade.toLowerCase() === DEFAULT_DARK_SHADE
-                  }
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 flex items-center justify-between text-left cursor-pointer"
-                >
-                  <span>Reset to 1997 Olive Default</span>
                 </button>
 
                 <div className="my-1 border-t border-zinc-800" />
