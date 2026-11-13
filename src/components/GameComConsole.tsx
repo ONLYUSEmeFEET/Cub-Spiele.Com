@@ -20,6 +20,18 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 }) => {
   const [pressedButtons, setPressedButtons] = useState<Partial<GameComButtons>>({});
   const [contrastValue, setContrastValue] = useState(system.settings.contrast);
+  const [viewportWidth, setViewportWidth] = useState<number>(
+    typeof window !== 'undefined' ? window.innerWidth : 1024
+  );
+
+  React.useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const effectiveScale =
+    viewportWidth < 420 ? Math.min(scale, 1.45) : viewportWidth < 600 ? Math.min(scale, 1.85) : scale;
 
   const handleBtnPress = (btn: keyof GameComButtons) => {
     setPressedButtons((prev) => ({ ...prev, [btn]: true }));
@@ -236,7 +248,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             </div>
 
             {/* Authentic 1997 Tiger Game.Com Sculpted Circular-Dish 8-Way Cross D-Pad */}
-            <div className="relative w-36 h-36 rounded-full bg-gradient-to-b from-[#1a1c22] to-[#242730] p-2.5 shadow-[inset_0_4px_10px_rgba(0,0,0,0.85),0_1px_1px_rgba(255,255,255,0.08)] border border-[#14161b] flex items-center justify-center my-1">
+            <div
+              onContextMenu={(e) => e.preventDefault()}
+              className="relative w-36 h-36 rounded-full bg-gradient-to-b from-[#1a1c22] to-[#242730] p-2.5 shadow-[inset_0_4px_10px_rgba(0,0,0,0.85),0_1px_1px_rgba(255,255,255,0.08)] border border-[#14161b] flex items-center justify-center my-1 touch-none"
+            >
               {/* Inner recessed dish ring */}
               <div className="relative w-full h-full rounded-full bg-gradient-to-br from-[#23262f] via-[#1b1d24] to-[#14161b] shadow-[0_4px_8px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.1)] border border-[#323642]">
                 {/* Horizontal & Vertical Cross Arms */}
@@ -389,7 +404,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                 boxShadow: 'inset 0 3px 8px rgba(0, 0, 0, 0.95)'
               }}
             >
-              <LCDScreen system={system} scale={scale} onFpsUpdate={onFpsUpdate} />
+              <LCDScreen system={system} scale={effectiveScale} onFpsUpdate={onFpsUpdate} />
             </div>
 
             {/* Bottom Inner Bezel Silk-Screened Legend */}
@@ -410,7 +425,8 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           <div className="flex flex-row lg:flex-col items-center justify-center w-full lg:w-44 gap-6 py-1">
             {/* Authentic 1997 Tiger Game.Com 4-Button Diamond Cluster (A, B, C, D) */}
             <div
-              className="relative w-40 h-40 rounded-full p-3 border border-[#14161b] flex items-center justify-center"
+              onContextMenu={(e) => e.preventDefault()}
+              className="relative w-40 h-40 rounded-full p-3 border border-[#14161b] flex items-center justify-center touch-none"
               style={{
                 background: 'radial-gradient(circle, #181a21 0%, #22252e 100%)',
                 boxShadow:

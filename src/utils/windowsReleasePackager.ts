@@ -467,3 +467,34 @@ FEATURES:
   triggerBinaryDownload(zipped, zipFileName, 'application/zip');
   return zipped.length;
 }
+
+/**
+ * Downloads any multi-platform release artifact (Windows, macOS Universal, Linux x86_64, Android APK)
+ */
+export async function downloadReleaseArtifact(
+  fileName: string,
+  staticUrl: string
+): Promise<number> {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.exe')) {
+    return downloadStandaloneWindowsExe(fileName);
+  }
+  try {
+    const res = await fetch(staticUrl);
+    if (res.ok) {
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length > 512) {
+        const mime = lower.endsWith('.apk')
+          ? 'application/vnd.android.package-archive'
+          : lower.endsWith('.tar.gz')
+            ? 'application/gzip'
+            : 'application/zip';
+        triggerBinaryDownload(buf, fileName, mime);
+        return buf.length;
+      }
+    }
+  } catch {
+    // Fallback to portable zip packager
+  }
+  return downloadWindowsPortableZip(fileName, staticUrl);
+}

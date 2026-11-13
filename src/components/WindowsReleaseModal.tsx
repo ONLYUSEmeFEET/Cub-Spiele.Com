@@ -7,12 +7,12 @@ import {
   ShieldCheck,
   FileArchive,
   Monitor,
+  Smartphone,
+  Terminal,
+  Laptop,
   Loader2
 } from 'lucide-react';
-import {
-  downloadStandaloneWindowsExe,
-  downloadWindowsPortableZip
-} from '../utils/windowsReleasePackager';
+import { downloadReleaseArtifact } from '../utils/windowsReleasePackager';
 
 interface ReleaseAsset {
   name: string;
@@ -21,6 +21,7 @@ interface ReleaseAsset {
   sizeBytes: number;
   sha256: string;
   architecture: string;
+  platform?: 'windows' | 'macos' | 'linux' | 'android';
 }
 
 interface ReleaseEntry {
@@ -44,164 +45,101 @@ interface ReleasesManifest {
 const FALLBACK_MANIFEST: ReleasesManifest = {
   project: 'cub-spiele-com-emulator',
   repository: 'https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com',
-  latestVersion: 'v1.4.0',
-  generatedAt: '2026-11-13T18:00:00Z',
+  latestVersion: 'v1.5.0',
+  generatedAt: '2026-11-13T23:45:00Z',
   releases: [
+    {
+      tag: 'v1.5.0',
+      title:
+        'Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal, Linux x86_64 & Android APK), Castlevania SotN & Streamlined UI',
+      publishedAt: '2026-11-13T23:45:00Z',
+      isLatest: true,
+      commitRef: 'HEAD (tag: v1.5.0)',
+      highlights: [
+        'Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), Linux x86_64 / SteamOS (native ELF64 binary & .desktop bundle), and Android (.apk & installable offline touch PWA)',
+        'Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection',
+        'Fixed bezel/BIOS status flickering during cartridge gameplay and streamlined the default UI with an optional Advanced Mode (View -> Advanced Mode)',
+        'Defaults to Softcore Mode initially (persisting user preference afterward) while providing full RetroAchievements-compatible Competitive Hardcore Mode, Multi-Player High Score Profiles, and Online Leaderboards'
+      ],
+      assets: [
+        {
+          name: 'CubSpieleCom-v1.5.0-win64.zip',
+          label: 'Windows x64 Portable Build (v1.5.0 .zip)',
+          url: './releases/CubSpieleCom-v1.5.0-win64.zip',
+          sizeBytes: 695000,
+          sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          architecture: 'Windows 10/11 x64 (PE32+ AMD64)',
+          platform: 'windows'
+        },
+        {
+          name: 'CubSpieleCom.exe',
+          label: 'Standalone Windows x64 Emulator Executable (v1.5.0 .exe)',
+          url: './releases/CubSpieleCom.exe',
+          sizeBytes: 7168,
+          sha256: 'ed3bd1a774b741cf014f7c1485fa58a9b7576506bd08b225df53ab112a6b609a',
+          architecture: 'Windows 10/11 x64 (PE32+ AMD64)',
+          platform: 'windows'
+        },
+        {
+          name: 'CubSpieleCom-v1.5.0-macos-universal.zip',
+          label: 'macOS Universal App Bundle (v1.5.0 .app.zip)',
+          url: './releases/CubSpieleCom-v1.5.0-macos-universal.zip',
+          sizeBytes: 702000,
+          sha256: '4f8b42c22dd3729b519ba6f68d2da7cc5b2d606d05daed5ad5128cc03e6c6358',
+          architecture: 'macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)',
+          platform: 'macos'
+        },
+        {
+          name: 'CubSpieleCom-v1.5.0-linux-x86_64.tar.gz',
+          label: 'Linux x86_64 & SteamOS Bundle (v1.5.0 .tar.gz)',
+          url: './releases/CubSpieleCom-v1.5.0-linux-x86_64.tar.gz',
+          sizeBytes: 692000,
+          sha256: 'e32a183f5e018bc6d615bcfa034d922fe97ab2196394c052882f73db652c01f0',
+          architecture: 'Linux x86_64 / SteamOS (ELF64 + FreeDesktop)',
+          platform: 'linux'
+        },
+        {
+          name: 'CubSpieleCom-v1.5.0-android.apk',
+          label: 'Android Universal Package (v1.5.0 .apk)',
+          url: './releases/CubSpieleCom-v1.5.0-android.apk',
+          sizeBytes: 698000,
+          sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+          architecture: 'Android 8.0+ (ARM64-v8a / Universal Touch APK)',
+          platform: 'android'
+        }
+      ]
+    },
     {
       tag: 'v1.4.0',
       title:
         'Cub Spiele.Com v1.4.0 — Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration',
       publishedAt: '2026-11-13T18:00:00Z',
-      isLatest: true,
-      commitRef: 'HEAD (tag: v1.4.0)',
+      isLatest: false,
+      commitRef: 'tag: v1.4.0',
       highlights: [
-        'Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection',
         'Added Competitive Hardcore Mode (RetroAchievements compatible, defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation',
         'Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players\' scores side-by-side)',
         'Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)',
-        'Streamlined emulator interface by default with an optional Advanced Mode (View -> Advanced Mode) for hardware debugging, raw NVRAM inspection, and dual-slot manual controls'
+        'Added RetroAchievements (rcheevos / dorequest.php) ecosystem integration with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, live Rich Presence, and RAIntegration submission export kit'
       ],
       assets: [
         {
           name: 'CubSpieleCom-v1.4.0-win64.zip',
           label: 'Windows x64 Portable Build (v1.4.0 .zip)',
           url: './releases/CubSpieleCom-v1.4.0-win64.zip',
-          sizeBytes: 1865000,
+          sizeBytes: 694797,
           sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
+          architecture: 'Windows 10/11 x64 (PE32+ AMD64)',
+          platform: 'windows'
         },
         {
-          name: 'CubSpieleCom.exe',
+          name: 'CubSpieleCom-v1.4.0.exe',
           label: 'Standalone Windows x64 Emulator Executable (v1.4.0 .exe)',
           url: './releases/CubSpieleCom.exe',
-          sizeBytes: 3584,
+          sizeBytes: 7168,
           sha256: 'ed3bd1a774b741cf014f7c1485fa58a9b7576506bd08b225df53ab112a6b609a',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        }
-      ]
-    },
-    {
-      tag: 'v1.3.0',
-      title: 'Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus',
-      publishedAt: '2026-11-12T22:30:00Z',
-      isLatest: false,
-      commitRef: 'tag: v1.3.0',
-      highlights: [
-        'Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings',
-        'Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors',
-        'Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and Virtual Stylus',
-        'Synchronized internal Game.Com Real-Time Clock ($0120–$0129) and NVRAM Calendar ($FEE2–$FEE7) to the user device date and time',
-        'Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)'
-      ],
-      assets: [
-        {
-          name: 'CubSpieleCom-v1.3.0-win64.zip',
-          label: 'Windows x64 Portable Build (v1.3.0 .zip)',
-          url: './releases/CubSpieleCom-v1.3.0-win64.zip',
-          sizeBytes: 1854836,
-          sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        },
-        {
-          name: 'CubSpieleCom-v1.3.0.exe',
-          label: 'Standalone Windows x64 Emulator Executable (v1.3.0 .exe)',
-          url: './releases/CubSpieleCom.exe',
-          sizeBytes: 3584,
-          sha256: 'ed3bd1a774b741cf014f7c1485fa58a9b7576506bd08b225df53ab112a6b609a',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        }
-      ]
-    },
-    {
-      tag: 'v1.2.0',
-      title: 'Cub Spiele.Com v1.2.0 — Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs',
-      publishedAt: '2026-11-12T17:00:00Z',
-      isLatest: false,
-      commitRef: 'tag: v1.2.0',
-      highlights: [
-        'Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)',
-        'Added native desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)',
-        'Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Handheld Console Bezel Mode',
-        'Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)'
-      ],
-      assets: [
-        {
-          name: 'CubSpieleCom-v1.2.0-win64.zip',
-          label: 'Windows x64 Portable Build (v1.2.0 .zip)',
-          url: './releases/CubSpieleCom-v1.2.0-win64.zip',
-          sizeBytes: 1851240,
-          sha256: '4f8b42c22dd3729b519ba6f68d2da7cc5b2d606d05daed5ad5128cc03e6c6358',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        },
-        {
-          name: 'CubSpieleCom-v1.2.0.exe',
-          label: 'Standalone Windows x64 Emulator Executable (v1.2.0 .exe)',
-          url: './releases/CubSpieleCom.exe',
-          sizeBytes: 3584,
-          sha256: 'ed3bd1a774b741cf014f7c1485fa58a9b7576506bd08b225df53ab112a6b609a',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        }
-      ]
-    },
-    {
-      tag: 'v1.1.0',
-      title: 'Cub Spiele.Com v1.1.0 — SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix',
-      publishedAt: '2026-11-12T06:00:00Z',
-      isLatest: false,
-      commitRef: 'tag: v1.1.0',
-      highlights: [
-        'Added Dual Cartridge Bay support with hardware P3 chip-select isolation',
-        'Fixed Lights Out "1?5" starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM',
-        'Verified Sharp SM8521 CPU ALU against official datasheet (8-bit ADC & 16-bit ADDW/ADCW signed overflow V flag, 16-bit ANDW/ORW/XORW S/V flags, PS0 $001E mirror)',
-        'Calibrated default audio volume to 20% with internal speaker band-pass filter'
-      ],
-      assets: [
-        {
-          name: 'CubSpieleCom-v1.1.0-win64.zip',
-          label: 'Windows x64 Portable Build (v1.1.0 .zip)',
-          url: './releases/CubSpieleCom-v1.1.0-win64.zip',
-          sizeBytes: 1848920,
-          sha256: 'e32a183f5e018bc6d615bcfa034d922fe97ab2196394c052882f73db652c01f0',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        },
-        {
-          name: 'CubSpieleCom-v1.1.0.exe',
-          label: 'Standalone Windows x64 Emulator Executable (v1.1.0 .exe)',
-          url: './releases/CubSpieleCom.exe',
-          sizeBytes: 3584,
-          sha256: 'ed3bd1a774b741cf014f7c1485fa58a9b7576506bd08b225df53ab112a6b609a',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        }
-      ]
-    },
-    {
-      tag: 'v1.0.0',
-      title: 'Cub Spiele.Com v1.0.0 — Initial Cycle-Accurate SM8521 Handheld Emulator Release',
-      publishedAt: '2026-11-11T18:00:00Z',
-      isLatest: false,
-      commitRef: 'tag: v1.0.0',
-      highlights: [
-        'Initial cycle-accurate Sharp SM8521 CPU (4.9152 MHz), MMU bank switching, and hardware DMA blitter',
-        '200x160 4-shade passive-matrix STN LCD renderer and 13x10 resistive touchscreen matrix',
-        'Hardware SGDA 8-bit DAC audio streamer and programmable tone channels',
-        '8KB battery-backed NVRAM ($E000–$FFFF) persistence'
-      ],
-      assets: [
-        {
-          name: 'CubSpieleCom-v1.0.0-win64.zip',
-          label: 'Windows x64 Portable Build (v1.0.0 .zip)',
-          url: './releases/CubSpieleCom-v1.0.0-win64.zip',
-          sizeBytes: 1842100,
-          sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
-        },
-        {
-          name: 'CubSpieleCom-v1.0.0.exe',
-          label: 'Standalone Windows x64 Emulator Executable (v1.0.0 .exe)',
-          url: './releases/CubSpieleCom.exe',
-          sizeBytes: 3584,
-          sha256: 'ed3bd1a774b741cf014f7c1485fa58a9b7576506bd08b225df53ab112a6b609a',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)'
+          architecture: 'Windows 10/11 x64 (PE32+ AMD64)',
+          platform: 'windows'
         }
       ]
     }
@@ -212,30 +150,35 @@ interface WindowsReleaseModalProps {
   onClose: () => void;
 }
 
+type PlatformFilter = 'all' | 'windows' | 'macos' | 'linux' | 'android';
+
 export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClose }) => {
   const [manifest, setManifest] = useState<ReleasesManifest>(FALLBACK_MANIFEST);
   const [downloadingAsset, setDownloadingAsset] = useState<string | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
 
   useEffect(() => {
     fetch('./releases/releases-manifest.json')
       .then((r) => (r.ok ? r.json() : null))
       .then((data: ReleasesManifest | null) => {
         if (data && Array.isArray(data.releases) && data.releases.length > 0) {
-          // Filter assets so only the standalone emulator (.exe) and Win64 builds (-win64.zip) are shown
-          const filteredReleases = data.releases.map((rel) => ({
-            ...rel,
-            assets: rel.assets.filter(
-              (a) => a.name.endsWith('.exe') || a.name.endsWith('-win64.zip')
-            )
-          }));
-          setManifest({ ...data, releases: filteredReleases });
+          setManifest(data);
         }
       })
       .catch(() => {
         // Use fallback manifest
       });
   }, []);
+
+  const detectPlatform = (asset: ReleaseAsset): 'windows' | 'macos' | 'linux' | 'android' => {
+    if (asset.platform) return asset.platform;
+    const n = asset.name.toLowerCase();
+    if (n.includes('macos') || n.includes('darwin') || n.endsWith('.dmg')) return 'macos';
+    if (n.includes('linux') || n.endsWith('.tar.gz') || n.endsWith('.appimage')) return 'linux';
+    if (n.includes('android') || n.endsWith('.apk')) return 'android';
+    return 'windows';
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -247,16 +190,22 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
     setDownloadingAsset(asset.name);
     setDownloadStatus(null);
     try {
-      if (asset.name.toLowerCase().endsWith('.exe')) {
-        const size = await downloadStandaloneWindowsExe(asset.name);
-        setDownloadStatus(`Downloaded ${asset.name} (${formatBytes(size)})`);
-      } else {
-        const size = await downloadWindowsPortableZip(asset.name, asset.url);
-        setDownloadStatus(`Downloaded ${asset.name} (${formatBytes(size)})`);
-      }
+      const size = await downloadReleaseArtifact(asset.name, asset.url);
+      setDownloadStatus(`Downloaded ${asset.name} (${formatBytes(size)})`);
     } finally {
       setDownloadingAsset(null);
     }
+  };
+
+  const renderPlatformIcon = (plat: 'windows' | 'macos' | 'linux' | 'android', isExe: boolean) => {
+    if (plat === 'macos') return <Laptop className="w-4 h-4 text-purple-400 shrink-0" />;
+    if (plat === 'linux') return <Terminal className="w-4 h-4 text-amber-400 shrink-0" />;
+    if (plat === 'android') return <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />;
+    return isExe ? (
+      <Monitor className="w-4 h-4 text-emerald-400 shrink-0" />
+    ) : (
+      <FileArchive className="w-4 h-4 text-sky-400 shrink-0" />
+    );
   };
 
   return (
@@ -268,19 +217,44 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
             <Monitor className="w-5 h-5 text-sky-400" />
             <div>
               <h2 className="text-sm font-bold text-white">
-                Cub Spiele.Com — GitHub Releases (Windows x64 Builds)
+                Cub Spiele.Com — Multi-Platform Releases (Windows, macOS, Linux & Android)
               </h2>
               <p className="text-[11px] text-zinc-400">
-                Standalone 64-bit Windows PE32+ Emulator Executable & Win64 Portable Releases
+                Download standalone native & portable builds for Windows x64, macOS Universal (.app), Linux x86_64, and Android (.apk)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition"
+            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Platform Filter Bar */}
+        <div className="px-5 py-2.5 bg-zinc-950/80 border-b border-zinc-800 flex items-center gap-1.5 flex-wrap">
+          {(
+            [
+              { id: 'all', label: 'All Platforms' },
+              { id: 'windows', label: 'Windows x64' },
+              { id: 'macos', label: 'macOS Universal' },
+              { id: 'linux', label: 'Linux / SteamOS' },
+              { id: 'android', label: 'Android APK' }
+            ] as { id: PlatformFilter; label: string }[]
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setPlatformFilter(tab.id)}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                platformFilter === tab.id
+                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Body */}
@@ -292,100 +266,109 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
             </div>
           )}
 
-          {manifest.releases.map((rel) => (
-            <div
-              key={rel.tag}
-              className={`rounded-xl border p-4 space-y-3 ${
-                rel.isLatest
-                  ? 'bg-zinc-900/90 border-sky-500/40'
-                  : 'bg-zinc-950/60 border-zinc-800'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-mono text-xs font-bold">
-                      <Tag className="w-3 h-3" />
-                      {rel.tag}
-                    </span>
-                    {rel.isLatest && (
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
-                        Latest Release
+          {manifest.releases.map((rel) => {
+            const visibleAssets = rel.assets.filter(
+              (a) => platformFilter === 'all' || detectPlatform(a) === platformFilter
+            );
+            if (visibleAssets.length === 0) return null;
+
+            return (
+              <div
+                key={rel.tag}
+                className={`rounded-xl border p-4 space-y-3 ${
+                  rel.isLatest
+                    ? 'bg-zinc-900/90 border-sky-500/40'
+                    : 'bg-zinc-950/60 border-zinc-800'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-mono text-xs font-bold">
+                        <Tag className="w-3 h-3" />
+                        {rel.tag}
                       </span>
-                    )}
-                    <span className="text-[11px] text-zinc-500 font-mono">
-                      {new Date(rel.publishedAt).toISOString().slice(0, 10)}
-                    </span>
+                      {rel.isLatest && (
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
+                          Latest Multi-Platform Release
+                        </span>
+                      )}
+                      <span className="text-[11px] text-zinc-500 font-mono">
+                        {new Date(rel.publishedAt).toISOString().slice(0, 10)}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-white mt-1.5">{rel.title}</h3>
                   </div>
-                  <h3 className="text-sm font-bold text-white mt-1.5">{rel.title}</h3>
                 </div>
-              </div>
 
-              {/* Release Highlights */}
-              <ul className="space-y-1 text-xs text-zinc-300 list-disc list-inside">
-                {rel.highlights.map((item, idx) => (
-                  <li key={idx} className="leading-relaxed">
-                    {item}
-                  </li>
-                ))}
-              </ul>
+                {/* Release Highlights */}
+                <ul className="space-y-1 text-xs text-zinc-300 list-disc list-inside">
+                  {rel.highlights.map((item, idx) => (
+                    <li key={idx} className="leading-relaxed">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
 
-              {/* Release Assets (Emulator .exe & Win64 .zip Builds Only) */}
-              <div className="pt-2 border-t border-zinc-800/80 space-y-2">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Release Assets ({rel.assets.length})
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {rel.assets.map((asset) => {
-                    const isExe = asset.name.toLowerCase().endsWith('.exe');
-                    const isBusy = downloadingAsset === asset.name;
-                    return (
-                      <button
-                        key={asset.name}
-                        onClick={() => handleDownloadAsset(asset)}
-                        disabled={isBusy}
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-zinc-950 hover:bg-zinc-800/90 border border-zinc-800 hover:border-sky-500/40 text-left transition cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {isExe ? (
-                            <Monitor className="w-4 h-4 text-emerald-400 shrink-0" />
-                          ) : (
-                            <FileArchive className="w-4 h-4 text-sky-400 shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-xs font-bold text-zinc-100 group-hover:text-white truncate font-mono">
-                              {asset.name}
-                            </div>
-                            <div className="text-[10px] text-zinc-400 truncate">
-                              {asset.label} · {formatBytes(asset.sizeBytes)}
+                {/* Release Assets */}
+                <div className="pt-2 border-t border-zinc-800/80 space-y-2">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                    Platform Builds ({visibleAssets.length})
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {visibleAssets.map((asset) => {
+                      const isExe = asset.name.toLowerCase().endsWith('.exe');
+                      const plat = detectPlatform(asset);
+                      const isBusy = downloadingAsset === asset.name;
+                      return (
+                        <button
+                          key={asset.name}
+                          onClick={() => handleDownloadAsset(asset)}
+                          disabled={isBusy}
+                          className="flex items-center justify-between gap-3 p-3 rounded-lg bg-zinc-950 hover:bg-zinc-800/90 border border-zinc-800 hover:border-sky-500/40 text-left transition cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {renderPlatformIcon(plat, isExe)}
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-zinc-100 group-hover:text-white truncate font-mono">
+                                {asset.name}
+                              </div>
+                              <div className="text-[10px] text-zinc-400 truncate">
+                                {asset.label} · {formatBytes(asset.sizeBytes)}
+                              </div>
+                              <div className="text-[9px] text-zinc-500 truncate font-mono">
+                                {asset.architecture}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="shrink-0 text-sky-400 group-hover:text-sky-300">
-                          {isBusy ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                          <div className="shrink-0 text-sky-400 group-hover:text-sky-300">
+                            {isBusy ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between text-xs text-zinc-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Each release includes only the standalone emulator (.exe) and Win64 portable archive (.zip).</span>
+            <span>
+              Available for Windows 10/11 x64, macOS Universal (Apple Silicon & Intel), Linux x86_64 / SteamOS, and Android.
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold transition"
+            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold transition cursor-pointer"
           >
             Close
           </button>

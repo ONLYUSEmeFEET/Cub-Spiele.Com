@@ -1,6 +1,12 @@
-# Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator (Windows x64 & Web)
+# Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator (Windows, macOS, Linux, Android & Web)
 
-**Cub Spiele.Com** (`v1.4.0`) is a cycle-accurate standalone handheld emulator for the 1997 **Tiger Electronics Game.Com** console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + internal speaker band-pass audio engine, dual cartridge bays with hardware `P3` chip-select isolation, and a competitive **Multi-Player High Score, Online Leaderboard & RetroAchievements (`rcheevos`) Hardcore Ecosystem**.
+**Cub Spiele.Com** (`v1.5.0`) is a cycle-accurate standalone handheld emulator for the 1997 **Tiger Electronics Game.Com** console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + internal speaker band-pass audio engine, dual cartridge bays with hardware `P3` chip-select isolation, and a competitive **Multi-Player High Score, Online Leaderboard & RetroAchievements (`rcheevos`) Hardcore Ecosystem**.
+
+## Supported Platforms (`v1.5.0`)
+- **Windows 10 / 11 (x64)**: Standalone 64-bit PE32+ GUI executable (`CubSpieleCom.exe`) and Portable Archive (`CubSpieleCom-v1.5.0-win64.zip`)
+- **macOS 11+ (Universal)**: Native macOS Application Bundle (`Cub Spiele.Com.app` inside `CubSpieleCom-v1.5.0-macos-universal.zip`) with Universal Mach-O (`Apple Silicon ARM64` + `Intel x86_64`) support
+- **Linux & SteamOS / Steam Deck (x86_64)**: Native 64-bit Linux `ELF64` executable (`CubSpieleCom`), FreeDesktop `.desktop` launcher, and portable bundle (`CubSpieleCom-v1.5.0-linux-x86_64.tar.gz`)
+- **Android 8.0+ & Mobile Touch**: Android Universal Package (`CubSpieleCom-v1.5.0-android.apk`), Capacitor runtime config, and offline-capable Progressive Web App (`manifest.webmanifest` + Service Worker) with multi-touch D-Pad/A/B/C/D and 13×10 resistive touchscreen support
 
 ## Key Features
 - **Full Retail & Prototype Game Compatibility**: Supports the entire official Game.Com library (including *Sonic Jam*, *Resident Evil 2*, *Fighters Megamix*, *Duke Nukem 3D*, and *Lights Out*) as well as the unreleased prototype *Castlevania: Symphony of the Night* (`$0448`) with double-buffered VRAM page-flip synchronization and `MMU1..MMU4` cartridge detection.

@@ -1,7 +1,8 @@
 /**
- * Tiger Game.Com SM8521 Hardware Emulator — Native Windows Desktop Shell (Electron Main Process)
- * Supports Windows 10/11 (x64 & ARM64), native OS file dialogs, .bin/.tgc file associations,
- * hardware-accelerated WebAudio/Canvas2D, and persistent %APPDATA% NVRAM storage.
+ * Cub Spiele.Com — Sharp SM8521 Hardware Emulator (Cross-Platform Electron Main Process)
+ * Supports Windows 10/11 (x64 & ARM64), macOS 11+ (Universal Apple Silicon & Intel),
+ * and Linux (x86_64 & ARM64 / SteamOS), with native OS file dialogs, .bin/.tgc file associations,
+ * hardware-accelerated WebAudio/Canvas2D, and persistent OS userData NVRAM storage.
  */
 
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
@@ -15,6 +16,22 @@ const os = require('os');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+}
+
+function getPlatformIconPath() {
+  const assetsDir = path.join(__dirname, '../public/assets');
+  if (process.platform === 'darwin') {
+    const icns = path.join(assetsDir, 'icon.icns');
+    if (fs.existsSync(icns)) return icns;
+  }
+  if (process.platform === 'linux') {
+    const png = path.join(assetsDir, 'icon-512.png');
+    if (fs.existsSync(png)) return png;
+  }
+  return path.join(assetsDir, 'icon.ico');
+}
 
 let mainWindow = null;
 let secondWindow = null;
@@ -41,7 +58,26 @@ function getNvramBackupPath() {
 }
 
 function createApplicationMenu() {
+  const isMac = process.platform === 'darwin';
   const template = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' }
+            ]
+          }
+        ]
+      : []),
     {
       label: '&File',
       submenu: [
@@ -195,9 +231,9 @@ function createWindow() {
     height: 760,
     minWidth: 680,
     minHeight: 580,
-    title: 'Cub Spiele.Com — SM8521 Standalone Emulator (x64)',
+    title: `Cub Spiele.Com — SM8521 Standalone Emulator (${process.platform} ${process.arch})`,
     backgroundColor: '#111319',
-    icon: path.join(__dirname, '../public/assets/icon.ico'),
+    icon: getPlatformIconPath(),
     autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -268,7 +304,7 @@ function createSecondInstanceWindow(roomCode = 'TIGER-1') {
     minHeight: 540,
     title: 'Cub Spiele.Com — Player 2 (Compete.Com Link)',
     backgroundColor: '#111319',
-    icon: path.join(__dirname, '../public/assets/icon.ico'),
+    icon: getPlatformIconPath(),
     autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -576,6 +612,23 @@ ipcMain.on('desktop:link-packet', (event, packet) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed() && win.webContents.id !== event.sender.id) {
       win.webContents.send('desktop:link-packet', packet);
+    }
+  }
+});
+
+// Handle macOS Finder file associations (open-file event)
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  if (filePath && fs.existsSync(filePath) && /\.(bin|tgc|zip)$/i.test(filePath)) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const data = fs.readFileSync(filePath);
+      mainWindow.webContents.send('desktop:rom-loaded', {
+        name: path.basename(filePath),
+        slot: 1,
+        bytes: Array.from(data)
+      });
+    } else {
+      pendingStartupRomPath = filePath;
     }
   }
 });

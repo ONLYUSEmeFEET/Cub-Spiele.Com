@@ -929,6 +929,16 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Palette className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Screen Colors...</span>
                 </button>
+                <button
+                  onClick={() => {
+                    onOpenWindowsRelease();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Downloads (Win / macOS / Linux / Android)...</span>
+                </button>
 
                 {system.settings.advancedMode && (
                   <>
@@ -975,16 +985,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                     >
                       <HardDrive className="w-3.5 h-3.5 text-purple-400" />
                       <span>BIOS ROM Manager...</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        onOpenWindowsRelease();
-                        closeMenu();
-                      }}
-                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Windows Releases (.exe / .zip)...</span>
                     </button>
                   </>
                 )}

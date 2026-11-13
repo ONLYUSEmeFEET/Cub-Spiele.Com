@@ -54,6 +54,10 @@ REPO_TOPICS = [
     "typescript",
     "electron",
     "windows-x64",
+    "macos",
+    "linux",
+    "android",
+    "cross-platform",
 ]
 
 
@@ -123,8 +127,8 @@ def format_release_notes(rel_entry: dict) -> str:
 
     lines.extend([
         "",
-        "### Windows x64 Release Artifacts & SHA-256 Checksums",
-        "| File | Label | Architecture | SHA-256 |",
+        "### Multi-Platform Release Artifacts & SHA-256 Checksums",
+        "| File | Label | Target Platform / Architecture | SHA-256 |",
         "| :--- | :--- | :--- | :--- |",
     ])
     for a in assets:
@@ -134,7 +138,7 @@ def format_release_notes(rel_entry: dict) -> str:
 
     lines.extend([
         "",
-        f"**Release Tag**: `{tag}` · **Target OS**: Windows 10 / Windows 11 x64 (`PE32+ AMD64`)",
+        f"**Release Tag**: `{tag}` · **Supported Platforms**: Windows 10/11 x64 (`PE32+`), macOS 11+ Universal (`arm64` + `x86_64`), Linux x86_64 / SteamOS (`ELF64`), Android 8.0+ (`APK` & Touch PWA)",
     ])
     return "\n".join(lines)
 
@@ -216,19 +220,20 @@ def main():
             with open(notes_file, "w", encoding="utf-8") as nf:
                 nf.write(notes_md)
 
-            zip_path = os.path.join(releases_dir, f"CubSpieleCom-{r_tag}-win64.zip")
             exe_path = os.path.join(releases_dir, "CubSpieleCom.exe")
             versioned_exe_path = os.path.join(LOCAL_GIT_STAGE, f"CubSpieleCom-{r_tag}.exe")
             if os.path.exists(exe_path):
                 shutil.copy2(exe_path, versioned_exe_path)
 
             upload_specs = []
-            if os.path.exists(zip_path):
-                upload_specs.append(f"{zip_path}#Windows x64 Portable Build ({r_tag} .zip)")
-            if r_is_latest and os.path.exists(exe_path):
-                upload_specs.append(f"{exe_path}#Standalone Windows x64 Emulator Executable ({r_tag} .exe)")
-            elif os.path.exists(versioned_exe_path):
-                upload_specs.append(f"{versioned_exe_path}#Standalone Windows x64 Emulator Executable ({r_tag} .exe)")
+            for asset in rel.get("assets", []):
+                a_name = asset["name"]
+                a_label = asset["label"]
+                candidate = os.path.join(releases_dir, a_name)
+                if os.path.exists(candidate):
+                    upload_specs.append(f"{candidate}#{a_label}")
+                elif a_name.endswith(".exe") and os.path.exists(versioned_exe_path):
+                    upload_specs.append(f"{versioned_exe_path}#{a_label}")
 
             view_res = subprocess.run(
                 [GH_EXE, "release", "view", r_tag, "--repo", REPO_SLUG, "--json", "assets"],
