@@ -432,6 +432,9 @@ STANDALONE HANDHELD EMULATOR FEATURES:
         zf.writestr('CubSpieleCom.exe', exe_bytes)
         zf.writestr('CubSpieleCom-Host.vbs', host_vbs)
         zf.writestr('README-WINDOWS.txt', readme_txt)
+        credits_path = os.path.join(ROOT_DIR, 'credits.txt')
+        if os.path.exists(credits_path):
+            zf.write(credits_path, 'credits.txt')
         zf.writestr('app/index.html', offline_html)
 
         for root, dirs, files in os.walk(DIST_DIR):

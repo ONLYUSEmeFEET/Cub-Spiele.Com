@@ -8,5 +8,8 @@
 - **Champions Leaderboard & Online Leaderboards**: View the best scores for each game, sync with `/api/leaderboards`, and share/verify portable Signed Score Certificates (`CSC1-...`).
 - **RetroAchievements (`rcheevos` / `dorequest.php`) Integration**: Exposes the flat 32KB SM8521 address space (`$0000–$03FF` Internal RAM, `$E000–$FFFF` 8KB NVRAM, `$A000–$DFFF` 16KB VRAM), RFC 1321 MD5 ROM hashing, live Rich Presence, and an `RAIntegration` submission export kit.
 
+## Credits
+See [credits.txt](./credits.txt) for a complete list of open-source libraries, hardware datasheets, emulation references, and competitive ecosystems utilized by **Cub Spiele.Com**.
+
 ## Tags
 `emulator` `gamecom` `tiger-game-com` `sm8521` `sharp-sm8521` `retroachievements` `rcheevos` `hardcore-mode` `online-leaderboards` `high-scores` `handheld-emulator` `retro-gaming` `nvram` `stn-lcd` `typescript` `electron` `windows-x64`

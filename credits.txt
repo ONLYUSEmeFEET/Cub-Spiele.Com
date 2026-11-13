@@ -1,0 +1,104 @@
+================================================================================
+                        CUB SPIELE.COM — CREDITS & ATTRIBUTIONS
+         Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator
+               https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com
+================================================================================
+
+AUTHOR & LEAD DEVELOPER
+-----------------------
+- AJ Ryan (@ONLYUSEmeFEET)
+
+
+HARDWARE, ARCHITECTURE & EMULATION REFERENCES
+---------------------------------------------
+- Sharp Corporation
+  * Sharp SM8521 8/16-Bit Single-Chip Microcomputer Datasheet & Instruction Set
+    Manual (CPU Core, ALU Flags, MMU $0010-$0013, DMA Blitter $0020-$002D,
+    SGDA $004E 8-bit DAC, SG0/SG1/SG2 Tone Generators, and Interrupt Controller).
+
+- Tiger Electronics, Inc. (1997)
+  * Original Tiger Game.Com Handheld Console Hardware Architecture, 4KB Internal
+    ROM ($2000-$2FFF), 32KB External Kernel ROM, Dual Cartridge Bus Isolation
+    (Port 3 Bit 6), 13x10 Resistive Touch Matrix, and $FC60-$FEDF Battery-Backed
+    NVRAM High Score Table format.
+
+- MAME (Multiple Arcade Machine Emulator) Project — Game.Com Driver (`gamecom.cpp` / `sm8500`)
+  * https://github.com/mamedev/mame
+  * Historical hardware register map and SM8500/SM8521 instruction set reference
+    (Wilbert Pol, Robbbert, and the MAMEdev team).
+
+- mGBA & melonDS Projects
+  * https://mgba.io/ | https://melonds.kuribo64.net/
+  * Desktop UI/UX design inspiration for standalone handheld emulator menu bar
+    (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`), Screen-Only integer
+    scaling (`2x`/`3x`/`4x`), and multi-window link cable ergonomics.
+
+
+COMPETITIVE ECOSYSTEM & LEADERBOARD INTEGRATIONS
+------------------------------------------------
+- RetroAchievements (`rcheevos` & `dorequest.php` Connect API)
+  * https://retroachievements.org/
+  * https://github.com/RetroAchievements/rcheevos
+  * https://github.com/RetroAchievements/RAIntegration
+  * Competitive Hardcore Mode specification (save-state lock, sub-1.0x slowdown
+    prohibition, cold-boot session verification, debugger step protection),
+    `rcheevos` memory condition syntax, Rich Presence script evaluation, and
+    `rc_consoles.h` 32KB flat SM8521 memory map specification.
+
+- RFC 1321 (MD5 Message-Digest Algorithm) & FNV-1a (Fowler-Noll-Vo Hash)
+  * Used for deterministic ROM cartridge identification and rolling hardware
+    input entropy attestation in `CSC1-...` Signed Score Certificates.
+
+
+OPEN-SOURCE LIBRARIES & RUNTIME DEPENDENCIES
+--------------------------------------------
+- React & React DOM (v19) — MIT License
+  * https://react.dev/
+  * Declarative UI components, modal views, and interactive desktop shell.
+
+- TypeScript (v7) — Apache-2.0 License
+  * https://www.typescriptlang.org/
+  * Strictly typed SM8521 CPU core, LCD renderer, sound synthesis engine,
+    NVRAM High Score Vault, and RetroAchievements engine.
+
+- Vite (v8) & @vitejs/plugin-react — MIT License
+  * https://vite.dev/
+  * Fast frontend bundler, HMR development server, and `/api/leaderboards`
+    competitive leaderboard middleware.
+
+- Electron — MIT License
+  * https://www.electronjs.org/
+  * Native Windows x64 desktop wrapper (`electron/main.cjs` & `preload.cjs`).
+
+- Tailwind CSS (v4) & Autoprefixer — MIT License
+  * https://tailwindcss.com/
+  * Styling for the handheld console shell, menus, and High Score Vault UI.
+
+- Lucide React (`lucide-react`) — ISC License
+  * https://lucide.dev/
+  * Crisp vector iconography across the menu bar, toolbar, and debugger modals.
+
+- Motion (`motion` / Framer Motion) — MIT License
+  * https://motion.dev/
+  * Smooth modal and UI transitions.
+
+- fflate — MIT License
+  * https://github.com/101arrowz/fflate
+  * Fast client-side ZIP decompression/compression for `.zip` ROM archives and
+    in-browser Windows x64 portable release packaging.
+
+- Express (`express`) & dotenv — MIT / BSD-2-Clause License
+  * https://expressjs.com/
+  * Local HTTP API server utilities and configuration management.
+
+- Web Audio API, HTML5 Canvas 2D API, BroadcastChannel API & Web Gamepad API
+  * Browser/Chromium W3C standard APIs used for 7,877 Hz hardware DAC audio
+    streaming, 200x160 2-bpp STN LCD temporal ghosting, Compete.Com dual-system
+    link cable emulation, and controller input polling.
+
+- Python 3 Standard Library (`struct`, `zipfile`, `hashlib`, `subprocess`)
+  * https://www.python.org/
+  * Used in `scripts/build-windows-release.py` to assemble the standalone
+    64-bit Windows PE32+ GUI executable (`CubSpieleCom.exe`) and portable
+    release bundles.
+================================================================================
