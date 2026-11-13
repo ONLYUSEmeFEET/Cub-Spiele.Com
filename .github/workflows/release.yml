@@ -2,32 +2,58 @@ name: Build Native Windows App & Publish GitHub Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v1.2.0)'
+        description: 'Release Tag (e.g. v1.3.0)'
         required: true
-        default: 'v1.2.0'
+        default: 'v1.3.0'
       release_title:
-        description: 'Release Title'
-        required: true
-        default: 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Dist Release'
+        description: 'Release Title (optional override)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
 jobs:
   build-windows:
-    name: Build Cub Spiele.Com Windows x64 App, Dist Bundle & GitHub Release
+    name: Build Cub Spiele.Com Windows x64 Emulator & GitHub Release
     runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Resolve Release Tag & Title
+        id: meta
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag_name || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.3.0' }}"
+          TITLE="${{ github.event.inputs.release_title }}"
+          if [ -z "$TITLE" ]; then
+            case "$TAG" in
+              v1.3.0)
+                TITLE="Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender & RTC Date Sync"
+                ;;
+              v1.2.0)
+                TITLE="Cub Spiele.Com v1.2.0 — Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs"
+                ;;
+              v1.1.0)
+                TITLE="Cub Spiele.Com v1.1.0 — SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix"
+                ;;
+              v1.0.0)
+                TITLE="Cub Spiele.Com v1.0.0 — Initial Cycle-Accurate SM8521 Handheld Emulator Release"
+                ;;
+              *)
+                TITLE="Cub Spiele.Com ${TAG} — Windows x64 Standalone Release"
+                ;;
+            esac
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -35,7 +61,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Setup Python 3.11 (PE32+ Launcher & Packaging)
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -46,37 +72,28 @@ jobs:
       - name: Typecheck Codebase
         run: npm run lint
 
-      - name: Build Production Emulator Core (Vite dist/)
+      - name: Build Production Emulator Core
         run: npm run build
 
-      - name: Generate Native Windows x64 Portable Release, Dist ZIP & PE32+ Executable
+      - name: Generate Native Windows x64 Portable Release & PE32+ Executable
         run: python scripts/build-windows-release.py
 
-      - name: Upload Build & Dist Artifacts
+      - name: Upload Windows x64 Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CubSpieleCom-Windows-x64-and-Dist-Packages
+          name: CubSpieleCom-${{ steps.meta.outputs.tag }}-win64
           path: |
             public/releases/CubSpieleCom.exe
-            public/releases/CubSpieleCom-v1.2.0-win64.zip
-            public/releases/CubSpieleCom-v1.2.0-dist.zip
-            public/releases/CubSpieleCom-Antigravity-Workspace.zip
-            public/releases/releases-manifest.json
-            dist/index.html
-            dist/assets/*
+            public/releases/CubSpieleCom-${{ steps.meta.outputs.tag }}-win64.zip
 
-      - name: Publish GitHub Release with Dist & Win64 Files
+      - name: Publish GitHub Release (Emulator & Win64 Build Only)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag_name || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'v1.2.0' }}
-          name: ${{ github.event.inputs.release_title || 'Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Dist Release' }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.title }}
           generate_release_notes: true
           files: |
             public/releases/CubSpieleCom.exe
-            public/releases/CubSpieleCom-v1.2.0-win64.zip
-            public/releases/CubSpieleCom-v1.2.0-dist.zip
-            public/releases/CubSpieleCom-Antigravity-Workspace.zip
-            public/releases/releases-manifest.json
-            dist/index.html
+            public/releases/CubSpieleCom-${{ steps.meta.outputs.tag }}-win64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

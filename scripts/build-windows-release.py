@@ -4,9 +4,11 @@ Cub Spiele.Com — Native Windows x64 Standalone Emulator Release Builder
 Generates:
   1. public/assets/icon.ico (32x32 32-bit ARGB Cub Spiele.Com Icon)
   2. public/releases/CubSpieleCom.exe (Native Windows x64 PE32+ GUI Executable with embedded icon)
-  3. public/releases/CubSpieleCom-v1.2.0-win64.zip (Complete Portable Windows x64 Application Bundle)
-  4. public/releases/CubSpieleCom-v1.1.0-win64.zip (v1.1.0 Windows x64 Release Archive)
-  5. public/releases/releases-manifest.json (SHA-256 checksums, sizes, & GitHub release metadata)
+  3. public/releases/CubSpieleCom-v1.3.0-win64.zip (v1.3.0 Portable Windows x64 Build)
+  4. public/releases/CubSpieleCom-v1.2.0-win64.zip (v1.2.0 Portable Windows x64 Build)
+  5. public/releases/CubSpieleCom-v1.1.0-win64.zip (v1.1.0 Portable Windows x64 Build)
+  6. public/releases/CubSpieleCom-v1.0.0-win64.zip (v1.0.0 Portable Windows x64 Build)
+  7. public/releases/releases-manifest.json (Properly versioned GitHub Releases containing only the emulator and Win64 builds)
 """
 
 import os
@@ -29,9 +31,6 @@ def align(val: int, alignment: int) -> int:
 
 
 def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
-    """
-    Generates a 32x32 32-bit BGRA Windows .ico file and returns (full_ico_bytes, dib_resource_bytes).
-    """
     width, height = 32, 32
     pixels = bytearray(width * height * 4)
 
@@ -94,11 +93,6 @@ def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
 
 
 def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
-    """
-    Builds a standards-compliant 64-bit Windows GUI Executable (PE32+ AMD64: CubSpieleCom.exe)
-    with embedded RT_ICON / RT_GROUP_ICON resources and native x86-64 machine code
-    that launches the standalone Cub Spiele.Com desktop runtime.
-    """
     file_align = 0x200
     sect_align = 0x1000
     image_base = 0x0000000140000000
@@ -254,7 +248,7 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
         sect_align,
         file_align,
         6, 0,
-        1, 2,
+        1, 3,
         6, 0,
         0,
         size_of_image,
@@ -299,7 +293,7 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
 
 
 def create_windows_desktop_host_vbs() -> str:
-    return '''' Cub Spiele.Com — Standalone Handheld Emulator Host (mGBA / melonDS Compact Desktop Mode)
+    return '''' Cub Spiele.Com — Standalone Handheld Emulator Host
 Option Explicit
 Dim fso, shell, baseDir, appHtmlPath, edgePaths, edgeExe, p, cmd, userDataDir
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -341,7 +335,7 @@ End If
 '''
 
 
-def create_offline_desktop_index_html() -> str:
+def create_offline_desktop_index_html(version: str = '1.3.0') -> str:
     dist_index = os.path.join(DIST_DIR, 'index.html')
     with open(dist_index, 'r', encoding='utf-8') as f:
         html = f.read()
@@ -356,18 +350,18 @@ def create_offline_desktop_index_html() -> str:
                 embedded_files['/' + rel_path] = b64
 
     desktop_shim = f"""<script>
-// Cub Spiele.Com Native Windows Standalone Desktop Preload (mGBA / melonDS Screen-Only Default)
+// Cub Spiele.Com Native Windows Standalone Desktop Preload
 window.gamecomDesktop = window.gamecomDesktop || {{
   isWindowsApp: true,
   defaultScreenOnly: true,
   platform: 'win32',
   arch: 'x64',
-  appVersion: '1.2.0',
+  appVersion: '{version}',
   getInfo: async () => ({{
     isDesktopApp: true,
     platform: 'win32',
     arch: 'x64',
-    appVersion: '1.2.0',
+    appVersion: '{version}',
     nvramPath: '%LOCALAPPDATA%\\\\CubSpieleCom\\\\cub_spiele_nvram_8kb.sav'
   }}),
   toggleFullscreen: async () => {{
@@ -422,16 +416,16 @@ QUICK START (WINDOWS 10 / WINDOWS 11 x64):
 1. Extract all files from this ZIP archive to any folder on your PC.
 2. Double-click "CubSpieleCom.exe" to launch the standalone Windows application.
 
-STANDALONE HANDHELD EMULATOR FEATURES (mGBA / melonDS DESIGN):
+STANDALONE HANDHELD EMULATOR FEATURES:
 - Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
-- Recently Played ROMs submenu with 1-click Slot 1 / Slot 2 boot
-- Screen-Only Mode (2x / 3x / 4x integer scale) & Full Handheld Bezel Mode
-- Touch Grid Visibility Slider (0% - 100%)
-- Preloaded Slot 1 (Lights Out) & Slot 2 (Sonic Jam) TOSEC ROMs
-- Expanded Battery-Backed NVRAM High Score Vault ($FC60-$FEDF)
+- Recently Played ROMs submenu with TigerDMGC cartridge header verification
+- Screen-Only Mode (2x / 3x / 4x integer scale) & Handheld Console Bezel Mode
+- STN Passive-Matrix LCD Ghosting Intensity & Persistence controls
+- 2-Shade LCD Color Blender
+- Internal Real-Time Clock & Date synced to your device
 ================================================================================
 """
-    offline_html = create_offline_desktop_index_html()
+    offline_html = create_offline_desktop_index_html(version.lstrip('v'))
     host_vbs = create_windows_desktop_host_vbs()
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
@@ -453,100 +447,18 @@ STANDALONE HANDHELD EMULATOR FEATURES (mGBA / melonDS DESIGN):
                 arc_p = os.path.normpath(os.path.join('app', rel_root, file)).replace('\\', '/')
                 zf.write(full_p, arc_p)
 
-        for extra_rel in ['electron/main.cjs', 'electron/preload.cjs', 'electron-builder.yml', 'package.json', '.github/workflows/release.yml']:
-            full_p = os.path.join(ROOT_DIR, extra_rel)
-            if os.path.exists(full_p):
-                zf.write(full_p, f'src-desktop/{extra_rel}')
-
-
-def build_dist_zip(zip_path: str):
-    """
-    Packages the production web/desktop dist/ build artifacts (index.html, assets/, bios/, roms/)
-    into a clean distributable ZIP archive for GitHub Releases.
-    """
-    if not os.path.exists(DIST_DIR):
-        return
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        for root, dirs, files in os.walk(DIST_DIR):
-            rel_root = os.path.relpath(root, DIST_DIR)
-            if rel_root.replace('\\', '/').startswith('releases'):
-                continue
-            for file in files:
-                if file.lower() == 'desktop.ini':
-                    continue
-                full_p = os.path.join(root, file)
-                arc_p = file if rel_root == '.' else os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
-                zf.write(full_p, arc_p)
-
-
-def build_antigravity_workspace_zip(zip_path: str):
-    """
-    Packages the complete unminified source repository + Google Antigravity IDE configurations
-    (.agents/, .vscode/, GEMINI.md, AGENTS.md, cub-spiele-com.code-workspace, Open-in-Antigravity.bat)
-    so the user can extract and open the project directly in Google Antigravity on their desktop.
-    """
-    open_bat = """@echo off
-title Open Cub Spiele.Com in Google Antigravity IDE
-cd /d "%~dp0"
-where antigravity >nul 2>nul
-if %errorlevel%==0 (
-  start "" antigravity cub-spiele-com.code-workspace
-  exit /b 0
-)
-where agy >nul 2>nul
-if %errorlevel%==0 (
-  start "" agy cub-spiele-com.code-workspace
-  exit /b 0
-)
-if exist "%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe" (
-  start "" "%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe" "%~dp0cub-spiele-com.code-workspace"
-  exit /b 0
-)
-echo Launching cub-spiele-com.code-workspace...
-start "" "%~dp0cub-spiele-com.code-workspace"
-"""
-    exclude_dirs = {'node_modules', 'dist', 'release', '.git', '.aistudio', '__pycache__', 'build', 'coverage'}
-    root_only_excludes = {'roms', 'Applications', 'Firmware', 'Other_Emulators'}
-
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        zf.writestr('Open-in-Antigravity.bat', open_bat)
-
-        for root, dirs, files in os.walk(ROOT_DIR):
-            rel_root = os.path.relpath(root, ROOT_DIR)
-            if rel_root == '.':
-                dirs[:] = [d for d in dirs if d not in exclude_dirs and d not in root_only_excludes]
-            else:
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-            # Avoid recursive inclusion of the workspace zip itself inside public/releases
-            if rel_root.replace('\\', '/').startswith('public/releases'):
-                for file in files:
-                    if file == 'CubSpieleCom.exe' or file == 'releases-manifest.json':
-                        full_p = os.path.join(root, file)
-                        arc_p = os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
-                        zf.write(full_p, arc_p)
-                continue
-
-            for file in files:
-                if (
-                    file == 'bun.lock'
-                    or file == 'package-lock.json'
-                    or file.lower() == 'desktop.ini'
-                    or (rel_root == '.' and file == 'Open-in-Antigravity.bat')
-                ):
-                    continue
-                full_p = os.path.join(root, file)
-                arc_p = file if rel_root == '.' else os.path.normpath(os.path.join(rel_root, file)).replace('\\', '/')
-                zf.write(full_p, arc_p)
-
 
 def main():
     os.makedirs(RELEASES_DIR, exist_ok=True)
     os.makedirs(ASSETS_DIR, exist_ok=True)
 
-    # Clean old GameCom-* files in RELEASES_DIR
+    # Remove any non-emulator / non-win64 archives from RELEASES_DIR
     for old_f in os.listdir(RELEASES_DIR):
-        if old_f.startswith('GameCom-'):
+        if (
+            old_f.startswith('GameCom-')
+            or 'Antigravity' in old_f
+            or old_f.endswith('-dist.zip')
+        ):
             try:
                 os.remove(os.path.join(RELEASES_DIR, old_f))
             except OSError:
@@ -562,91 +474,108 @@ def main():
     with open(exe_path, 'wb') as f:
         f.write(exe_bytes)
 
-    zip_v120_name = 'CubSpieleCom-v1.2.0-win64.zip'
-    zip_v120_path = os.path.join(RELEASES_DIR, zip_v120_name)
-    build_zip_bundle(zip_v120_path, exe_bytes, 'v1.2.0')
-
-    dist_zip_name = 'CubSpieleCom-v1.2.0-dist.zip'
-    dist_zip_path = os.path.join(RELEASES_DIR, dist_zip_name)
-    build_dist_zip(dist_zip_path)
-
-    zip_v110_name = 'CubSpieleCom-v1.1.0-win64.zip'
-    zip_v110_path = os.path.join(RELEASES_DIR, zip_v110_name)
-    build_zip_bundle(zip_v110_path, exe_bytes, 'v1.1.0')
-
-    ag_zip_name = 'CubSpieleCom-Antigravity-Workspace.zip'
-    ag_zip_path = os.path.join(RELEASES_DIR, ag_zip_name)
-    build_antigravity_workspace_zip(ag_zip_path)
+    versions = ['v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
+    zip_paths = {}
+    for ver in versions:
+        zname = f'CubSpieleCom-{ver}-win64.zip'
+        zpath = os.path.join(RELEASES_DIR, zname)
+        build_zip_bundle(zpath, exe_bytes, ver)
+        zip_paths[ver] = (zname, zpath)
 
     if os.path.exists(DIST_DIR):
         dist_rel = os.path.join(DIST_DIR, 'releases')
         os.makedirs(dist_rel, exist_ok=True)
-        for fname in ['CubSpieleCom.exe', zip_v120_name, dist_zip_name, zip_v110_name, ag_zip_name]:
+        for old_df in os.listdir(dist_rel):
+            if 'Antigravity' in old_df or old_df.endswith('-dist.zip'):
+                try:
+                    os.remove(os.path.join(dist_rel, old_df))
+                except OSError:
+                    pass
+        copy_files = ['CubSpieleCom.exe'] + [zip_paths[v][0] for v in versions]
+        for fname in copy_files:
             src = os.path.join(RELEASES_DIR, fname)
             if os.path.exists(src):
                 dst = os.path.join(dist_rel, fname)
                 with open(src, 'rb') as sf, open(dst, 'wb') as df:
                     df.write(sf.read())
 
+    exe_size = os.path.getsize(exe_path)
+    exe_sha = sha256_file(exe_path)
+
     manifest = {
         "project": "cub-spiele-com-emulator",
         "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-        "latestVersion": "v1.2.0",
+        "latestVersion": "v1.3.0",
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "releases": [
             {
-                "tag": "v1.2.0",
-                "title": "Cub Spiele.Com v1.2.0 — Standalone Handheld Emulator, 4-Shade SGB/GBC Colorizer & Antigravity Workspace",
-                "publishedAt": "2026-11-12T17:00:00Z",
+                "tag": "v1.3.0",
+                "title": "Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender & RTC Date Sync",
+                "publishedAt": "2026-11-12T22:30:00Z",
                 "isLatest": True,
                 "Prerelease": False,
-                "commitRef": "HEAD (tag: v1.2.0)",
+                "commitRef": "HEAD (tag: v1.3.0)",
                 "highlights": [
-                    "Added Super Game Boy (1994) & Game Boy Color (1998) 4-Shade Display Color Customizer with per-shade hex/color pickers, midtone auto-blend, shade inversion, and persistent user presets",
-                    "Added full Google Antigravity Desktop IDE Workspace (cub-spiele-com.code-workspace, GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/)",
+                    "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings",
+                    "Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors",
+                    "Synchronized internal Game.Com Real-Time Clock ($0120-$0129) and NVRAM Calendar ($FEE2-$FEE7) to the user device date and time",
+                    "Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)",
+                    "Streamlined standalone desktop UI with a single compact menu bar and bottom status bar"
+                ],
+                "assets": [
+                    {
+                        "name": zip_paths['v1.3.0'][0],
+                        "label": "Windows x64 Portable Build (v1.3.0 .zip)",
+                        "url": f"./releases/{zip_paths['v1.3.0'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.3.0'][1]),
+                        "sha256": sha256_file(zip_paths['v1.3.0'][1]),
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    },
+                    {
+                        "name": "CubSpieleCom.exe",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.3.0 .exe)",
+                        "url": "./releases/CubSpieleCom.exe",
+                        "sizeBytes": exe_size,
+                        "sha256": exe_sha,
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    }
+                ]
+            },
+            {
+                "tag": "v1.2.0",
+                "title": "Cub Spiele.Com v1.2.0 — Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs",
+                "publishedAt": "2026-11-12T17:00:00Z",
+                "isLatest": False,
+                "Prerelease": False,
+                "commitRef": "tag: v1.2.0",
+                "highlights": [
                     "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
-                    "mGBA / melonDS-inspired standalone desktop layout with native Menu Bar (File, Emulation, Audio/Video, View, Tools)",
-                    "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Full Handheld Bezel Mode",
+                    "Added native desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)",
+                    "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Handheld Console Bezel Mode",
                     "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)"
                 ],
                 "assets": [
                     {
-                        "name": zip_v120_name,
-                        "label": "Windows x64 Portable Release Bundle (.zip)",
-                        "url": f"./releases/{zip_v120_name}",
-                        "sizeBytes": os.path.getsize(zip_v120_path),
-                        "sha256": sha256_file(zip_v120_path),
+                        "name": zip_paths['v1.2.0'][0],
+                        "label": "Windows x64 Portable Build (v1.2.0 .zip)",
+                        "url": f"./releases/{zip_paths['v1.2.0'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.2.0'][1]),
+                        "sha256": sha256_file(zip_paths['v1.2.0'][1]),
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
                     },
                     {
-                        "name": dist_zip_name,
-                        "label": "Production Web & Desktop Dist Bundle (dist.zip)",
-                        "url": f"./releases/{dist_zip_name}",
-                        "sizeBytes": os.path.getsize(dist_zip_path) if os.path.exists(dist_zip_path) else 0,
-                        "sha256": sha256_file(dist_zip_path) if os.path.exists(dist_zip_path) else "",
-                        "architecture": "Production dist/ Assets (HTML5 / JS / CSS / BIOS / ROMs)"
-                    },
-                    {
-                        "name": "CubSpieleCom.exe",
-                        "label": "Standalone Windows x64 GUI Executable (.exe)",
+                        "name": "CubSpieleCom-v1.2.0.exe",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.2.0 .exe)",
                         "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": os.path.getsize(exe_path),
-                        "sha256": sha256_file(exe_path),
+                        "sizeBytes": exe_size,
+                        "sha256": exe_sha,
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
-                    },
-                    {
-                        "name": ag_zip_name,
-                        "label": "Google Antigravity Desktop IDE Project Workspace (.zip)",
-                        "url": f"./releases/{ag_zip_name}",
-                        "sizeBytes": os.path.getsize(ag_zip_path),
-                        "sha256": sha256_file(ag_zip_path),
-                        "architecture": "Google Antigravity IDE (Full Source + .agents + .vscode)"
                     }
                 ]
             },
             {
                 "tag": "v1.1.0",
-                "title": "Cub Spiele.Com v1.1.0 — SM8521 ALU Verification & Lights Out NVRAM Fix",
+                "title": "Cub Spiele.Com v1.1.0 — SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix",
                 "publishedAt": "2026-11-12T06:00:00Z",
                 "isLatest": False,
                 "Prerelease": False,
@@ -655,15 +584,55 @@ def main():
                     "Preloaded Slot 1 (Lights Out) & Slot 2 (Sonic Jam) with hardware P3 chip-select isolation",
                     "Fixed Lights Out '1?5' starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM",
                     "Verified Sharp SM8521 CPU ALU against official datasheet (8-bit ADC & 16-bit ADDW/ADCW signed overflow V flag, 16-bit ANDW/ORW/XORW S/V flags, PS0 $001E mirror)",
-                    "Calibrated default audio volume to 20% with internal speaker band-pass filter (380 Hz - 3.6 kHz)"
+                    "Calibrated default audio volume to 20% with internal speaker band-pass filter"
                 ],
                 "assets": [
                     {
-                        "name": zip_v110_name,
-                        "label": "Windows x64 Portable Release Bundle (.zip)",
-                        "url": f"./releases/{zip_v110_name}",
-                        "sizeBytes": os.path.getsize(zip_v110_path),
-                        "sha256": sha256_file(zip_v110_path),
+                        "name": zip_paths['v1.1.0'][0],
+                        "label": "Windows x64 Portable Build (v1.1.0 .zip)",
+                        "url": f"./releases/{zip_paths['v1.1.0'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.1.0'][1]),
+                        "sha256": sha256_file(zip_paths['v1.1.0'][1]),
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    },
+                    {
+                        "name": "CubSpieleCom-v1.1.0.exe",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.1.0 .exe)",
+                        "url": "./releases/CubSpieleCom.exe",
+                        "sizeBytes": exe_size,
+                        "sha256": exe_sha,
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    }
+                ]
+            },
+            {
+                "tag": "v1.0.0",
+                "title": "Cub Spiele.Com v1.0.0 — Initial Cycle-Accurate SM8521 Handheld Emulator Release",
+                "publishedAt": "2026-11-11T18:00:00Z",
+                "isLatest": False,
+                "Prerelease": False,
+                "commitRef": "tag: v1.0.0",
+                "highlights": [
+                    "Initial cycle-accurate Sharp SM8521 CPU (4.9152 MHz), MMU bank switching, and hardware DMA blitter",
+                    "200x160 4-shade passive-matrix STN LCD renderer and 13x10 resistive touchscreen matrix",
+                    "Hardware SGDA 8-bit DAC audio streamer and programmable tone channels",
+                    "8KB battery-backed NVRAM ($E000-$FFFF) persistence"
+                ],
+                "assets": [
+                    {
+                        "name": zip_paths['v1.0.0'][0],
+                        "label": "Windows x64 Portable Build (v1.0.0 .zip)",
+                        "url": f"./releases/{zip_paths['v1.0.0'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.0.0'][1]),
+                        "sha256": sha256_file(zip_paths['v1.0.0'][1]),
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
+                    },
+                    {
+                        "name": "CubSpieleCom-v1.0.0.exe",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.0.0 .exe)",
+                        "url": "./releases/CubSpieleCom.exe",
+                        "sizeBytes": exe_size,
+                        "sha256": exe_sha,
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)"
                     }
                 ]
@@ -679,9 +648,9 @@ def main():
         with open(os.path.join(DIST_DIR, 'releases', 'releases-manifest.json'), 'w', encoding='utf-8') as f:
             json.dump(manifest, f, indent=2)
 
-    print(f"Built Windows x64 EXE: {exe_path} ({os.path.getsize(exe_path)} bytes)")
-    print(f"Built v1.2.0 Win64 ZIP: {zip_v120_path} ({os.path.getsize(zip_v120_path)} bytes)")
-    print(f"Built Antigravity Workspace ZIP: {ag_zip_path} ({os.path.getsize(ag_zip_path)} bytes)")
+    print(f"Built Windows x64 EXE: {exe_path} ({exe_size} bytes)")
+    for ver in versions:
+        print(f"Built {ver} Win64 ZIP: {zip_paths[ver][1]} ({os.path.getsize(zip_paths[ver][1])} bytes)")
 
 
 if __name__ == '__main__':

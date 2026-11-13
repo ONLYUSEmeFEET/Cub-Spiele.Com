@@ -133,14 +133,23 @@ export class NvramHighScoreManager {
       nvram[0xfc00 - 0xe000 + i] = fc00Init[i];
     }
 
-    // Built-in Solitaire score at $FEE0-$FEE1 + calendar defaults at $FEE2-$FEE7
+    // Built-in Solitaire score at $FEE0-$FEE1 + device local date calendar at $FEE2-$FEE7
     nvram[0xfee0 - 0xe000] = (this.solitaireScore >> 8) & 0xff;
     nvram[0xfee1 - 0xe000] = this.solitaireScore & 0xff;
-    if (nvram[0xfee2 - 0xe000] === 0) {
-      const fee2Init = [0x01, 0x09, 0x09, 0x07, 0x00, 0x04];
-      for (let i = 0; i < fee2Init.length; i++) {
-        nvram[0xfee2 - 0xe000 + i] = fee2Init[i];
-      }
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // 1..12
+    const fee2Init = [
+      Math.floor(year / 1000) % 10,
+      Math.floor(year / 100) % 10,
+      Math.floor(year / 10) % 10,
+      year % 10,
+      Math.floor(month / 10) % 10,
+      month % 10
+    ];
+    for (let i = 0; i < fee2Init.length; i++) {
+      nvram[0xfee2 - 0xe000 + i] = fee2Init[i];
     }
 
     this.syncBankToNvram(nvram, this.activeBank);

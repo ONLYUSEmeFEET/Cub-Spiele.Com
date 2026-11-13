@@ -211,7 +211,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                 <button
                   onClick={handleExportRawNvram}
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Export raw 8,192-byte ($E000-$FFFF) NVRAM binary compatible with MAME"
+                  title="Export raw 8,192-byte ($E000-$FFFF) battery-backed NVRAM binary"
                 >
                   <HardDriveDownload className="w-3.5 h-3.5 text-blue-400" />
                   Export 8KB NVRAM (.nvram)

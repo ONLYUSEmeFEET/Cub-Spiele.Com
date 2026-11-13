@@ -128,19 +128,20 @@ export class LCDSubsystem {
   private imageData: ImageData;
 
   public paletteId: LCDPaletteId = 'original';
-  public customColors: [string, string, string, string] = ['#f8e8c8', '#d89048', '#a82820', '#301850'];
+  public customColors: [string, string, string, string] = ['#b9c48a', '#84915a', '#4c5931', '#192310'];
   private customRgbColors: [
     [number, number, number],
     [number, number, number],
     [number, number, number],
     [number, number, number]
   ] = [
-    [248, 232, 200],
-    [216, 144, 72],
-    [168, 40, 32],
-    [48, 24, 80]
+    [185, 196, 138],
+    [132, 145, 90],
+    [76, 89, 49],
+    [25, 35, 16]
   ];
-  public ghosting: number = 0.45; // 0.0 = no ghosting, 0.8 = heavy passive STN response
+  public ghosting: number = 0.40; // 0.0 = no ghosting, 0.90 = max trail intensity
+  public ghostingPersistence: number = 0.65; // 0.0 = instant decay, 0.95 = long liquid-crystal persistence
   public contrast: number = 1.0;
   public pixelGrid: boolean = true;
 
@@ -311,25 +312,33 @@ export class LCDSubsystem {
   }
 
   /**
-   * Render the 200x160 frame onto a target canvas with STN persistence and optional LCD grid
+   * Render the 200x160 frame onto a target canvas with STN ghosting intensity & persistence
    */
   public renderToCanvas(targetCanvas: HTMLCanvasElement, targetCtx: CanvasRenderingContext2D) {
     const palette = PALETTES[this.paletteId] || PALETTES.original;
     const rgb = this.paletteId === 'custom' ? this.customRgbColors : palette.rgbColors;
     const pixels = this.imageData.data;
 
-    // Decay rate for STN LCD ghosting:
-    // alpha = 1.0 means no ghosting (instant switch)
-    // alpha = 0.5 means 50% previous frame remains
-    const alpha = 1.0 - Math.min(0.85, Math.max(0, this.ghosting));
+    // STN passive-matrix LCD ghosting parameters:
+    // - intensity: how strongly the liquid-crystal persistence trail blends with the instantaneous pixel shade
+    // - persistence: how long previous pixel states linger across successive VBLANK frames
+    const intensity = Math.min(0.90, Math.max(0, this.ghosting));
+    const persistence = Math.min(0.95, Math.max(0, this.ghostingPersistence));
 
     const totalPixels = SCREEN_WIDTH * SCREEN_HEIGHT;
     for (let i = 0; i < totalPixels; i++) {
       const targetShade = this.currentBuffer[i];
-      // Smooth interpolation toward target shade
       const currentVal = this.persistenceBuffer[i];
-      const newVal = currentVal + (targetShade - currentVal) * alpha;
-      this.persistenceBuffer[i] = newVal;
+
+      let newVal: number;
+      if (intensity <= 0.001) {
+        this.persistenceBuffer[i] = targetShade;
+        newVal = targetShade;
+      } else {
+        const persisted = currentVal * persistence + targetShade * (1.0 - persistence);
+        this.persistenceBuffer[i] = persisted;
+        newVal = targetShade * (1.0 - intensity) + persisted * intensity;
+      }
 
       // Map floating shade to palette colors with sub-shade interpolation
       const floorShade = Math.min(2, Math.max(0, Math.floor(newVal)));

@@ -1,4 +1,4 @@
-export type LCDPaletteId = 'original' | 'pocket_pro' | 'backlit' | 'amber' | 'grayscale' | 'custom';
+export type LCDPaletteId = 'original' | 'custom';
 
 export interface LCDPalette {
   id: LCDPaletteId;
@@ -14,13 +14,8 @@ export interface LCDPalette {
   bezelTint: string;
 }
 
-export interface CustomPalettePreset {
-  id: string;
-  name: string;
-  category: 'sgb' | 'gbc' | 'classic' | 'user';
-  shortcutHint?: string;
-  colors: [string, string, string, string];
-}
+export const DEFAULT_LIGHT_SHADE = '#b9c48a';
+export const DEFAULT_DARK_SHADE = '#192310';
 
 export function hexToRgbTuple(hex: string): [number, number, number] {
   const clean = hex.replace(/[^0-9a-fA-F]/g, '');
@@ -39,111 +34,40 @@ export function hexToRgbTuple(hex: string): [number, number, number] {
   return [0, 0, 0];
 }
 
-export const SGB_GBC_PRESETS: CustomPalettePreset[] = [
-  {
-    id: 'sgb_1a',
-    name: 'SGB 1-A (Super Game Boy Default)',
-    category: 'sgb',
-    shortcutHint: 'SGB Palette 1-A',
-    colors: ['#f8e8c8', '#d89048', '#a82820', '#301850']
-  },
-  {
-    id: 'sgb_1e',
-    name: 'SGB 1-E (Tropical Coral & Teal)',
-    category: 'sgb',
-    shortcutHint: 'SGB Palette 1-E',
-    colors: ['#f8f0d8', '#f09068', '#408880', '#182030']
-  },
-  {
-    id: 'sgb_2a',
-    name: 'SGB 2-A (Ocean Blue & Gold)',
-    category: 'sgb',
-    shortcutHint: 'SGB Palette 2-A',
-    colors: ['#f8f8b8', '#90c8e8', '#3060b0', '#101840']
-  },
-  {
-    id: 'sgb_3a',
-    name: 'SGB 3-A (Emerald Forest)',
-    category: 'sgb',
-    shortcutHint: 'SGB Palette 3-A',
-    colors: ['#e0f8d0', '#88c070', '#346856', '#081820']
-  },
-  {
-    id: 'sgb_4e',
-    name: 'SGB 4-E (Neon Cyber Violet)',
-    category: 'sgb',
-    shortcutHint: 'SGB Palette 4-E',
-    colors: ['#f8d8f8', '#c878e8', '#682898', '#180828']
-  },
-  {
-    id: 'gbc_up',
-    name: 'GBC Brown (Boot: Up)',
-    category: 'gbc',
-    shortcutHint: 'D-Pad Up',
-    colors: ['#ffefff', '#f7b58c', '#84739c', '#181010']
-  },
-  {
-    id: 'gbc_up_a',
-    name: 'GBC Crimson Red (Boot: Up + A)',
-    category: 'gbc',
-    shortcutHint: 'Up + A',
-    colors: ['#ffffff', '#ffad63', '#843100', '#000000']
-  },
-  {
-    id: 'gbc_down',
-    name: 'GBC Pastel Mix (Boot: Down)',
-    category: 'gbc',
-    shortcutHint: 'D-Pad Down',
-    colors: ['#ffffa5', '#ff9494', '#9494ff', '#000000']
-  },
-  {
-    id: 'gbc_left',
-    name: 'GBC Cobalt Blue (Boot: Left)',
-    category: 'gbc',
-    shortcutHint: 'D-Pad Left',
-    colors: ['#ffffff', '#63a5ff', '#0000ff', '#000000']
-  },
-  {
-    id: 'gbc_right',
-    name: 'GBC Lime & Wave (Boot: Right)',
-    category: 'gbc',
-    shortcutHint: 'D-Pad Right',
-    colors: ['#ffffff', '#7bff31', '#0063c6', '#000000']
-  },
-  {
-    id: 'gbc_down_b',
-    name: 'GBC Solar Gold (Boot: Down + B)',
-    category: 'gbc',
-    shortcutHint: 'Down + B',
-    colors: ['#ffffff', '#ffff00', '#7b4a00', '#000000']
-  },
-  {
-    id: 'gbc_right_b',
-    name: 'GBC Inverted Dark (Boot: Right + B)',
-    category: 'gbc',
-    shortcutHint: 'Right + B',
-    colors: ['#000000', '#008484', '#ffde00', '#ffffff']
-  },
-  {
-    id: 'dmg_classic',
-    name: 'DMG-01 Original Game Boy (1989)',
-    category: 'classic',
-    shortcutHint: 'Dot Matrix',
-    colors: ['#9bbc0f', '#8bac0f', '#306230', '#0f380f']
-  },
-  {
-    id: 'virtual_boy',
-    name: 'Virtual Red LED (1995)',
-    category: 'classic',
-    shortcutHint: 'Red Matrix',
-    colors: ['#ff4d4d', '#b31212', '#590000', '#140000']
-  }
-];
+export function rgbTupleToHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return (
+    '#' +
+    [clamp(r), clamp(g), clamp(b)]
+      .map((v) => v.toString(16).padStart(2, '0'))
+      .join('')
+  );
+}
+
+/**
+ * Blends two user-selected hex shades (Light/Background Shade 0 and Dark/Foreground Shade 3)
+ * into the 4 hardware 2-bpp shades (0%, 33.3%, 66.7%, 100%).
+ */
+export function blendTwoShades(
+  lightHex: string = DEFAULT_LIGHT_SHADE,
+  darkHex: string = DEFAULT_DARK_SHADE
+): [string, string, string, string] {
+  const [r0, g0, b0] = hexToRgbTuple(lightHex || DEFAULT_LIGHT_SHADE);
+  const [r3, g3, b3] = hexToRgbTuple(darkHex || DEFAULT_DARK_SHADE);
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+  const s0 = rgbTupleToHex(r0, g0, b0);
+  const s1 = rgbTupleToHex(lerp(r0, r3, 1 / 3), lerp(g0, g3, 1 / 3), lerp(b0, b3, 1 / 3));
+  const s2 = rgbTupleToHex(lerp(r0, r3, 2 / 3), lerp(g0, g3, 2 / 3), lerp(b0, b3, 2 / 3));
+  const s3 = rgbTupleToHex(r3, g3, b3);
+
+  return [s0, s1, s2, s3];
+}
 
 export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
   original: {
     id: 'original',
-    name: 'Original Game.com (1997 STN)',
+    name: 'Original 1997 STN Olive',
     description: 'Calibrated 1997 passive-matrix reflective olive-green STN LCD',
     colors: ['#b9c48a', '#84915a', '#4c5931', '#192310'],
     rgbColors: [
@@ -154,70 +78,18 @@ export const PALETTES: Record<LCDPaletteId, LCDPalette> = {
     ],
     bezelTint: '#a3ae76'
   },
-  pocket_pro: {
-    id: 'pocket_pro',
-    name: 'Pocket Pro (Silver/Grey)',
-    description: 'Reflective silver-grey LCD with improved contrast',
-    colors: ['#d1d5db', '#9ca3af', '#4b5563', '#111827'],
-    rgbColors: [
-      [209, 213, 219],
-      [156, 163, 175],
-      [75, 85, 99],
-      [17, 24, 39]
-    ],
-    bezelTint: '#9ca3af'
-  },
-  backlit: {
-    id: 'backlit',
-    name: 'Pocket Pro Backlit (Cyan)',
-    description: 'Electroluminescent teal-cyan backlight display',
-    colors: ['#a7f3d0', '#34d399', '#059669', '#064e3b'],
-    rgbColors: [
-      [167, 243, 208],
-      [52, 211, 153],
-      [5, 150, 105],
-      [6, 78, 59]
-    ],
-    bezelTint: '#34d399'
-  },
-  amber: {
-    id: 'amber',
-    name: 'Amber Glow',
-    description: 'Warm retro amber phosphor style display',
-    colors: ['#fef3c7', '#f59e0b', '#b45309', '#451a03'],
-    rgbColors: [
-      [254, 243, 199],
-      [245, 158, 11],
-      [180, 83, 9],
-      [69, 26, 3]
-    ],
-    bezelTint: '#d97706'
-  },
-  grayscale: {
-    id: 'grayscale',
-    name: 'High-Contrast B&W',
-    description: 'Crisp black & white modern OLED rendering',
-    colors: ['#ffffff', '#a3a3a3', '#525252', '#000000'],
-    rgbColors: [
-      [255, 255, 255],
-      [163, 163, 163],
-      [82, 82, 82],
-      [0, 0, 0]
-    ],
-    bezelTint: '#a3a3a3'
-  },
   custom: {
     id: 'custom',
-    name: 'Custom 4-Shade (SGB / GBC)',
-    description: 'User-customizable 4-shade Super Game Boy / Game Boy Color style palette',
-    colors: ['#f8e8c8', '#d89048', '#a82820', '#301850'],
+    name: 'Custom 2-Shade Blend',
+    description: 'Blends two user-selected shades across all four 2-bpp LCD levels',
+    colors: ['#b9c48a', '#84915a', '#4c5931', '#192310'],
     rgbColors: [
-      [248, 232, 200],
-      [216, 144, 72],
-      [168, 40, 32],
-      [48, 24, 80]
+      [185, 196, 138],
+      [132, 145, 90],
+      [76, 89, 49],
+      [25, 35, 16]
     ],
-    bezelTint: '#d89048'
+    bezelTint: '#84915a'
   }
 };
 
@@ -246,6 +118,8 @@ export interface TouchPoint {
 export interface CartridgeInfo {
   id: string;
   title: string;
+  headerTitle?: string;
+  headerGameId?: number;
   publisher: string;
   year: number;
   genre: string;
@@ -272,20 +146,25 @@ export interface RecentGameEntry {
 
 export interface EmulatorSettings {
   palette: LCDPaletteId;
-  customPaletteColors: [string, string, string, string]; // [Shade 0, Shade 1, Shade 2, Shade 3]
-  activeCustomPresetId?: string;
-  ghosting: number; // 0.0 to 0.9 (STN LCD response blur)
-  pixelGrid: boolean; // render pixel grid lines
-  showTouchGrid: boolean; // render 13x10 hardware resistive touch matrix overlay
-  touchGridOpacity: number; // 0.0 to 1.0 visibility slider for touch grid
-  viewMode: 'screen-only' | 'console'; // mGBA/melonDS screen-only mode vs full handheld shell
-  screenScale: number; // 2, 3, or 4 integer scale in screen-only mode
-  contrast: number; // 0.5 to 1.5
-  volume: number; // 0.0 to 1.0
+  /** Two user-selected hex shades [Light/Background Shade 0, Dark/Foreground Shade 3] */
+  twoShadeColors: [string, string];
+  /** Computed 4-shade interpolation [Shade 0, Shade 1, Shade 2, Shade 3] */
+  customPaletteColors: [string, string, string, string];
+  /** STN LCD ghosting intensity (0.0 to 0.90) */
+  ghosting: number;
+  /** STN LCD ghosting persistence / decay time constant (0.0 to 0.95) */
+  ghostingPersistence: number;
+  pixelGrid: boolean;
+  showTouchGrid: boolean;
+  touchGridOpacity: number;
+  viewMode: 'screen-only' | 'console';
+  screenScale: number;
+  contrast: number;
+  volume: number;
   muted: boolean;
-  speed: number; // 0.5, 1, 2, 4
+  speed: number;
   showFps: boolean;
-  smoothMode: boolean; // 60fps vs authentic ~15-20fps Game.com timing
+  smoothMode: boolean;
   stylusCursor: boolean;
 }
 
@@ -301,11 +180,11 @@ export interface CPURegisters {
   pc: number;
   sp: number;
   flags: {
-    c: boolean; // Carry
-    z: boolean; // Zero
-    s: boolean; // Sign / Negative
-    v: boolean; // Overflow
-    i: boolean; // Interrupt Enable
+    c: boolean;
+    z: boolean;
+    s: boolean;
+    v: boolean;
+    i: boolean;
   };
   cycles: number;
 }

@@ -268,6 +268,55 @@ export class SM8521CPU {
     this.m_p_ram[SM8521_LCH] = 0x07;
     this.m_p_ram[SM8521_LCV] = 0x27;
     this.m_p_ram[SM8521_LCDC] = 0xb0;
+
+    // Initialize internal Real-Time Clock & NVRAM Calendar to the user's device date & time
+    this.syncDeviceDateTime();
+  }
+
+  /**
+   * Synchronizes the Game.Com internal Real-Time Clock & Date ($0120..$0129, $03FF)
+   * and NVRAM Calendar ($FEE2..$FEE7) to the user's current local device date and time.
+   *
+   * Hardware Layout verified from `external.bin` ($2074..$2295 & $4F00..$50E5):
+   * - $0120..$0123: [0xA5, 0xF0, 0xAA, 0x55] (RTC initialized signature)
+   * - $0124: Year (year % 100)
+   * - $0125: Month (1..12)
+   * - $0126: Day of month (1..31)
+   * - $0127: Hour (0..23)
+   * - $0128: Minute (0..59)
+   * - $0129: Second (0..59)
+   * - $03FF: Bit 3 cleared (& ~0x08) to mark time/date as configured
+   * - NVRAM $FEE2..$FEE5: 4 decimal digits of current Year (YYYY)
+   * - NVRAM $FEE6..$FEE7: 2 decimal digits of current Month (MM, 01..12)
+   */
+  public syncDeviceDateTime(now: Date = new Date()) {
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+
+    this.m_p_ram[0x0120] = 0xa5;
+    this.m_p_ram[0x0121] = 0xf0;
+    this.m_p_ram[0x0122] = 0xaa;
+    this.m_p_ram[0x0123] = 0x55;
+
+    this.m_p_ram[0x0124] = year % 100;
+    this.m_p_ram[0x0125] = month & 0xff;
+    this.m_p_ram[0x0126] = day & 0xff;
+    this.m_p_ram[0x0127] = hours & 0xff;
+    this.m_p_ram[0x0128] = minutes & 0xff;
+    this.m_p_ram[0x0129] = seconds & 0xff;
+
+    this.m_p_ram[0x03ff] &= ~0x08;
+
+    this.nvram[0xfee2 - 0xe000] = Math.floor(year / 1000) % 10;
+    this.nvram[0xfee3 - 0xe000] = Math.floor(year / 100) % 10;
+    this.nvram[0xfee4 - 0xe000] = Math.floor(year / 10) % 10;
+    this.nvram[0xfee5 - 0xe000] = year % 10;
+    this.nvram[0xfee6 - 0xe000] = Math.floor(month / 10) % 10;
+    this.nvram[0xfee7 - 0xe000] = month % 10;
   }
 
   public loadInternalBIOS(data: Uint8Array) {
@@ -282,12 +331,15 @@ export class SM8521CPU {
   }
 
   /**
-   * MAME common_load: allocates a 2MB (0x200000) cartridge buffer,
-   * loads 0x1C0000 (1.75MB) ROMs at offset 0x40000, and mirrors smaller ROMs across the full 2MB space.
+   * Allocates a 2MB (0x200000) cartridge buffer, loads 0x1C0000 (1.75MB) ROMs at offset 0x40000,
+   * mirrors smaller ROMs across the full 2MB space, and ensures the TigerDMGC cartridge header
+   * is accessible at the BIOS bank probe offsets ($20, $40, $80, $00) for both Slot 1 and Slot 2.
    */
   public static prepareCartridgeBuffer(romData: Uint8Array): Uint8Array {
     const crt = new Uint8Array(0x200000);
     const size = romData.length;
+    if (size === 0) return crt;
+
     let loadOffset = 0;
     if (size === 0x1c0000) {
       loadOffset = 0x40000;
@@ -296,7 +348,6 @@ export class SM8521CPU {
     crt.set(romData.subarray(0, copyLen), loadOffset);
 
     if (size > 0 && size !== 0x1c0000) {
-      // Mirror non-power-of-two or smaller power-of-two up to 2MB
       if (size <= 0x008000) crt.copyWithin(0x008000, 0, 0x008000);
       if (size <= 0x010000) crt.copyWithin(0x010000, 0, 0x010000);
       if (size <= 0x020000) crt.copyWithin(0x020000, 0, 0x020000);
@@ -304,6 +355,36 @@ export class SM8521CPU {
       if (size <= 0x080000) crt.copyWithin(0x080000, 0, 0x080000);
       if (size <= 0x100000) crt.copyWithin(0x100000, 0, 0x100000);
     }
+
+    const sig = [0x54, 0x69, 0x67, 0x65, 0x72, 0x44, 0x4d, 0x47, 0x43]; // "TigerDMGC"
+    const hasSigAt = (buf: Uint8Array, base: number): boolean => {
+      if (base < 0 || base + 0x1c > buf.length) return false;
+      for (let i = 0; i < sig.length; i++) {
+        if (buf[base + 0x05 + i] !== sig[i]) return false;
+      }
+      return true;
+    };
+
+    // If none of the 4 BIOS probe offsets (0x40000, 0x80000, 0x100000, 0x00000) has "TigerDMGC",
+    // locate the header bank in romData and mirror that 8KB header bank to 0x40000 (MMU $20) so the BIOS boots it.
+    const probeOffsets = [0x40000, 0x80000, 0x100000, 0x00000];
+    const anyProbeValid = probeOffsets.some((off) => hasSigAt(crt, off));
+    if (!anyProbeValid) {
+      for (let off = 0; off + 0x2000 <= size; off += 0x2000) {
+        if (hasSigAt(romData, off)) {
+          crt.set(romData.subarray(off, off + 0x2000), 0x40000);
+          break;
+        }
+      }
+    }
+
+    // Ensure slot compatibility flags (+0x04) allow booting in both Slot 1 and Slot 2
+    for (const off of probeOffsets) {
+      if (hasSigAt(crt, off)) {
+        crt[off + 0x04] |= 0x03;
+      }
+    }
+
     return crt;
   }
 
@@ -2430,6 +2511,15 @@ default:
       }
       this.renderScanline();
     }
+    // If the BIOS cold-boot routine ($2074..$20DE) just zeroed $0124..$0129 or wrote its
+    // hardcoded 1996-10-10 factory fallback date, immediately overwrite with the user's device date & time.
+    if (
+      this.m_p_ram[0x0125] === 0 ||
+      (this.m_p_ram[0x0124] === 0x10 && this.m_p_ram[0x0125] === 0x0a && this.m_p_ram[0x0126] === 0x0a)
+    ) {
+      this.syncDeviceDateTime();
+    }
+
     // Assert VBLANK interrupt (LCDC_INT)
     this.set_input_line(LCDC_INT, true);
   }

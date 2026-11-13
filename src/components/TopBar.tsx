@@ -1,335 +1,359 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
-import { LCDPaletteId, PALETTES, RecentGameEntry } from '../emulator/types';
-import {
-  downloadWindowsPortableZip,
-  downloadAntigravityWorkspaceZip
-} from '../utils/windowsReleasePackager';
+import { RecentGameEntry, DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE } from '../emulator/types';
 import {
   Disc,
-  Trophy,
-  Wrench,
-  Bug,
-  Play,
-  Upload,
   Cpu,
-  Keyboard,
-  Monitor,
-  Maximize2,
-  Gamepad2,
-  Clock,
-  Check,
-  Trash2,
-  Grid3X3,
   Volume2,
   VolumeX,
   RotateCcw,
   Pause,
-  Camera,
+  Play,
+  Terminal,
+  Keyboard,
+  ShieldCheck,
+  Trophy,
+  HardDrive,
   Download,
-  Code2,
+  FolderOpen,
+  Maximize2,
+  Gamepad2,
+  History,
+  Trash2,
+  Grid,
+  Check,
+  ChevronRight,
+  Monitor,
   Palette
 } from 'lucide-react';
 
 interface TopBarProps {
   system: GameComSystem;
-  onLoadRomFile?: (file: File, slot?: 1 | 2) => void;
   onOpenLibrary: () => void;
-  onOpenHighScores: () => void;
   onOpenAccuracy: () => void;
-  onOpenColorCustomizer?: () => void;
-  onOpenReleases?: () => void;
-  onOpenBios?: () => void;
-  onOpenControls?: () => void;
   onOpenDebugger: () => void;
-  onSaveState?: () => void;
-  onLoadState?: () => void;
-  onTakeScreenshot?: () => void;
-  onNotify?: (message: string, sub?: string, type?: 'success' | 'info' | 'error') => void;
+  onOpenKeybinds: () => void;
+  onOpenHighScores: () => void;
+  onOpenBios: () => void;
+  onOpenWindowsRelease: () => void;
+  onOpenColorCustomizer: () => void;
   onUpdate: () => void;
 }
 
-type OpenMenuId = 'file' | 'emulation' | 'av' | 'tools' | 'view' | 'recent-quick' | null;
+type MenuId = 'file' | 'emulation' | 'av' | 'view' | 'tools' | null;
 
 export const TopBar: React.FC<TopBarProps> = ({
   system,
-  onLoadRomFile,
   onOpenLibrary,
-  onOpenHighScores,
   onOpenAccuracy,
-  onOpenColorCustomizer,
-  onOpenReleases,
-  onOpenBios,
-  onOpenControls,
   onOpenDebugger,
-  onSaveState,
-  onLoadState,
-  onTakeScreenshot,
-  onNotify,
+  onOpenKeybinds,
+  onOpenHighScores,
+  onOpenBios,
+  onOpenWindowsRelease,
+  onOpenColorCustomizer,
   onUpdate
 }) => {
-  const fileInputSlot1Ref = useRef<HTMLInputElement | null>(null);
-  const fileInputSlot2Ref = useRef<HTMLInputElement | null>(null);
-  const menuContainerRef = useRef<HTMLDivElement | null>(null);
-  const [openMenu, setOpenMenu] = useState<OpenMenuId>(null);
+  const [openMenu, setOpenMenu] = useState<MenuId>(null);
+  const [recentSubmenuOpen, setRecentSubmenuOpen] = useState(false);
+  const menuBarRef = useRef<HTMLDivElement>(null);
+  const fileSlot1Ref = useRef<HTMLInputElement>(null);
+  const fileSlot2Ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (menuBarRef.current && !menuBarRef.current.contains(e.target as Node)) {
         setOpenMenu(null);
+        setRecentSubmenuOpen(false);
       }
     };
-    window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('mousedown', handleOutsideClick);
+    return () => window.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const handleLaunchRecent = async (entry: RecentGameEntry, slot: 1 | 2) => {
+  const closeMenu = () => {
     setOpenMenu(null);
-    const ok = await system.launchRecentGame(entry, slot);
-    if (ok) {
-      onNotify?.(`Booting ${entry.title}`, `Loaded from Recently Played into Slot ${slot}`, 'success');
+    setRecentSubmenuOpen(false);
+  };
+
+  const handleLoadFileSlot = async (e: React.ChangeEvent<HTMLInputElement>, slot: 1 | 2) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await system.loadRomFromFile(file, slot);
       onUpdate();
-    } else {
-      onNotify?.(
-        'Reload Custom ROM File',
-        `Select ${entry.title} from disk to load into Slot ${slot}`,
-        'info'
-      );
-      if (slot === 2) fileInputSlot2Ref.current?.click();
-      else fileInputSlot1Ref.current?.click();
+    } catch (err) {
+      console.error('ROM load error:', err);
+    } finally {
+      e.target.value = '';
+      closeMenu();
     }
   };
 
-  const handleTouchGridSlider = (val: number) => {
-    system.settings.touchGridOpacity = val;
-    system.settings.showTouchGrid = val > 0;
+  const handleLaunchRecent = async (entry: RecentGameEntry, slot?: 1 | 2) => {
+    const ok = await system.launchRecentGame(entry, slot);
+    if (!ok) {
+      onOpenLibrary();
+    }
+    onUpdate();
+    closeMenu();
+  };
+
+  const handleVolumeChange = (val: number) => {
+    system.settings.volume = val;
+    system.settings.muted = val === 0;
+    system.sound.setVolume(val);
+    system.sound.setMuted(val === 0);
     onUpdate();
   };
 
-  const effectiveGridOpacity = system.settings.showTouchGrid
-    ? Math.max(0.05, system.settings.touchGridOpacity || 0.45)
-    : system.settings.touchGridOpacity;
+  const handleTouchGridOpacityChange = (pct: number) => {
+    const clamped = Math.max(0, Math.min(100, pct));
+    system.settings.touchGridOpacity = clamped / 100;
+    system.settings.showTouchGrid = clamped > 0;
+    onUpdate();
+  };
+
+  const handleToggleFullscreen = () => {
+    const winDesktop = (window as any).gamecomDesktop;
+    if (winDesktop?.toggleFullscreen) {
+      winDesktop.toggleFullscreen();
+    } else if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+    closeMenu();
+  };
+
+  const touchGridPercent = Math.round((system.settings.touchGridOpacity || 0) * 100);
+  const isScreenOnly = system.settings.viewMode === 'screen-only';
+  const activeCart = system.activeSlot === 1 ? system.slot1 : system.slot2;
+  const [lightShade, darkShade] = system.settings.twoShadeColors;
 
   return (
     <header
-      ref={menuContainerRef}
-      className="w-full bg-[#12141a] border-b border-[#282c37] select-none z-40"
+      ref={menuBarRef}
+      className="w-full bg-[#181a20] border-b border-zinc-800 select-none z-40 shrink-0"
     >
-      {/* Hidden File Inputs for Slot 1 & Slot 2 */}
+      {/* Hidden File Inputs for Native Menu Bar */}
       <input
-        ref={fileInputSlot1Ref}
+        ref={fileSlot1Ref}
         type="file"
-        accept=".bin,.tgc,.zip"
+        accept=".bin,.tgc,.rom,.zip"
+        onChange={(e) => handleLoadFileSlot(e, 1)}
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && onLoadRomFile) {
-            onLoadRomFile(file, 1);
-            e.target.value = '';
-          }
-        }}
       />
       <input
-        ref={fileInputSlot2Ref}
+        ref={fileSlot2Ref}
         type="file"
-        accept=".bin,.tgc,.zip"
+        accept=".bin,.tgc,.rom,.zip"
+        onChange={(e) => handleLoadFileSlot(e, 2)}
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && onLoadRomFile) {
-            onLoadRomFile(file, 2);
-            e.target.value = '';
-          }
-        }}
       />
 
-      {/* =================================================================== */}
-      {/* ROW 1: NATIVE STANDALONE DESKTOP MENU BAR (mGBA / melonDS STYLE)     */}
-      {/* =================================================================== */}
-      <div className="w-full bg-[#181b22] border-b border-[#252934] px-3 h-7 flex items-center justify-between text-xs">
+      <div className="w-full px-3 h-8 flex items-center justify-between text-xs">
+        {/* Left: Brand + Classic Standalone Menu Bar */}
         <div className="flex items-center gap-0.5">
-          {/* App Mini Emblem */}
-          <div className="flex items-center gap-1.5 pr-2.5 mr-1 border-r border-[#2b303d] text-[11px] font-bold text-[#e2e8f0]">
-            <span className="w-2 h-2 rounded-full bg-[#e11d48]" />
-            <span className="tracking-tight">Cub Spiele.Com</span>
+          <div className="flex items-center gap-2 pr-3 mr-1 border-r border-zinc-800">
+            <span
+              className="w-2.5 h-2.5 rounded-sm border border-black/40 shadow-inner"
+              style={{ backgroundColor: lightShade }}
+            />
+            <span className="font-bold text-zinc-100 tracking-tight text-xs">
+              Cub Spiele.Com
+            </span>
           </div>
 
           {/* FILE MENU */}
           <div className="relative">
             <button
               onClick={() => setOpenMenu(openMenu === 'file' ? null : 'file')}
-              onMouseEnter={() => openMenu && openMenu !== 'recent-quick' && setOpenMenu('file')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              onMouseEnter={() => openMenu && setOpenMenu('file')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 openMenu === 'file'
-                  ? 'bg-[#2b3140] text-white'
-                  : 'text-[#cbd5e1] hover:bg-[#222632] hover:text-white'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
               File
             </button>
             {openMenu === 'file' && (
-              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#181b23] border border-[#323846] rounded-lg shadow-2xl py-1.5 z-50 text-xs">
+              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
                 <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    fileInputSlot1Ref.current?.click();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  onClick={() => fileSlot1Ref.current?.click()}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Load ROM into Slot 1...</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+O</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    fileInputSlot2Ref.current?.click();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span>Load ROM into Slot 2...</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+Shift+O</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    onOpenLibrary();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span>Cartridge Library &amp; Dual Slots...</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+L</span>
-                </button>
-
-                <div className="my-1 border-t border-[#292e3b]" />
-
-                {/* RECENTLY PLAYED SUBSECTION */}
-                <div className="px-3 py-1 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-[#94a3b8]">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-[#a3ae76]" />
-                    Recently Played ({system.recentGames.length})
+                  <span className="flex items-center gap-2">
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span>Load ROM into Slot 1...</span>
                   </span>
-                  {system.recentGames.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        system.clearRecentGames();
-                        onUpdate();
-                      }}
-                      className="text-[10px] text-rose-400 hover:underline flex items-center gap-0.5"
-                      title="Clear Recently Played List"
-                    >
-                      <Trash2 className="w-2.5 h-2.5" />
-                      Clear
-                    </button>
+                  <span className="text-[10px] opacity-60 font-mono">Ctrl+O</span>
+                </button>
+                <button
+                  onClick={() => fileSlot2Ref.current?.click()}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span>Load ROM into Slot 2...</span>
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">Ctrl+Shift+O</span>
+                </button>
+
+                {/* RECENTLY PLAYED SUBMENU */}
+                <div
+                  className="relative"
+                  onMouseEnter={() => setRecentSubmenuOpen(true)}
+                  onMouseLeave={() => setRecentSubmenuOpen(false)}
+                >
+                  <button
+                    onClick={() => setRecentSubmenuOpen(!recentSubmenuOpen)}
+                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <History className="w-3.5 h-3.5" />
+                      <span>Recently Played</span>
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  {recentSubmenuOpen && (
+                    <div className="absolute left-full top-0 ml-0.5 w-80 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50">
+                      <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400 border-b border-zinc-800 flex items-center justify-between">
+                        <span>Recent Cartridges ({system.recentGames.length})</span>
+                        {system.recentGames.length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              system.clearRecentGames();
+                              onUpdate();
+                            }}
+                            className="text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" /> Clear
+                          </button>
+                        )}
+                      </div>
+                      {system.recentGames.length === 0 ? (
+                        <div className="px-3 py-3 text-zinc-500 text-center text-[11px]">
+                          No recently played ROMs
+                        </div>
+                      ) : (
+                        system.recentGames.map((item) => (
+                          <div
+                            key={`${item.id}_${item.slot}`}
+                            className="px-2.5 py-1.5 hover:bg-zinc-800 flex items-center justify-between gap-2 border-b border-zinc-800/50 last:border-0"
+                          >
+                            <button
+                              onClick={() => handleLaunchRecent(item)}
+                              className="flex-1 text-left truncate cursor-pointer group"
+                            >
+                              <div className="text-zinc-200 group-hover:text-white font-medium truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-[10px] text-zinc-400 font-mono">
+                                Slot {item.slot} · {(item.sizeBytes / 1024).toFixed(0)} KB
+                              </div>
+                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => handleLaunchRecent(item, 1)}
+                                className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-emerald-600 text-[10px] font-mono text-zinc-200 hover:text-white cursor-pointer"
+                              >
+                                S1
+                              </button>
+                              <button
+                                onClick={() => handleLaunchRecent(item, 2)}
+                                className="px-1.5 py-0.5 rounded bg-zinc-700 hover:bg-emerald-600 text-[10px] font-mono text-zinc-200 hover:text-white cursor-pointer"
+                              >
+                                S2
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {system.recentGames.length === 0 ? (
-                  <div className="px-3 py-2 text-[11px] text-[#64748b] italic">
-                    No recently played cartridges
-                  </div>
-                ) : (
-                  <div className="max-h-44 overflow-y-auto">
-                    {system.recentGames.map((item) => (
-                      <div
-                        key={`${item.id}_${item.slot}`}
-                        className="px-3 py-1.5 hover:bg-[#232836] flex items-center justify-between gap-2 group"
-                      >
-                        <button
-                          onClick={() => handleLaunchRecent(item, item.slot)}
-                          className="flex-1 text-left truncate text-[11px] text-[#cbd5e1] group-hover:text-white font-medium"
-                          title={`Boot ${item.title} in Slot ${item.slot}`}
-                        >
-                          {item.title}
-                        </button>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => handleLaunchRecent(item, 1)}
-                            className="px-1.5 py-0.5 rounded bg-[#252a38] hover:bg-[#a3ae76] hover:text-[#111318] text-[9px] font-mono text-[#cbd5e1]"
-                            title="Boot in Slot 1"
-                          >
-                            S1
-                          </button>
-                          <button
-                            onClick={() => handleLaunchRecent(item, 2)}
-                            className="px-1.5 py-0.5 rounded bg-[#252a38] hover:bg-[#38bdf8] hover:text-[#090d16] text-[9px] font-mono text-[#cbd5e1]"
-                            title="Boot in Slot 2"
-                          >
-                            S2
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    onOpenLibrary();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Disc className="w-3.5 h-3.5" />
+                    <span>Cartridge Slot Manager...</span>
+                  </span>
+                </button>
 
-                <div className="my-1 border-t border-[#292e3b]" />
+                <div className="my-1 border-t border-zinc-800" />
 
                 <button
                   onClick={() => {
-                    setOpenMenu(null);
-                    onSaveState?.();
+                    if (system.slot1) {
+                      system.launchCartridge(1);
+                      onUpdate();
+                    } else {
+                      onOpenLibrary();
+                    }
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Save State (Slot 0)</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">F5</span>
+                  <span className="truncate">
+                    Boot Slot 1: {system.slot1 ? system.slot1.title : '(Empty)'}
+                  </span>
+                  {system.activeSlot === 1 && system.activeApp === 'CARTRIDGE' && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  )}
                 </button>
                 <button
                   onClick={() => {
-                    setOpenMenu(null);
-                    onLoadState?.();
+                    if (system.slot2) {
+                      system.launchCartridge(2);
+                      onUpdate();
+                    } else {
+                      onOpenLibrary();
+                    }
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Load State (Slot 0)</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">F8</span>
+                  <span className="truncate">
+                    Boot Slot 2: {system.slot2 ? system.slot2.title : '(Empty)'}
+                  </span>
+                  {system.activeSlot === 2 && system.activeApp === 'CARTRIDGE' && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  )}
                 </button>
 
-                <div className="my-1 border-t border-[#292e3b]" />
+                <div className="my-1 border-t border-zinc-800" />
 
                 <button
-                  onClick={async () => {
-                    setOpenMenu(null);
-                    onNotify?.(
-                      'Packaging Google Antigravity Workspace (.zip)...',
-                      'Bundling full source, GEMINI.md, .agents/, .vscode/, and cub-spiele-com.code-workspace',
-                      'info'
-                    );
-                    const bytes = await downloadAntigravityWorkspaceZip();
-                    onNotify?.(
-                      'Downloaded CubSpieleCom-Antigravity-Workspace.zip',
-                      `Verified ${(bytes / (1024 * 1024)).toFixed(2)} MB Google Antigravity Desktop Workspace`,
-                      'success'
-                    );
+                  onClick={() => {
+                    system.ejectCartridge(1);
+                    onUpdate();
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#d9e3b1] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
+                  disabled={!system.slot1}
+                  className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Code2 className="w-3.5 h-3.5 text-[#a3ae76]" />
-                    Download Antigravity Workspace (.zip)
-                  </span>
-                  <span className="text-[10px] font-mono text-[#a3ae76]">IDE</span>
+                  <span>Eject Slot 1</span>
                 </button>
-
                 <button
-                  onClick={async () => {
-                    setOpenMenu(null);
-                    onNotify?.('Packaging CubSpieleCom Win64 (.zip)...', 'Building standalone PE32+ executable & ROM bundle', 'info');
-                    const bytes = await downloadWindowsPortableZip();
-                    onNotify?.(
-                      'Downloaded CubSpieleCom-v1.2.0-win64.zip',
-                      `Verified ${(bytes / (1024 * 1024)).toFixed(2)} MB Windows x64 Portable Archive`,
-                      'success'
-                    );
+                  onClick={() => {
+                    system.ejectCartridge(2);
+                    onUpdate();
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#38bdf8] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
+                  disabled={!system.slot2}
+                  className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Download className="w-3.5 h-3.5" />
-                    Download Win64 Release (.zip)
-                  </span>
-                  <span className="text-[10px] font-mono">x64</span>
+                  <span>Eject Slot 2</span>
                 </button>
               </div>
             )}
@@ -339,93 +363,65 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="relative">
             <button
               onClick={() => setOpenMenu(openMenu === 'emulation' ? null : 'emulation')}
-              onMouseEnter={() => openMenu && openMenu !== 'recent-quick' && setOpenMenu('emulation')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              onMouseEnter={() => openMenu && setOpenMenu('emulation')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 openMenu === 'emulation'
-                  ? 'bg-[#2b3140] text-white'
-                  : 'text-[#cbd5e1] hover:bg-[#222632] hover:text-white'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
               Emulation
             </button>
             {openMenu === 'emulation' && (
-              <div className="absolute left-0 top-full mt-0.5 w-64 bg-[#181b23] border border-[#323846] rounded-lg shadow-2xl py-1.5 z-50 text-xs">
+              <div className="absolute left-0 top-full mt-0.5 w-64 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
                 <button
                   onClick={() => {
-                    setOpenMenu(null);
                     system.pauseToggle();
                     onUpdate();
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>{system.isPaused ? 'Resume Emulation' : 'Pause Emulation'}</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">P</span>
+                  <span className="flex items-center gap-2">
+                    {system.isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                    <span>{system.isPaused ? 'Resume Emulation' : 'Pause Emulation'}</span>
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">P</span>
                 </button>
+
                 <button
                   onClick={() => {
-                    setOpenMenu(null);
                     system.resetSystem('MAIN_MENU');
                     onUpdate();
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Soft Reset (BIOS Main Menu)</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+R</span>
+                  <span className="flex items-center gap-2">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Soft Reset (BIOS Main Menu)</span>
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">Ctrl+R</span>
                 </button>
+
                 <button
                   onClick={() => {
-                    setOpenMenu(null);
                     system.resetSystem('NONE');
                     onUpdate();
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Cold Boot (3D Globe &amp; Chime)</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+Shift+R</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    system.powerToggle();
-                    onUpdate();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span>{system.isPoweredOn ? 'Power Off Console' : 'Power On Console'}</span>
-                </button>
-
-                <div className="my-1 border-t border-[#292e3b]" />
-
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    system.launchCartridge(1);
-                    onUpdate();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#d9e3b1] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span className="truncate">
-                    Boot Slot 1: {system.slot1 ? system.slot1.title.split(' (')[0] : 'Empty'}
+                  <span className="flex items-center gap-2">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Cold Boot (Full Startup)</span>
                   </span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+1</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    system.launchCartridge(2);
-                    onUpdate();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#bae6fd] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span className="truncate">
-                    Boot Slot 2: {system.slot2 ? system.slot2.title.split(' (')[0] : 'Empty'}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+2</span>
                 </button>
 
-                <div className="my-1 border-t border-[#292e3b]" />
-                <div className="px-3 py-1 text-[10px] font-mono uppercase text-[#94a3b8]">
-                  Clock Speed (SM8521 4.9152 MHz)
+                <div className="my-1 border-t border-zinc-800" />
+
+                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  Clock Speed
                 </div>
                 {[0.5, 1.0, 2.0].map((spd) => (
                   <button
@@ -433,14 +429,52 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onClick={() => {
                       system.settings.speed = spd;
                       onUpdate();
-                      setOpenMenu(null);
+                      closeMenu();
                     }}
-                    className="w-full px-3 py-1 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                   >
-                    <span>{spd === 1.0 ? '1.0× (Native 59.73 Hz)' : `${spd}× Speed`}</span>
+                    <span>{spd === 1.0 ? '1.0x (4.9152 MHz Native)' : `${spd.toFixed(1)}x Speed`}</span>
                     {system.settings.speed === spd && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                   </button>
                 ))}
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <button
+                  onClick={() => {
+                    system.saveState(0);
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>Quick Save State</span>
+                  <span className="text-[10px] opacity-60 font-mono">F5</span>
+                </button>
+                <button
+                  onClick={() => {
+                    system.loadState(0);
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>Quick Load State</span>
+                  <span className="text-[10px] opacity-60 font-mono">F8</span>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <button
+                  onClick={() => {
+                    system.powerToggle();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-rose-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>{system.isPoweredOn ? 'Power Off System' : 'Power On System'}</span>
+                </button>
               </div>
             )}
           </div>
@@ -449,215 +483,241 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="relative">
             <button
               onClick={() => setOpenMenu(openMenu === 'av' ? null : 'av')}
-              onMouseEnter={() => openMenu && openMenu !== 'recent-quick' && setOpenMenu('av')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              onMouseEnter={() => openMenu && setOpenMenu('av')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 openMenu === 'av'
-                  ? 'bg-[#2b3140] text-white'
-                  : 'text-[#cbd5e1] hover:bg-[#222632] hover:text-white'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
               Audio/Video
             </button>
             {openMenu === 'av' && (
-              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#181b23] border border-[#323846] rounded-lg shadow-2xl py-2 z-50 text-xs space-y-2">
-                {/* Touch Grid Visibility Slider */}
-                <div className="px-3 space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#cbd5e1]">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Grid3X3 className="w-3.5 h-3.5 text-[#38bdf8]" />
-                      Touch Grid Visibility
-                    </span>
-                    <span className="font-mono text-[#38bdf8]">
-                      {Math.round(effectiveGridOpacity * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={effectiveGridOpacity}
-                    onChange={(e) => handleTouchGridSlider(parseFloat(e.target.value))}
-                    className="w-full accent-[#38bdf8] h-1.5 bg-[#0e1015] rounded-lg cursor-pointer"
-                  />
+              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
+                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  2-Shade LCD Color Blend
                 </div>
 
-                {/* Audio Volume Slider */}
-                <div className="px-3 space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#cbd5e1]">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      {system.settings.muted ? (
-                        <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                      ) : (
-                        <Volume2 className="w-3.5 h-3.5 text-[#a3ae76]" />
-                      )}
-                      Hardware Speaker Volume
-                    </span>
-                    <span className="font-mono text-[#a3ae76]">
-                      {system.settings.muted ? 'Muted' : `${Math.round(system.settings.volume * 100)}%`}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={system.settings.volume}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      system.settings.volume = v;
-                      system.sound.setVolume(v);
-                      onUpdate();
-                    }}
-                    className="w-full accent-[#a3ae76] h-1.5 bg-[#0e1015] rounded-lg cursor-pointer"
-                  />
-                </div>
-
-                <div className="border-t border-[#292e3b]" />
-
-                <div className="px-3 py-0.5 text-[10px] font-mono uppercase text-[#94a3b8]">
-                  LCD Palette
-                </div>
-                {(Object.keys(PALETTES) as LCDPaletteId[]).map((pid) => {
-                  const swatch =
-                    pid === 'custom' ? system.settings.customPaletteColors : PALETTES[pid].colors;
-                  return (
-                    <button
-                      key={pid}
-                      onClick={() => {
-                        system.settings.palette = pid;
-                        system.saveCustomPaletteStateToStorage();
+                {/* Inline 2-Shade Quick Swatches */}
+                <div className="px-3 py-2 flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 cursor-pointer flex-1">
+                    <input
+                      type="color"
+                      value={lightShade}
+                      onChange={(e) => {
+                        system.setTwoShadeBlend(e.target.value, darkShade);
                         onUpdate();
                       }}
-                      className="w-full px-3 py-1 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between gap-2"
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        <span className="flex rounded overflow-hidden border border-white/20 shrink-0">
-                          {swatch.map((c, i) => (
-                            <span key={i} className="w-2 h-3 block" style={{ backgroundColor: c }} />
-                          ))}
-                        </span>
-                        <span className="truncate">{PALETTES[pid].name}</span>
-                      </span>
-                      {system.settings.palette === pid && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
-                    </button>
-                  );
-                })}
+                      className="w-4 h-4 rounded cursor-pointer border-0 bg-transparent"
+                    />
+                    <span className="text-[11px] text-zinc-300">Light</span>
+                  </label>
+                  <label className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 cursor-pointer flex-1">
+                    <input
+                      type="color"
+                      value={darkShade}
+                      onChange={(e) => {
+                        system.setTwoShadeBlend(lightShade, e.target.value);
+                        onUpdate();
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer border-0 bg-transparent"
+                    />
+                    <span className="text-[11px] text-zinc-300">Dark</span>
+                  </label>
+                </div>
 
-                {onOpenColorCustomizer && (
-                  <button
-                    onClick={() => {
-                      setOpenMenu(null);
-                      onOpenColorCustomizer();
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-purple-300 hover:bg-[#282e3d] flex items-center justify-between font-semibold"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Palette className="w-3.5 h-3.5 text-purple-400" />
-                      Customize 4-Shade Colors (SGB/GBC)...
-                    </span>
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    onOpenColorCustomizer();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Palette className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Open 2-Shade Color Blender...</span>
+                  </span>
+                </button>
 
-                <div className="border-t border-[#292e3b]" />
+                <button
+                  onClick={() => {
+                    system.resetTwoShadesToDefault();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  disabled={
+                    lightShade.toLowerCase() === DEFAULT_LIGHT_SHADE &&
+                    darkShade.toLowerCase() === DEFAULT_DARK_SHADE
+                  }
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>Reset to 1997 Olive Default</span>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <button
+                  onClick={() => {
+                    onOpenAccuracy();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>STN Ghosting Intensity & Persistence...</span>
+                  <span className="text-[10px] font-mono text-amber-400">
+                    {Math.round(system.settings.ghosting * 100)}%
+                  </span>
+                </button>
 
                 <button
                   onClick={() => {
                     system.settings.pixelGrid = !system.settings.pixelGrid;
                     onUpdate();
                   }}
-                  className="w-full px-3 py-1 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>1×1 LCD Pixel Matrix Grid</span>
+                  <span>STN Pixel Matrix Grid</span>
                   {system.settings.pixelGrid && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                 </button>
 
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    onTakeScreenshot?.();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-[#a3ae76]" />
-                    Save Screenshot (.png)
-                  </span>
-                </button>
+                <div className="my-1 border-t border-zinc-800" />
+
+                <div className="px-3 py-1.5 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <button
+                      onClick={() => {
+                        system.soundToggle();
+                        onUpdate();
+                      }}
+                      className="flex items-center gap-1.5 text-zinc-300 hover:text-white cursor-pointer"
+                    >
+                      {system.settings.muted ? (
+                        <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                      <span>Master Volume</span>
+                    </button>
+                    <span className="font-mono text-emerald-400">
+                      {system.settings.muted ? 'Muted' : `${Math.round(system.settings.volume * 100)}%`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={system.settings.muted ? 0 : system.settings.volume}
+                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                    className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-zinc-800 rounded-lg"
+                  />
+                </div>
               </div>
             )}
           </div>
 
-          {/* VIEW MENU (Screen-Only mGBA / melonDS Mode vs Handheld Bezel) */}
+          {/* VIEW MENU */}
           <div className="relative">
             <button
               onClick={() => setOpenMenu(openMenu === 'view' ? null : 'view')}
-              onMouseEnter={() => openMenu && openMenu !== 'recent-quick' && setOpenMenu('view')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              onMouseEnter={() => openMenu && setOpenMenu('view')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 openMenu === 'view'
-                  ? 'bg-[#2b3140] text-white'
-                  : 'text-[#cbd5e1] hover:bg-[#222632] hover:text-white'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
               View
             </button>
             {openMenu === 'view' && (
-              <div className="absolute left-0 top-full mt-0.5 w-64 bg-[#181b23] border border-[#323846] rounded-lg shadow-2xl py-1.5 z-50 text-xs">
-                <div className="px-3 py-1 text-[10px] font-mono uppercase text-[#94a3b8]">
-                  Emulator Viewport Mode
+              <div className="absolute left-0 top-full mt-0.5 w-68 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1.5 z-50 text-xs text-zinc-200">
+                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  Viewport Mode
                 </div>
-                <button
-                  onClick={() => {
-                    system.settings.viewMode = 'screen-only';
-                    onUpdate();
-                    setOpenMenu(null);
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span>Screen Only (mGBA / melonDS View)</span>
-                  {system.settings.viewMode === 'screen-only' && (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                </button>
                 <button
                   onClick={() => {
                     system.settings.viewMode = 'console';
                     onUpdate();
-                    setOpenMenu(null);
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
-                  <span>Full Handheld Console Bezel</span>
-                  {system.settings.viewMode === 'console' && (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
+                  <span className="flex items-center gap-2">
+                    <Gamepad2 className="w-3.5 h-3.5" />
+                    <span>Handheld Console Bezel</span>
+                  </span>
+                  {!isScreenOnly && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                </button>
+                <button
+                  onClick={() => {
+                    system.settings.viewMode = 'screen-only';
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span>Screen-Only Viewport</span>
+                  </span>
+                  {isScreenOnly && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                 </button>
 
-                <div className="my-1 border-t border-[#292e3b]" />
-                <div className="px-3 py-1 text-[10px] font-mono uppercase text-[#94a3b8]">
-                  Screen-Only Integer Scale
+                <div className="my-1 border-t border-zinc-800" />
+                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  Integer Screen Scale
                 </div>
-                {[
-                  { scale: 2, label: '2× Integer (400 × 320)' },
-                  { scale: 3, label: '3× Integer (600 × 480)' },
-                  { scale: 4, label: '4× Integer (800 × 640)' }
-                ].map((s) => (
+                {[2, 3, 4].map((scale) => (
                   <button
-                    key={s.scale}
+                    key={scale}
                     onClick={() => {
-                      system.settings.screenScale = s.scale;
+                      system.settings.screenScale = scale;
                       system.settings.viewMode = 'screen-only';
                       onUpdate();
-                      setOpenMenu(null);
+                      closeMenu();
                     }}
-                    className="w-full px-3 py-1 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                   >
-                    <span>{s.label}</span>
-                    {system.settings.screenScale === s.scale && (
+                    <span>
+                      {scale}x Integer ({200 * scale}×{160 * scale})
+                    </span>
+                    {isScreenOnly && system.settings.screenScale === scale && (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
                     )}
                   </button>
                 ))}
+
+                <div className="my-1 border-t border-zinc-800" />
+                <div className="px-3 py-1.5 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="flex items-center gap-1.5 text-zinc-300">
+                      <Grid className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Touch Grid Visibility</span>
+                    </span>
+                    <span className="font-mono text-emerald-400">{touchGridPercent}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={touchGridPercent}
+                    onChange={(e) => handleTouchGridOpacityChange(parseInt(e.target.value, 10))}
+                    className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-zinc-800 rounded-lg"
+                  />
+                </div>
+
+                <div className="my-1 border-t border-zinc-800" />
+                <button
+                  onClick={handleToggleFullscreen}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>Fullscreen</span>
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">F11</span>
+                </button>
               </div>
             )}
           </div>
@@ -666,362 +726,133 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="relative">
             <button
               onClick={() => setOpenMenu(openMenu === 'tools' ? null : 'tools')}
-              onMouseEnter={() => openMenu && openMenu !== 'recent-quick' && setOpenMenu('tools')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              onMouseEnter={() => openMenu && setOpenMenu('tools')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 openMenu === 'tools'
-                  ? 'bg-[#2b3140] text-white'
-                  : 'text-[#cbd5e1] hover:bg-[#222632] hover:text-white'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
               Tools
             </button>
             {openMenu === 'tools' && (
-              <div className="absolute left-0 top-full mt-0.5 w-64 bg-[#181b23] border border-[#323846] rounded-lg shadow-2xl py-1.5 z-50 text-xs">
+              <div className="absolute left-0 top-full mt-0.5 w-72 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
                 <button
                   onClick={() => {
-                    setOpenMenu(null);
-                    onOpenDebugger();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span>SM8521 Hardware Debugger...</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">F12</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
-                    onOpenHighScores();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                >
-                  <span>Expanded NVRAM High Score Vault...</span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">Ctrl+H</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenMenu(null);
                     onOpenAccuracy();
+                    closeMenu();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
                 >
-                  <span>SM8521 Chip Accuracy Audit...</span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Hardware Accuracy & STN Ghosting...</span>
                 </button>
-                {onOpenColorCustomizer && (
-                  <button
-                    onClick={() => {
-                      setOpenMenu(null);
-                      onOpenColorCustomizer();
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-purple-300 hover:bg-[#282e3d] flex items-center justify-between"
-                  >
-                    <span>SGB / GBC 4-Shade Color Customizer...</span>
-                  </button>
-                )}
-                {onOpenBios && (
-                  <button
-                    onClick={() => {
-                      setOpenMenu(null);
-                      onOpenBios();
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                  >
-                    <span>BIOS Firmware Manager...</span>
-                  </button>
-                )}
-                {onOpenControls && (
-                  <button
-                    onClick={() => {
-                      setOpenMenu(null);
-                      onOpenControls();
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-[#e2e8f0] hover:bg-[#282e3d] flex items-center justify-between"
-                  >
-                    <span>Keyboard &amp; Controller Bindings...</span>
-                  </button>
-                )}
-                {onOpenReleases && (
-                  <>
-                    <div className="my-1 border-t border-[#292e3b]" />
-                    <button
-                      onClick={() => {
-                        setOpenMenu(null);
-                        onOpenReleases();
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-[#d9e3b1] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
-                    >
-                      <span>Google Antigravity Desktop IDE...</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenMenu(null);
-                        onOpenReleases();
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-[#38bdf8] hover:bg-[#282e3d] flex items-center justify-between font-semibold"
-                    >
-                      <span>Windows x64 App &amp; GitHub Releases...</span>
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => {
+                    onOpenColorCustomizer();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Palette className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>2-Shade LCD Color Blender...</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenHighScores();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>NVRAM High Score Vault ($FC60)...</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenDebugger();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                  <span>SM8521 CPU Debugger...</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenBios();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+                  <span>BIOS ROM Manager...</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenKeybinds();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Keyboard className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Controls & Keybindings...</span>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <button
+                  onClick={() => {
+                    onOpenWindowsRelease();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Windows x64 Releases (.exe / .zip)...</span>
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side of Menu Bar: Quick Status & View Mode Toggle */}
-        <div className="flex items-center gap-3 text-[11px] font-mono text-[#94a3b8]">
-          <span className="hidden md:inline">
-            SM8521 @ 4.9152 MHz • {system.fps} fps
-          </span>
-          <button
-            onClick={() => {
-              system.settings.viewMode =
-                system.settings.viewMode === 'screen-only' ? 'console' : 'screen-only';
-              onUpdate();
-            }}
-            className={`px-2 py-0.5 rounded flex items-center gap-1 text-[10px] font-sans font-bold transition-colors ${
-              system.settings.viewMode === 'screen-only'
-                ? 'bg-[#38bdf8]/20 text-[#38bdf8] border border-[#38bdf8]/40'
-                : 'bg-[#232733] text-[#cbd5e1] hover:text-white border border-[#353b4b]'
-            }`}
-            title="Switch between Screen-Only View (mGBA / melonDS style) and Full Handheld Console Bezel"
-          >
-            {system.settings.viewMode === 'screen-only' ? (
-              <>
-                <Gamepad2 className="w-3 h-3" />
-                <span>Show Handheld Bezel</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3 h-3" />
-                <span>Screen-Only Mode</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* =================================================================== */}
-      {/* ROW 2: COMPACT TOOLBAR (CUB SPIELE.COM BRANDING + SLOTS + RECENT)   */}
-      {/* =================================================================== */}
-      <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between gap-3">
-        {/* Zone 1 (Left): Cub Spiele.Com Brand Identity */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="px-2.5 py-1 rounded-lg bg-[#1d2028] border border-[#343946] flex items-baseline gap-0.5 shadow-inner">
-            <span className="text-xs font-black italic tracking-tight text-[#a3ae76] mr-1">
-              cub
-            </span>
-            <span className="text-sm font-black italic tracking-tight text-[#f1f5f9]">
-              spiele
-            </span>
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#e11d48] mx-0.5 translate-y-[-1px]" />
-            <span className="text-sm font-black italic tracking-tight text-[#cbd5e1]">
-              com
-            </span>
-          </div>
-          <div className="hidden lg:block">
-            <div className="text-xs font-bold text-[#e2e8f0] tracking-wide">
-              CUB SPIELE.COM • SM8521 STANDALONE EMULATOR
-            </div>
-            <div className="text-[10px] font-mono text-[#a3ae76]">
-              Slot 1: Lights Out • Slot 2: Sonic Jam
-            </div>
-          </div>
-        </div>
-
-        {/* Zone 2 (Center): Dual Cartridge Bay Launcher & Recently Played Dropdown */}
-        <div className="hidden md:flex items-center gap-1.5 bg-[#0e1015] px-2 py-1 rounded-xl border border-[#282c37]">
-          <button
-            onClick={() => {
-              system.launchCartridge(1);
-              onUpdate();
-            }}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-colors ${
-              system.activeSlot === 1 && system.activeApp === 'CARTRIDGE'
-                ? 'bg-[#a3ae76]/25 text-[#d9e3b1] border border-[#a3ae76]/50 font-bold'
-                : 'text-[#94a3b8] hover:text-white hover:bg-[#1c1f28]'
-            }`}
-            title="Boot Cartridge Slot 1"
-          >
-            <Play className="w-3 h-3 fill-current text-[#a3ae76]" />
-            <span>SLOT 1: {system.slot1 ? system.slot1.title.split(' (')[0] : 'Empty'}</span>
-          </button>
-
-          <div className="w-[1px] h-4 bg-[#282c37]" />
-
-          <button
-            onClick={() => {
-              system.launchCartridge(2);
-              onUpdate();
-            }}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-colors ${
-              system.activeSlot === 2 && system.activeApp === 'CARTRIDGE'
-                ? 'bg-[#38bdf8]/25 text-[#bae6fd] border border-[#38bdf8]/50 font-bold'
-                : 'text-[#94a3b8] hover:text-white hover:bg-[#1c1f28]'
-            }`}
-            title="Boot Cartridge Slot 2"
-          >
-            <Play className="w-3 h-3 fill-current text-[#38bdf8]" />
-            <span>SLOT 2: {system.slot2 ? system.slot2.title.split(' (')[0] : 'Empty'}</span>
-          </button>
-
-          <div className="w-[1px] h-4 bg-[#282c37]" />
-
-          {/* Recently Played Quick Dropdown Button */}
-          <div className="relative">
-            <button
-              onClick={() => setOpenMenu(openMenu === 'recent-quick' ? null : 'recent-quick')}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono text-[#cbd5e1] hover:text-white hover:bg-[#1c1f28] transition-colors"
-              title="Recently Played Cartridges"
-            >
-              <Clock className="w-3 h-3 text-[#a3ae76]" />
-              <span>Recent ({system.recentGames.length})</span>
-            </button>
-
-            {openMenu === 'recent-quick' && (
-              <div className="absolute left-0 top-full mt-1.5 w-72 bg-[#181b23] border border-[#323846] rounded-xl shadow-2xl py-2 z-50 text-xs">
-                <div className="px-3 pb-1.5 mb-1 border-b border-[#282d3a] flex items-center justify-between text-[10px] font-mono uppercase text-[#94a3b8]">
-                  <span>Recently Played ROMs</span>
-                  {system.recentGames.length > 0 && (
-                    <button
-                      onClick={() => {
-                        system.clearRecentGames();
-                        onUpdate();
-                      }}
-                      className="text-rose-400 hover:underline"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {system.recentGames.length === 0 ? (
-                  <div className="px-3 py-3 text-center text-[#64748b] text-[11px]">
-                    No recent games recorded yet
-                  </div>
-                ) : (
-                  system.recentGames.map((item) => (
-                    <div
-                      key={`${item.id}_${item.slot}`}
-                      className="px-3 py-1.5 hover:bg-[#222735] flex items-center justify-between gap-2"
-                    >
-                      <button
-                        onClick={() => handleLaunchRecent(item, item.slot)}
-                        className="flex-1 text-left truncate"
-                      >
-                        <div className="text-xs font-semibold text-white truncate">
-                          {item.title}
-                        </div>
-                        <div className="text-[10px] font-mono text-[#94a3b8]">
-                          Slot {item.slot} • Played {item.playCount}×
-                        </div>
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleLaunchRecent(item, 1)}
-                          className="px-1.5 py-0.5 rounded bg-[#262b3a] hover:bg-[#a3ae76] hover:text-black text-[10px] font-mono text-[#cbd5e1]"
-                        >
-                          Slot 1
-                        </button>
-                        <button
-                          onClick={() => handleLaunchRecent(item, 2)}
-                          className="px-1.5 py-0.5 rounded bg-[#262b3a] hover:bg-[#38bdf8] hover:text-black text-[10px] font-mono text-[#cbd5e1]"
-                        >
-                          Slot 2
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Zone 3 (Right): Primary Action Modals */}
-        <div className="flex items-center gap-1.5">
-          {onLoadRomFile && (
-            <button
-              onClick={() => fileInputSlot1Ref.current?.click()}
-              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1f232c] hover:bg-[#2a2f3b] text-[#cbd5e1] border border-[#353a47] text-xs font-medium transition-colors"
-              title="Load Custom ROM (.bin, .tgc, .zip)"
-            >
-              <Upload className="w-3.5 h-3.5 text-[#a3ae76]" />
-              <span>Load ROM</span>
-            </button>
-          )}
-
+        {/* Right: Minimal Quick Actions (Cartridge Name + View Mode + Mute) */}
+        <div className="flex items-center gap-2 text-[11px] text-zinc-400">
           <button
             onClick={onOpenLibrary}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1f232c] hover:bg-[#2a2f3b] text-[#e2e8f0] border border-[#353a47] text-xs font-medium transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+            title="Active Cartridge Slot (Click to manage slots)"
           >
-            <Disc className="w-3.5 h-3.5 text-[#a3ae76]" />
-            <span className="hidden sm:inline">Cartridges</span>
-          </button>
-
-          {onOpenColorCustomizer && (
-            <button
-              onClick={onOpenColorCustomizer}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/70 text-purple-200 border border-purple-500/40 text-xs font-medium transition-colors"
-              title="Super Game Boy / Game Boy Color 4-Shade Display Customizer"
-            >
-              <Palette className="w-3.5 h-3.5 text-purple-400" />
-              <span className="hidden sm:inline">Colors</span>
-            </button>
-          )}
-
-          <button
-            onClick={onOpenAccuracy}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#a3ae76]/15 hover:bg-[#a3ae76]/25 text-[#d9e3b1] border border-[#a3ae76]/40 text-xs font-medium transition-colors"
-            title="SM8521 Hardware Accuracy & Chip Verification"
-          >
-            <Wrench className="w-3.5 h-3.5 text-[#cbd590]" />
-            <span className="hidden sm:inline">Accuracy</span>
+            <Disc className="w-3 h-3 text-emerald-400" />
+            <span className="font-mono text-[10px] text-zinc-500">S{system.activeSlot}:</span>
+            <span className="truncate max-w-[150px] font-medium">
+              {activeCart ? activeCart.title : 'Empty'}
+            </span>
           </button>
 
           <button
-            onClick={onOpenHighScores}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1f232c] hover:bg-[#2a2f3b] text-[#e2e8f0] border border-[#353a47] text-xs font-medium transition-colors"
+            onClick={() => {
+              system.settings.viewMode = isScreenOnly ? 'console' : 'screen-only';
+              onUpdate();
+            }}
+            className="px-2 py-0.5 rounded bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 font-medium transition cursor-pointer"
+            title="Switch between Handheld Console Shell and Screen-Only Viewport"
           >
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Vault</span>
+            {isScreenOnly ? `Screen ${system.settings.screenScale}×` : 'Console'}
           </button>
 
-          {onOpenReleases && (
-            <button
-              onClick={onOpenReleases}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#38bdf8]/15 hover:bg-[#38bdf8]/25 text-[#bae6fd] border border-[#38bdf8]/40 text-xs font-semibold transition-colors"
-              title="Open in Google Antigravity Desktop IDE & Download Cub Spiele.Com Windows x64 App"
-            >
-              <Monitor className="w-3.5 h-3.5 text-[#38bdf8]" />
-              <span className="hidden sm:inline">Antigravity / Win64</span>
-            </button>
-          )}
-
-          {onOpenBios && (
-            <button
-              onClick={onOpenBios}
-              className="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#1f232c] hover:bg-[#2a2f3b] text-[#94a3b8] hover:text-white border border-[#353a47] text-xs transition-colors"
-              title="BIOS Firmware Manager"
-            >
-              <Cpu className="w-3.5 h-3.5 text-[#a3ae76]" />
-            </button>
-          )}
-
-          {onOpenControls && (
-            <button
-              onClick={onOpenControls}
-              className="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#1f232c] hover:bg-[#2a2f3b] text-[#94a3b8] hover:text-white border border-[#353a47] text-xs transition-colors"
-              title="Keyboard & Gamepad Bindings"
-            >
-              <Keyboard className="w-3.5 h-3.5 text-[#cbd5e1]" />
-            </button>
-          )}
-
           <button
-            onClick={onOpenDebugger}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1f232c] hover:bg-[#2a2f3b] text-[#94a3b8] hover:text-white border border-[#353a47] text-xs font-mono transition-colors"
-            title="SM8521 Hardware Debugger"
+            onClick={() => {
+              system.soundToggle();
+              onUpdate();
+            }}
+            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer"
+            title={system.settings.muted ? 'Unmute Audio' : 'Mute Audio'}
           >
-            <Bug className="w-3.5 h-3.5 text-[#e11d48]" />
+            {system.settings.muted ? (
+              <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+            )}
           </button>
         </div>
       </div>

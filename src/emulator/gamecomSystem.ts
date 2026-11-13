@@ -1,8 +1,8 @@
 /**
- * Tiger Game.Com Cycle-Accurate Hardware Emulation Coordinator
+ * Cub Spiele.Com — Cycle-Accurate Hardware Emulation Coordinator
  *
- * Executes the official TOSEC BIOS ROMs (internal.bin at $1000-$1FFF, external.bin across MMU Banks 0-31)
- * and official Tiger Game.Com Cartridge ROMs (.bin, .tgc, .zip) directly on the Sharp SM8521 CPU,
+ * Executes the official BIOS ROMs (internal.bin at $1000-$1FFF, external.bin across MMU Banks 0-31)
+ * and Game.Com Cartridge ROMs (.bin, .tgc, .zip) directly on the Sharp SM8521 CPU,
  * hardware DMA blitter, 16KB 2-bpp VRAM scanline engine, and 8KB battery-backed NVRAM ($E000-$FFFF).
  */
 
@@ -18,24 +18,23 @@ import {
   EmulatorSettings,
   CPURegisters,
   RecentGameEntry,
-  CustomPalettePreset,
-  LCDPaletteId,
-  PALETTES,
-  hexToRgbTuple
+  DEFAULT_LIGHT_SHADE,
+  DEFAULT_DARK_SHADE,
+  blendTwoShades
 } from './types';
 import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
 
-const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v1';
-const CUSTOM_PALETTE_STORAGE_KEY = 'cub_spiele_custom_palette_v1';
-const USER_PALETTES_STORAGE_KEY = 'cub_spiele_user_palettes_v1';
+const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v2';
+const TWO_SHADE_STORAGE_KEY = 'cub_spiele_two_shade_v2';
+const GHOSTING_SETTINGS_STORAGE_KEY = 'cub_spiele_ghosting_v2';
 
 export interface EmulationAccuracyFixes {
   correctClockSpeed: boolean;      // Calibrated 4.9152 MHz SM8521 scanline cycle timing
-  preventBankWrapCrash: boolean;   // Hardware-accurate 2MB cartridge mirroring (MAME common_load)
+  preventBankWrapCrash: boolean;   // Hardware-accurate 2MB cartridge mirroring
   timerInterruptFix: boolean;      // Edge-triggered IR0/IR1 interrupt service acknowledgement
-  stnGhostingAccurate: boolean;    // Authentic passive-matrix STN LCD decay persistence
-  touchMatrixCalibrated: boolean;  // Discrete 13x10 single-touch resistive/capacitive matrix lock
-  dualCartridgeSlotFix: boolean;   // Fixes Frogger/Centipede dual cartridge slot P3 bus contention & icon DMA bug
+  stnGhostingAccurate: boolean;    // Passive-matrix STN LCD ghosting & persistence simulation
+  touchMatrixCalibrated: boolean;  // Discrete 13x10 single-touch resistive matrix lock
+  dualCartridgeSlotFix: boolean;   // Hardware P3 dual cartridge slot chip-select isolation
 }
 
 export type FastBootTarget = 'NONE' | 'MAIN_MENU' | 'CART_1' | 'CART_2' | 'HIGH_SCORE' | 'KEEP_CLEAR_PROMPT';
@@ -52,12 +51,9 @@ export class GameComSystem {
   public slot2: CartridgeInfo | null = null;
   public activeSlot: 1 | 2 = 1;
 
-  // Recently played ROMs list (mGBA / melonDS style)
+  // Recently played ROMs list
   public recentGames: RecentGameEntry[] = [];
   private loadedCartridgeCache: Map<string, CartridgeInfo> = new Map();
-
-  // User-saved 4-shade custom palettes (SGB / GBC style)
-  public userPalettes: CustomPalettePreset[] = [];
 
   // System states
   public isPoweredOn: boolean = true;
@@ -67,7 +63,7 @@ export class GameComSystem {
   public fastBootTarget: FastBootTarget = 'NONE';
   private nvramDirtyFrames: number = 0;
 
-  // Single-touch discrete lock ("compassive / old style" — strictly 1 touch input per mouse press)
+  // Single-touch discrete lock (strictly 1 touch input per pointer press)
   private touchLockedUntilRelease: boolean = false;
   private stylusPulseFrames: number = 0;
 
@@ -107,9 +103,10 @@ export class GameComSystem {
   // Settings
   public settings: EmulatorSettings = {
     palette: 'original',
-    customPaletteColors: ['#f8e8c8', '#d89048', '#a82820', '#301850'],
-    activeCustomPresetId: 'sgb_1a',
+    twoShadeColors: [DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE],
+    customPaletteColors: blendTwoShades(DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE),
     ghosting: 0.40,
+    ghostingPersistence: 0.65,
     pixelGrid: true,
     showTouchGrid: false,
     touchGridOpacity: 0.0,
@@ -149,8 +146,6 @@ export class GameComSystem {
       this.sound.onDacStreamStart(isSkippingGlobeForCart);
     };
     this.cpu.onDacSample = (val, sampleRate) => {
-      // When fast-booting directly into a Cartridge (CART_1 / CART_2), skip buffering the
-      // fast-forwarded 3D Globe chime (frames < 495) so the Cartridge Launch Chime plays immediately
       if (
         (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') &&
         this.bootFrameCounter < 495
@@ -179,51 +174,54 @@ export class GameComSystem {
     this.syncBiosToMemory();
     this.highScores.initializeNvramSignatures(this.cpu.nvram);
 
-    // Preload Slot 1 (Lights Out TOSEC ROM) & Slot 2 (Sonic Jam TOSEC ROM)
+    // Preload Slot 1 (Lights Out) & Slot 2 (Sonic Jam)
     this.slot1 = PRELOADED_CARTRIDGES[0] || null;
     this.slot2 = PRELOADED_CARTRIDGES[1] || null;
     for (const c of PRELOADED_CARTRIDGES) {
       this.loadedCartridgeCache.set(c.id, c);
     }
     this.loadRecentGamesFromStorage();
-    this.loadCustomPalettesFromStorage();
+    this.loadDisplaySettingsFromStorage();
     this.loadPreloadedCartridges();
 
     this.resetSystem('MAIN_MENU');
   }
 
-  private loadCustomPalettesFromStorage() {
+  private loadDisplaySettingsFromStorage() {
     try {
-      const rawCustom = localStorage.getItem(CUSTOM_PALETTE_STORAGE_KEY);
-      if (rawCustom) {
-        const parsed = JSON.parse(rawCustom);
+      const rawShades = localStorage.getItem(TWO_SHADE_STORAGE_KEY);
+      if (rawShades) {
+        const parsed = JSON.parse(rawShades);
         if (
           parsed &&
-          Array.isArray(parsed.colors) &&
-          parsed.colors.length === 4 &&
-          parsed.colors.every((c: unknown) => typeof c === 'string')
+          Array.isArray(parsed.twoShadeColors) &&
+          parsed.twoShadeColors.length === 2 &&
+          typeof parsed.twoShadeColors[0] === 'string' &&
+          typeof parsed.twoShadeColors[1] === 'string'
         ) {
-          this.settings.customPaletteColors = [
-            parsed.colors[0],
-            parsed.colors[1],
-            parsed.colors[2],
-            parsed.colors[3]
-          ];
-          if (typeof parsed.presetId === 'string') {
-            this.settings.activeCustomPresetId = parsed.presetId;
-          }
-          if (parsed.activePalette === 'custom') {
-            this.settings.palette = 'custom';
+          this.settings.twoShadeColors = [parsed.twoShadeColors[0], parsed.twoShadeColors[1]];
+          this.settings.customPaletteColors = blendTwoShades(
+            parsed.twoShadeColors[0],
+            parsed.twoShadeColors[1]
+          );
+          if (parsed.activePalette === 'custom' || parsed.activePalette === 'original') {
+            this.settings.palette = parsed.activePalette;
           }
           this.lcd.setCustomColors(this.settings.customPaletteColors);
         }
       }
 
-      const rawUserList = localStorage.getItem(USER_PALETTES_STORAGE_KEY);
-      if (rawUserList) {
-        const parsedList = JSON.parse(rawUserList);
-        if (Array.isArray(parsedList)) {
-          this.userPalettes = parsedList;
+      const rawGhosting = localStorage.getItem(GHOSTING_SETTINGS_STORAGE_KEY);
+      if (rawGhosting) {
+        const parsedG = JSON.parse(rawGhosting);
+        if (typeof parsedG.ghosting === 'number') {
+          this.settings.ghosting = Math.max(0, Math.min(0.9, parsedG.ghosting));
+        }
+        if (typeof parsedG.ghostingPersistence === 'number') {
+          this.settings.ghostingPersistence = Math.max(0, Math.min(0.95, parsedG.ghostingPersistence));
+        }
+        if (typeof parsedG.stnGhostingAccurate === 'boolean') {
+          this.accuracyFixes.stnGhostingAccurate = parsedG.stnGhostingAccurate;
         }
       }
     } catch {
@@ -231,14 +229,21 @@ export class GameComSystem {
     }
   }
 
-  public saveCustomPaletteStateToStorage() {
+  public saveDisplaySettingsToStorage() {
     try {
       localStorage.setItem(
-        CUSTOM_PALETTE_STORAGE_KEY,
+        TWO_SHADE_STORAGE_KEY,
         JSON.stringify({
-          colors: this.settings.customPaletteColors,
-          presetId: this.settings.activeCustomPresetId,
+          twoShadeColors: this.settings.twoShadeColors,
           activePalette: this.settings.palette
+        })
+      );
+      localStorage.setItem(
+        GHOSTING_SETTINGS_STORAGE_KEY,
+        JSON.stringify({
+          ghosting: this.settings.ghosting,
+          ghostingPersistence: this.settings.ghostingPersistence,
+          stnGhostingAccurate: this.accuracyFixes.stnGhostingAccurate
         })
       );
     } catch {
@@ -246,87 +251,39 @@ export class GameComSystem {
     }
   }
 
-  public setCustomShadeColor(shadeIndex: 0 | 1 | 2 | 3, hexColor: string) {
-    const next = [...this.settings.customPaletteColors] as [string, string, string, string];
-    next[shadeIndex] = hexColor;
-    this.settings.customPaletteColors = next;
-    this.settings.activeCustomPresetId = undefined;
-    this.settings.palette = 'custom';
-    this.lcd.setCustomColors(next);
-    this.saveCustomPaletteStateToStorage();
+  /**
+   * Blends the user's two chosen shades (Light/Background Shade 0 and Dark/Foreground Shade 3)
+   * into the 4 hardware 2-bpp shades and applies them live.
+   */
+  public setTwoShadeBlend(lightHex: string, darkHex: string) {
+    const isDefault =
+      lightHex.toLowerCase() === DEFAULT_LIGHT_SHADE &&
+      darkHex.toLowerCase() === DEFAULT_DARK_SHADE;
+    this.settings.twoShadeColors = [lightHex, darkHex];
+    this.settings.customPaletteColors = blendTwoShades(lightHex, darkHex);
+    this.settings.palette = isDefault ? 'original' : 'custom';
+    this.lcd.setCustomColors(this.settings.customPaletteColors);
+    this.lcd.paletteId = this.settings.palette;
+    this.saveDisplaySettingsToStorage();
   }
 
-  public applyCustomColors(colors: [string, string, string, string], presetId?: string) {
-    const next: [string, string, string, string] = [colors[0], colors[1], colors[2], colors[3]];
-    this.settings.customPaletteColors = next;
-    this.settings.activeCustomPresetId = presetId;
-    this.settings.palette = 'custom';
-    this.lcd.setCustomColors(next);
-    this.saveCustomPaletteStateToStorage();
+  public swapTwoShades() {
+    const [light, dark] = this.settings.twoShadeColors;
+    this.setTwoShadeBlend(dark, light);
   }
 
-  public invertCustomColors() {
-    const [c0, c1, c2, c3] = this.settings.customPaletteColors;
-    this.applyCustomColors([c3, c2, c1, c0]);
+  public resetTwoShadesToDefault() {
+    this.setTwoShadeBlend(DEFAULT_LIGHT_SHADE, DEFAULT_DARK_SHADE);
   }
 
-  public interpolateMidtones() {
-    const [c0, , , c3] = this.settings.customPaletteColors;
-    const rgb0 = hexToRgbTuple(c0);
-    const rgb3 = hexToRgbTuple(c3);
-    const toHex = (r: number, g: number, b: number) =>
-      '#' +
-      [r, g, b]
-        .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
-        .join('');
-    const c1 = toHex(
-      rgb0[0] + (rgb3[0] - rgb0[0]) * 0.33,
-      rgb0[1] + (rgb3[1] - rgb0[1]) * 0.33,
-      rgb0[2] + (rgb3[2] - rgb0[2]) * 0.33
-    );
-    const c2 = toHex(
-      rgb0[0] + (rgb3[0] - rgb0[0]) * 0.67,
-      rgb0[1] + (rgb3[1] - rgb0[1]) * 0.67,
-      rgb0[2] + (rgb3[2] - rgb0[2]) * 0.67
-    );
-    this.applyCustomColors([c0, c1, c2, c3]);
-  }
-
-  public copyFromBuiltinPalette(paletteId: Exclude<LCDPaletteId, 'custom'>) {
-    const pal = PALETTES[paletteId];
-    if (!pal) return;
-    this.applyCustomColors([...pal.colors] as [string, string, string, string], `builtin_${paletteId}`);
-  }
-
-  public saveUserPalette(name: string, colors?: [string, string, string, string]): CustomPalettePreset {
-    const trimmed = name.trim() || `Custom Palette #${this.userPalettes.length + 1}`;
-    const targetColors = colors
-      ? ([...colors] as [string, string, string, string])
-      : ([...this.settings.customPaletteColors] as [string, string, string, string]);
-    const preset: CustomPalettePreset = {
-      id: `user_${Date.now()}`,
-      name: trimmed,
-      category: 'user',
-      shortcutHint: 'User Saved',
-      colors: targetColors
-    };
-    this.userPalettes = [preset, ...this.userPalettes].slice(0, 24);
-    try {
-      localStorage.setItem(USER_PALETTES_STORAGE_KEY, JSON.stringify(this.userPalettes));
-    } catch {
-      // Ignore storage errors
-    }
-    this.applyCustomColors(targetColors, preset.id);
-    return preset;
-  }
-
-  public deleteUserPalette(id: string) {
-    this.userPalettes = this.userPalettes.filter((p) => p.id !== id);
-    try {
-      localStorage.setItem(USER_PALETTES_STORAGE_KEY, JSON.stringify(this.userPalettes));
-    } catch {
-      // Ignore storage errors
-    }
+  public setGhostingParameters(intensity: number, persistence: number) {
+    this.settings.ghosting = Math.max(0, Math.min(0.9, intensity));
+    this.settings.ghostingPersistence = Math.max(0, Math.min(0.95, persistence));
+    this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0;
+    this.lcd.ghostingPersistence = this.accuracyFixes.stnGhostingAccurate
+      ? this.settings.ghostingPersistence
+      : 0;
+    this.saveDisplaySettingsToStorage();
   }
 
   private loadRecentGamesFromStorage() {
@@ -342,7 +299,6 @@ export class GameComSystem {
     } catch {
       // Ignore storage error
     }
-    // Seed initial preloaded cartridges in Recently Played list if empty
     this.recentGames = PRELOADED_CARTRIDGES.map((c, idx) => ({
       id: c.id,
       title: c.title,
@@ -403,9 +359,6 @@ export class GameComSystem {
     return true;
   }
 
-  /**
-   * Asynchronously fetches the real TOSEC ROM binaries for Slot 1 (Lights Out) & Slot 2 (Sonic Jam).
-   */
   private async loadPreloadedCartridges() {
     for (const cart of PRELOADED_CARTRIDGES) {
       if (cart.romUrl && !cart.romData) {
@@ -414,10 +367,10 @@ export class GameComSystem {
           if (res.ok) {
             const buf = await res.arrayBuffer();
             cart.romData = new Uint8Array(buf);
-            if (this.slot1?.id === cart.id) {
+            if (this.slot1?.id === cart.id && this.fastBootTarget !== 'CART_2') {
               this.cpu.loadCartridgeROM(cart.romData, 1);
             }
-            if (this.slot2?.id === cart.id) {
+            if (this.slot2?.id === cart.id && this.fastBootTarget !== 'CART_1') {
               this.cpu.loadCartridgeROM(cart.romData, 2);
             }
           }
@@ -428,10 +381,15 @@ export class GameComSystem {
     }
   }
 
+  private syncBothCartridgeSlotsToCpu() {
+    this.cpu.loadCartridgeROM(this.slot1?.romData || null, 1);
+    this.cpu.loadCartridgeROM(this.slot2?.romData || null, 2);
+  }
+
   public powerToggle() {
     this.isPoweredOn = !this.isPoweredOn;
     if (this.isPoweredOn) {
-      this.resetSystem('NONE'); // Cold power-on plays full 3D Tiger globe animation & hardware DAC boot chime
+      this.resetSystem('NONE');
     } else {
       this.sound.clearScheduledDacStream();
       this.highScores.syncFromNvram(this.cpu.nvram);
@@ -440,18 +398,29 @@ export class GameComSystem {
 
   /**
    * Resets the SM8521 CPU to vector $1020 while preserving battery-backed NVRAM ($E000-$FFFF)
+   * and syncing the internal date/time to the user's device clock.
+   *
+   * When fast-booting `CART_1` or `CART_2`, we mount ONLY the target slot during the BIOS
+   * cartridge probe so the BIOS unconditionally boots the target slot's ROM without ever
+   * falling through to the secondary slot, then re-attach both slots once booted.
    */
   public resetSystem(target: FastBootTarget = 'NONE') {
     this.sound.clearScheduledDacStream();
     this.syncBiosToMemory();
-    if (this.slot1?.romData) {
-      this.cpu.loadCartridgeROM(this.slot1.romData, 1);
+
+    if (target === 'CART_1') {
+      this.cpu.loadCartridgeROM(this.slot1?.romData || null, 1);
+      this.cpu.loadCartridgeROM(null, 2);
+    } else if (target === 'CART_2') {
+      this.cpu.loadCartridgeROM(null, 1);
+      this.cpu.loadCartridgeROM(this.slot2?.romData || null, 2);
+    } else {
+      this.syncBothCartridgeSlotsToCpu();
     }
-    if (this.slot2?.romData) {
-      this.cpu.loadCartridgeROM(this.slot2.romData, 2);
-    }
+
     this.highScores.initializeNvramSignatures(this.cpu.nvram);
     this.cpu.reset();
+    this.cpu.syncDeviceDateTime();
     this.cpu.allowDataFoundPrompt = target === 'KEEP_CLEAR_PROMPT';
     this.bootFrameCounter = 0;
     this.fastBootTarget = target;
@@ -460,36 +429,22 @@ export class GameComSystem {
     this.stylusPulseFrames = 0;
   }
 
-  /**
-   * Triggers the authentic BIOS "DATA FOUND.. PRESS A TO KEEP / PRESS B TO CLEAR" prompt on demand
-   */
   public promptKeepClearData() {
     this.resetSystem('KEEP_CLEAR_PROMPT');
   }
 
-  /**
-   * Syncs official internal.bin (4KB) and external.bin (256KB) into SM8521 memory space
-   */
   public syncBiosToMemory() {
     this.cpu.loadInternalBIOS(this.bios.internalRom);
     this.cpu.loadExternalBIOS(this.bios.externalRom);
   }
 
-  /**
-   * Records or updates a high score in the Unlimited NVRAM Vault and active $FC60-$FEDF bank
-   */
   public recordHighScore(gameTitle: string, score: number | string, gameId: number = 0x1a18): boolean {
     this.highScores.upsertScore(gameId, gameTitle, String(score), this.cpu.nvram);
     return true;
   }
 
-  /**
-   * Opens the authentic BIOS High Score screen ($0168 = 7) on the real SM8521 CPU
-   */
   public openBiosHighScoreScreen() {
     this.highScores.syncBankToNvram(this.cpu.nvram, this.highScores.activeBank);
-    // If already at the BIOS Main Menu (activeApp === 'OS' and $0168 === 0),
-    // we can tap the High Score icon at (100, 120) directly!
     if (this.bootFrameCounter >= 480 && this.cpu.mmu[1] === 2 && this.cpu.m_p_ram[0x168] === 0) {
       this.triggerSingleStylusTap(100, 120, 12);
     } else {
@@ -497,9 +452,6 @@ export class GameComSystem {
     }
   }
 
-  /**
-   * Load user-supplied official BIOS file (internal.bin, external.bin, or gamecom.zip)
-   */
   public async loadBiosFile(file: File): Promise<string> {
     const res = await this.bios.loadBiosFile(file);
     this.syncBiosToMemory();
@@ -559,9 +511,6 @@ export class GameComSystem {
     this.resetSystem('MAIN_MENU');
   }
 
-  /**
-   * Loads a ROM from a user file (.bin, .tgc, or .zip) into Cartridge Slot 1 or 2
-   */
   public async loadRomFromFile(file: File, slot: 1 | 2 = 1): Promise<CartridgeInfo> {
     const cart = await loadCartridgeFromFile(file);
     await this.insertCartridge(cart, slot, true);
@@ -585,13 +534,12 @@ export class GameComSystem {
   }
 
   /**
-   * Executes one frame of the SM8521 CPU & scanline engine, including optional fast-boot sequencing
+   * Executes one frame of the SM8521 CPU & scanline engine, including fast-boot sequencing
    */
   private stepHardwareFrame(speedMult: number) {
     this.bootFrameCounter++;
     const f = this.bootFrameCounter;
 
-    // Automated touch sequence when fast-booting through the real BIOS
     if (this.fastBootTarget !== 'NONE') {
       const appId = this.cpu.m_p_ram[0x0168];
 
@@ -602,7 +550,6 @@ export class GameComSystem {
         this.cpu.stylusY = 80;
       } else if (this.fastBootTarget === 'KEEP_CLEAR_PROMPT') {
         this.cpu.stylusPressed = false;
-        // Stop fast-boot as soon as the BIOS enters $5E4C ("DATA FOUND.. PRESS A TO KEEP / PRESS B TO CLEAR" wait loop)
         if (f >= 480 || (this.cpu.mmu[2] === 3 && this.cpu.m_PC >= 0x5e40 && this.cpu.m_PC <= 0x5e65)) {
           this.fastBootTarget = 'NONE';
         }
@@ -628,8 +575,12 @@ export class GameComSystem {
           this.cpu.stylusPressed = true;
           this.cpu.stylusX = 35;
           this.cpu.stylusY = 35;
-        } else if (f >= 545 && f <= 560 && this.slot1 && this.slot2 && appId === 4) {
-          // When both slots are occupied ($0168 == 4 Dual Cartridge Selection Menu),
+        } else if (
+          f >= 545 &&
+          f <= 560 &&
+          (this.cpu.m_p_ram[0x017c] & 0x03) === 0x03
+        ) {
+          // If both slots are active in the BIOS dual-slot menu ($017C & 0x03 == 0x03),
           // tap Left Box (50, 70) for Slot 1 or Right Box (150, 70) for Slot 2
           this.cpu.stylusPressed = true;
           this.cpu.stylusX = this.fastBootTarget === 'CART_1' ? 50 : 150;
@@ -637,11 +588,14 @@ export class GameComSystem {
         } else {
           this.cpu.stylusPressed = false;
         }
+
         // Finish fast-boot once cartridge starts executing or after cartridge load animation completes
         if ((this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) || f >= 820) {
           this.cpu.stylusPressed = false;
           this.fastBootTarget = 'NONE';
           this.activeApp = 'CARTRIDGE';
+          // Re-attach both cartridge slots now that the target cartridge has booted
+          this.syncBothCartridgeSlotsToCpu();
         }
       } else {
         this.cpu.stylusPressed = false;
@@ -666,7 +620,6 @@ export class GameComSystem {
     this.cpu.runFrame(speedMult);
     this.sound.endFrameDacCheck();
 
-    // Track whether a cartridge bank (>= 0x20) is actively executing in MMU1/MMU2
     if (this.cpu.mmu[1] >= 0x20 || this.cpu.mmu[2] >= 0x20) {
       this.activeApp = 'CARTRIDGE';
     } else {
@@ -683,10 +636,13 @@ export class GameComSystem {
       return;
     }
 
-    // Sync LCD & CPU accuracy settings (even when paused so palette/color edits reflect live)
+    // Sync LCD & CPU accuracy settings (even when paused so palette/color/ghosting edits reflect live)
     this.lcd.paletteId = this.settings.palette;
     this.lcd.setCustomColors(this.settings.customPaletteColors);
     this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0.0;
+    this.lcd.ghostingPersistence = this.accuracyFixes.stnGhostingAccurate
+      ? this.settings.ghostingPersistence
+      : 0.0;
     this.lcd.contrast = this.settings.contrast;
     this.lcd.pixelGrid = this.settings.pixelGrid;
     this.cpu.correctClockSpeed = this.accuracyFixes.correctClockSpeed;
@@ -696,10 +652,8 @@ export class GameComSystem {
       return;
     }
 
-    // Run at exact 1.0x original hardware speed (multiplied only by user speed setting, default 1.0)
     const baseMult = 1.0 * this.settings.speed;
 
-    // If fast-booting through the BIOS globe/menu, run a burst of real CPU frames per render tick
     if (this.fastBootTarget !== 'NONE') {
       const burstFrames = 28;
       for (let i = 0; i < burstFrames; i++) {
@@ -710,10 +664,8 @@ export class GameComSystem {
       this.stepHardwareFrame(baseMult);
     }
 
-    // Copy SM8521 scanline displayBuffer (200x160 2-bpp shades 0..3) to LCDSubsystem
     this.lcd.currentBuffer.set(this.cpu.displayBuffer);
 
-    // Sync NVRAM to Unlimited High Score Vault if recently written by CPU
     if (this.nvramDirtyFrames > 0) {
       this.nvramDirtyFrames--;
       if (this.nvramDirtyFrames === 0) {
@@ -721,7 +673,6 @@ export class GameComSystem {
       }
     }
 
-    // FPS calculation
     this.frameCount++;
     const now = performance.now();
     if (now - this.fpsTimer >= 1000) {
@@ -731,9 +682,6 @@ export class GameComSystem {
     }
   }
 
-  /**
-   * Render frame to HTML Canvas
-   */
   public renderToCanvas(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     if (!this.isPoweredOn) {
       ctx.fillStyle = '#1c1f18';
@@ -744,9 +692,6 @@ export class GameComSystem {
     this.lcd.renderToCanvas(canvas, ctx);
   }
 
-  /**
-   * Triggers a single discrete stylus touch at pixel (x, y) for `frames` VBLANK intervals.
-   */
   public triggerSingleStylusTap(x: number, y: number, frames: number = 8) {
     if (!this.isPoweredOn) return;
     this.touch.x = Math.max(0, Math.min(SCREEN_WIDTH - 1, Math.floor(x)));
@@ -756,11 +701,6 @@ export class GameComSystem {
     this.sound.playTouchBeep();
   }
 
-  /**
-   * Single-touch capacitive/resistive digitizer press ("compassive; the old style"):
-   * Registers strictly ONE discrete touch input per mouse press. Holding or dragging
-   * the pointer does NOT trigger additional touch events across grid cells.
-   */
   public handlePointerDown(normX: number, normY: number) {
     if (!this.isPoweredOn) return;
     if (this.touchLockedUntilRelease) return;
@@ -772,16 +712,12 @@ export class GameComSystem {
     this.touch.y = py;
     this.touch.isDown = true;
     this.touchLockedUntilRelease = true;
-    // Hold for 8 frames (~130ms) so the BIOS/game VBLANK scanner latches exactly 1 press,
-    // stopping before the BIOS 10-scan auto-repeat counter (R_B6) can fire a second event.
     this.stylusPulseFrames = 8;
     this.sound.playTouchBeep();
   }
 
   public handlePointerMove(_normX: number, _normY: number) {
-    // Intentionally a no-op for touch registration:
-    // Game.Com touchscreen is old-style discrete matrix; pointer movement during a press
-    // must never fire additional touch inputs.
+    // Discrete matrix touch: pointer drag does not fire extra touch events
   }
 
   public handlePointerUp() {

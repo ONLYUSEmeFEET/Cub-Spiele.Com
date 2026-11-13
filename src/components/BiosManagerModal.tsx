@@ -189,7 +189,7 @@ export const BiosManagerModal: React.FC<BiosManagerModalProps> = ({
               Upload Custom Official BIOS File
             </p>
             <p className="text-[11px] text-slate-400 mb-3 max-w-sm">
-              Accepts internal.bin, external.bin, or official MAME gamecom.zip archive
+              Accepts internal.bin, external.bin, or a zipped BIOS archive (.zip)
             </p>
             <button
               onClick={() => fileInputRef.current?.click()}

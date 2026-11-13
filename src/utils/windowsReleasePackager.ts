@@ -1,12 +1,9 @@
 /**
  * Cub Spiele.Com — Native Windows x64 PE32+ Executable & Portable Release Packager
  *
- * Guarantees 100% reliable, byte-verified downloads of:
- *   1. CubSpieleCom-v1.2.0-win64.zip (Complete Windows x64 Portable Release Bundle)
- *   2. CubSpieleCom.exe (Standalone 64-bit Windows PE32+ GUI Executable with embedded icon)
- *
- * Uses verified binary ArrayBuffer + Blob object URLs (and in-memory fflate.zipSync packaging fallback)
- * so downloads never break inside sandboxed iframes or dev/production environments.
+ * Provides byte-verified downloads for each GitHub Release:
+ *   1. CubSpieleCom-<tag>-win64.zip (Windows x64 Portable Build)
+ *   2. CubSpieleCom.exe / CubSpieleCom-<tag>.exe (64-bit Windows PE32+ GUI Executable)
  */
 
 import { zipSync, strToU8 } from 'fflate';
@@ -47,7 +44,7 @@ export function generateCubSpieleIconDib(): Uint8Array {
         g = 34;
         b = 44;
       }
-      // Reflective olive-green STN screen (mGBA / melonDS inspired screen-centric icon)
+      // Reflective olive-green STN screen
       if (x >= 4 && x <= 27 && srcY >= 4 && srcY <= 21) {
         r = 185;
         g = 196;
@@ -101,14 +98,13 @@ export function generateCubSpieleIconDib(): Uint8Array {
 }
 
 /**
- * Synthesizes a genuine 64-bit Windows PE32+ GUI Executable (CubSpieleCom.exe)
+ * Synthesizes a 64-bit Windows PE32+ GUI Executable (CubSpieleCom.exe)
  */
 export function buildCubSpielePe64Exe(): Uint8Array {
   const dibIcon = generateCubSpieleIconDib();
   const fileAlign = 0x200;
   const sectAlign = 0x1000;
 
-  // .rdata (RVA 0x2000, size 0x400)
   const rdata = new Uint8Array(0x400);
   const rdataDv = new DataView(rdata.buffer);
   const rvaRdata = 0x2000;
@@ -123,13 +119,11 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   const rvaStrVbsArg = rvaRdata + 0x00e0;
   const rvaStrHtml = rvaRdata + 0x0108;
 
-  // IAT & ILT
   rdataDv.setUint32(0x0000, rvaHnExit, true);
   rdataDv.setUint32(0x0010, rvaHnShell, true);
   rdataDv.setUint32(0x0020, rvaHnExit, true);
   rdataDv.setUint32(0x0030, rvaHnShell, true);
 
-  // Import Descriptors
   rdataDv.setUint32(0x0040, rvaRdata + 0x0020, true);
   rdataDv.setUint32(0x004c, rvaNameK32, true);
   rdataDv.setUint32(0x0050, rvaRdata + 0x0000, true);
@@ -150,7 +144,6 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   const rvaIatExit = rvaRdata + 0x0000;
   const rvaIatShell = rvaRdata + 0x0010;
 
-  // .text (RVA 0x1000, size 0x200)
   const textBytes: number[] = [];
   const rvaText = 0x1000;
 
@@ -164,8 +157,8 @@ export function buildCubSpielePe64Exe(): Uint8Array {
     textBytes.push(...new Uint8Array(b));
   };
 
-  emit(0x48, 0x83, 0xec, 0x38); // sub rsp, 0x38
-  emit(0x31, 0xc9); // xor ecx, ecx
+  emit(0x48, 0x83, 0xec, 0x38);
+  emit(0x31, 0xc9);
   emitRipRel([0x48, 0x8d, 0x15], rvaStrOpen);
   emitRipRel([0x4c, 0x8d, 0x05], rvaStrWscript);
   emitRipRel([0x4c, 0x8d, 0x0d], rvaStrVbsArg);
@@ -173,9 +166,9 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   emit(0xc7, 0x44, 0x24, 0x28, 0x01, 0x00, 0x00, 0x00);
   emitRipRel([0xff, 0x15], rvaIatShell);
 
-  emit(0x48, 0x83, 0xf8, 0x20); // cmp rax, 32
+  emit(0x48, 0x83, 0xf8, 0x20);
   const jccPos = textBytes.length;
-  emit(0x7f, 0x00); // jg exit
+  emit(0x7f, 0x00);
 
   emit(0x31, 0xc9);
   emitRipRel([0x48, 0x8d, 0x15], rvaStrOpen);
@@ -195,7 +188,6 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   const textPadded = new Uint8Array(fileAlign);
   textPadded.set(textBytes);
 
-  // .rsrc (RVA 0x3000)
   const rvaRsrc = 0x3000;
   const grpIcon = new Uint8Array(20);
   const grpDv = new DataView(grpIcon.buffer);
@@ -246,16 +238,15 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   rsrcDv.setUint32(0x90, rvaRsrc + grpOffset, true);
   rsrcDv.setUint32(0x94, grpIcon.length, true);
 
-  // Headers (0x400)
   const headers = new Uint8Array(0x400);
   const hDv = new DataView(headers.buffer);
-  headers[0] = 0x4d; // 'M'
-  headers[1] = 0x5a; // 'Z'
+  headers[0] = 0x4d;
+  headers[1] = 0x5a;
   hDv.setUint32(0x3c, 0x80, true);
 
   const peOff = 0x80;
   headers.set([0x50, 0x45, 0x00, 0x00], peOff);
-  hDv.setUint16(peOff + 4, 0x8664, true); // AMD64
+  hDv.setUint16(peOff + 4, 0x8664, true);
   hDv.setUint16(peOff + 6, 3, true);
   hDv.setUint32(peOff + 8, 1794400000, true);
   hDv.setUint16(peOff + 20, 240, true);
@@ -263,23 +254,23 @@ export function buildCubSpielePe64Exe(): Uint8Array {
 
   const optOff = peOff + 24;
   const sizeOfImage = 0x3000 + align(rsrcRawLen, sectAlign);
-  hDv.setUint16(optOff + 0, 0x020b, true); // PE32+
+  hDv.setUint16(optOff + 0, 0x020b, true);
   headers[optOff + 2] = 14;
   hDv.setUint32(optOff + 4, textPadded.length, true);
   hDv.setUint32(optOff + 8, rdata.length + rsrcPadded.length, true);
-  hDv.setUint32(optOff + 16, 0x1000, true); // EntryPoint
-  hDv.setUint32(optOff + 20, 0x1000, true); // BaseOfCode
-  hDv.setUint32(optOff + 24, 0x40000000, true); // ImageBase low
-  hDv.setUint32(optOff + 28, 0x00000001, true); // ImageBase high
+  hDv.setUint32(optOff + 16, 0x1000, true);
+  hDv.setUint32(optOff + 20, 0x1000, true);
+  hDv.setUint32(optOff + 24, 0x40000000, true);
+  hDv.setUint32(optOff + 28, 0x00000001, true);
   hDv.setUint32(optOff + 32, sectAlign, true);
   hDv.setUint32(optOff + 36, fileAlign, true);
   hDv.setUint16(optOff + 40, 6, true);
   hDv.setUint16(optOff + 44, 1, true);
-  hDv.setUint16(optOff + 46, 2, true);
+  hDv.setUint16(optOff + 46, 3, true);
   hDv.setUint16(optOff + 48, 6, true);
   hDv.setUint32(optOff + 56, sizeOfImage, true);
   hDv.setUint32(optOff + 60, 0x400, true);
-  hDv.setUint16(optOff + 68, 2, true); // IMAGE_SUBSYSTEM_WINDOWS_GUI
+  hDv.setUint16(optOff + 68, 2, true);
   hDv.setUint16(optOff + 70, 0x0140, true);
   hDv.setUint32(optOff + 72, 0x100000, true);
   hDv.setUint32(optOff + 80, 0x1000, true);
@@ -334,9 +325,6 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   return total;
 }
 
-/**
- * Triggers a browser file download from a binary Uint8Array or Blob
- */
 export function triggerBinaryDownload(bytes: Uint8Array | Blob, fileName: string, mimeType: string) {
   const blob =
     bytes instanceof Blob ? bytes : new Blob([bytes.buffer as ArrayBuffer], { type: mimeType });
@@ -361,7 +349,6 @@ export async function downloadStandaloneWindowsExe(fileName: string = 'CubSpiele
     const res = await fetch('./releases/CubSpieleCom.exe');
     if (res.ok) {
       const buf = new Uint8Array(await res.arrayBuffer());
-      // Verify MZ header (0x4D, 0x5A)
       if (buf.length > 1024 && buf[0] === 0x4d && buf[1] === 0x5a) {
         triggerBinaryDownload(buf, fileName, 'application/vnd.microsoft.portable-executable');
         return buf.length;
@@ -376,13 +363,12 @@ export async function downloadStandaloneWindowsExe(fileName: string = 'CubSpiele
 }
 
 /**
- * Downloads or dynamically packages a 100% valid, byte-verified CubSpieleCom Win64 Portable ZIP archive
+ * Downloads or packages a byte-verified CubSpieleCom-<tag>-win64.zip portable archive
  */
 export async function downloadWindowsPortableZip(
-  zipFileName: string = 'CubSpieleCom-v1.2.0-win64.zip',
-  staticUrl: string = './releases/CubSpieleCom-v1.2.0-win64.zip'
+  zipFileName: string = 'CubSpieleCom-v1.3.0-win64.zip',
+  staticUrl: string = './releases/CubSpieleCom-v1.3.0-win64.zip'
 ): Promise<number> {
-  // 1. Try fetching the prebuilt static ZIP and verifying the PK\x03\x04 magic signature
   try {
     const res = await fetch(staticUrl);
     if (res.ok) {
@@ -396,9 +382,8 @@ export async function downloadWindowsPortableZip(
     // Proceed to in-memory fflate.zipSync builder
   }
 
-  // 2. Fallback: Dynamically assemble the complete Win64 Portable ZIP in-memory via fflate.zipSync
   const exeBytes = buildCubSpielePe64Exe();
-  const hostVbs = `' Cub Spiele.Com — Standalone Handheld Emulator Host (mGBA / melonDS Compact Desktop Mode)
+  const hostVbs = `' Cub Spiele.Com — Standalone Handheld Emulator Host
 Option Explicit
 Dim fso, shell, baseDir, appHtmlPath, edgePaths, edgeExe, p, cmd, userDataDir
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -447,12 +432,13 @@ QUICK START (WINDOWS 10 / WINDOWS 11 x64):
 1. Extract all files from this ZIP archive to any folder on your PC.
 2. Double-click "CubSpieleCom.exe" to launch the standalone emulator.
 
-FEATURES (mGBA / melonDS STANDALONE DESKTOP DESIGN):
-- Native Desktop Menu Bar (File, Emulation, Audio/Video, Tools, View, Help)
-- Recently Played ROMs submenu with instant Slot 1 / Slot 2 boot
-- Screen-Only Mode (2x / 3x / 4x integer scale) & Full Handheld Bezel Mode
-- Touch Grid Visibility Slider (0% - 100%)
-- Preloaded Slot 1 (Lights Out) & Slot 2 (Sonic Jam) TOSEC ROMs
+FEATURES:
+- Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
+- Recently Played ROMs submenu with TigerDMGC cartridge header verification
+- Screen-Only Mode (2x / 3x / 4x integer scale) & Handheld Console Bezel Mode
+- STN Passive-Matrix LCD Ghosting Intensity & Persistence controls
+- 2-Shade LCD Color Blender
+- Internal Real-Time Clock & Date synced to your device
 ================================================================================
 `;
 
@@ -462,7 +448,6 @@ FEATURES (mGBA / melonDS STANDALONE DESKTOP DESIGN):
     'README-WINDOWS.txt': strToU8(readmeTxt)
   };
 
-  // Fetch binary BIOS and ROM assets to bundle inside app/
   const assetPaths = [
     'bios/internal.bin',
     'bios/external.bin',
@@ -484,107 +469,3 @@ FEATURES (mGBA / melonDS STANDALONE DESKTOP DESIGN):
   triggerBinaryDownload(zipped, zipFileName, 'application/zip');
   return zipped.length;
 }
-
-/**
- * Downloads the complete Google Antigravity Desktop IDE Workspace Archive
- * (CubSpieleCom-Antigravity-Workspace.zip) containing full TypeScript source,
- * GEMINI.md, AGENTS.md, .agents/rules, .agents/workflows, .vscode/settings.json,
- * cub-spiele-com.code-workspace, and Open-in-Antigravity.bat.
- */
-export async function downloadAntigravityWorkspaceZip(
-  zipFileName: string = 'CubSpieleCom-Antigravity-Workspace.zip',
-  staticUrl: string = './releases/CubSpieleCom-Antigravity-Workspace.zip'
-): Promise<number> {
-  // 1. Try fetching the prebuilt Antigravity workspace ZIP from /releases/
-  try {
-    const res = await fetch(staticUrl);
-    if (res.ok) {
-      const buf = new Uint8Array(await res.arrayBuffer());
-      if (buf.length > 4096 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) {
-        triggerBinaryDownload(buf, zipFileName, 'application/zip');
-        return buf.length;
-      }
-    }
-  } catch {
-    // Fallback to in-memory Antigravity workspace synthesis
-  }
-
-  // 2. Fallback: Assemble Antigravity workspace configuration & launcher in-memory
-  const openBat = `@echo off
-title Cub Spiele.Com — Open in Google Antigravity IDE
-echo ============================================================================
-echo Launching Cub Spiele.Com in Google Antigravity Desktop IDE...
-echo ============================================================================
-cd /d "%~dp0"
-
-where antigravity >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    antigravity cub-spiele-com.code-workspace
-    exit /b 0
-)
-
-where agy >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    agy cub-spiele-com.code-workspace
-    exit /b 0
-)
-
-if exist "%LOCALAPPDATA%\\Programs\\Antigravity\\bin\\antigravity.cmd" (
-    "%LOCALAPPDATA%\\Programs\\Antigravity\\bin\\antigravity.cmd" cub-spiele-com.code-workspace
-    exit /b 0
-)
-
-echo Google Antigravity CLI was not found on PATH.
-echo Opening folder so you can select File -^> Open Workspace from File...
-echo and choose "cub-spiele-com.code-workspace" inside Google Antigravity.
-pause
-`;
-
-  const workspaceJson = JSON.stringify(
-    {
-      folders: [{ name: 'Cub Spiele.Com — SM8521 Emulator', path: '.' }],
-      settings: {
-        'antigravity.project.name': 'cub-spiele-com-emulator',
-        'antigravity.agent.strictMode': false,
-        'antigravity.agent.contextFiles': [
-          'GEMINI.md',
-          'AGENTS.md',
-          '.agents/rules/sm8521-hardware-accuracy.md'
-        ],
-        'antigravity.permissions': {
-          allowTerminalExecution: true,
-          allowFileEdits: true,
-          allowBrowserPreview: true,
-          allowedCommands: ['npm run dev', 'npm run build', 'npm run lint', 'npm run release:win', 'npm run dist:win']
-        }
-      }
-    },
-    null,
-    2
-  );
-
-  const geminiMd = `# Cub Spiele.Com — Google Antigravity Project Context (GEMINI.md)
-
-## Overview
-Cub Spiele.Com is a cycle-accurate standalone handheld emulator (Sharp SM8521 @ 4.9152 MHz) for Web and Windows x64 (PE32+ CubSpieleCom.exe & Electron).
-
-## Quick Commands
-- \`npm install\` — Install dependencies
-- \`npm run dev\` — Start dev server on http://localhost:3000
-- \`npm run release:win\` — Build CubSpieleCom.exe and Windows x64 release bundles
-- \`npm run lint\` — Run TypeScript typechecking
-`;
-
-  const zipFiles: Record<string, Uint8Array> = {
-    'Open-in-Antigravity.bat': strToU8(openBat),
-    'cub-spiele-com.code-workspace': strToU8(workspaceJson),
-    'GEMINI.md': strToU8(geminiMd),
-    'AGENTS.md': strToU8(geminiMd),
-    'CubSpieleCom.exe': buildCubSpielePe64Exe()
-  };
-
-  const zipped = zipSync(zipFiles, { level: 6 });
-  triggerBinaryDownload(zipped, zipFileName, 'application/zip');
-  return zipped.length;
-}
-
