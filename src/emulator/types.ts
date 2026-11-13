@@ -235,6 +235,15 @@ export interface TouchPoint {
   isDown: boolean;
 }
 
+export interface VirtualStylusState {
+  x: number; // 0.0 to 199.0
+  y: number; // 0.0 to 159.0
+  isDown: boolean;
+  visible: boolean;
+  dpadStylusMode: boolean;
+  snapToGrid: boolean;
+}
+
 export interface CartridgeInfo {
   id: string;
   title: string;
@@ -286,6 +295,14 @@ export interface EmulatorSettings {
   showFps: boolean;
   smoothMode: boolean;
   stylusCursor: boolean;
+  /** Accept keyboard/gamepad input and run 60Hz emulation loop even when window is unfocused */
+  backgroundInput: boolean;
+  /** Virtual stylus movement speed in LCD pixels per 60Hz frame (1.0 to 6.0) */
+  stylusSpeed: number;
+  /** Assigned HTML5 Gamepad index (-1 = Auto/Any, 0 = Pad 1, 1 = Pad 2, 2 = Pad 3, 3 = Pad 4) */
+  gamepadIndex: number;
+  /** Analog stick radial deadzone (0.05 to 0.40) */
+  gamepadDeadzone: number;
 }
 
 export interface CPURegisters {

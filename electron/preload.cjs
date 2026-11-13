@@ -13,6 +13,14 @@ contextBridge.exposeInMainWorld('gamecomDesktop', {
   saveNvramNative: (bytesArray) => ipcRenderer.invoke('desktop:save-nvram-native', bytesArray),
   loadNvramNative: () => ipcRenderer.invoke('desktop:load-nvram-native'),
   toggleFullscreen: () => ipcRenderer.invoke('desktop:toggle-fullscreen'),
+  openSecondInstance: (roomCode = 'TIGER-1') => ipcRenderer.invoke('desktop:open-second-instance', roomCode),
+  getLanIps: () => ipcRenderer.invoke('desktop:get-lan-ips'),
+  sendLinkPacket: (packet) => ipcRenderer.send('desktop:link-packet', packet),
+  onLinkPacket: (callback) => {
+    const listener = (_event, packet) => callback(packet);
+    ipcRenderer.on('desktop:link-packet', listener);
+    return () => ipcRenderer.removeListener('desktop:link-packet', listener);
+  },
   onMenuAction: (callback) => {
     const listener = (_event, action) => callback(action);
     ipcRenderer.on('desktop:menu-action', listener);

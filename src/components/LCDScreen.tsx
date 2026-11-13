@@ -17,6 +17,19 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
     visible: false,
     isDown: false
   });
+  const [vStylusPos, setVStylusPos] = useState<{
+    x: number;
+    y: number;
+    visible: boolean;
+    isDown: boolean;
+    dpadStylusMode: boolean;
+  }>({
+    x: system.virtualStylus.x,
+    y: system.virtualStylus.y,
+    visible: system.virtualStylus.visible,
+    isDown: system.virtualStylus.isDown,
+    dpadStylusMode: system.virtualStylus.dpadStylusMode
+  });
 
   const canvasWidth = Math.round(SCREEN_WIDTH * scale);
   const canvasHeight = Math.round(SCREEN_HEIGHT * scale);
@@ -24,8 +37,15 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
   useEffect(() => {
     let animationFrameId: number;
     let lastFpsReport = performance.now();
+    let lastTickTime = performance.now();
+    let prevVx = system.virtualStylus.x;
+    let prevVy = system.virtualStylus.y;
+    let prevVVis = system.virtualStylus.visible;
+    let prevVDown = system.virtualStylus.isDown;
+    let prevVMode = system.virtualStylus.dpadStylusMode;
 
-    const renderLoop = (now: number) => {
+    const executeFrameStep = (now: number) => {
+      lastTickTime = now;
       system.tick();
 
       const canvas = canvasRef.current;
@@ -36,17 +56,54 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         }
       }
 
+      const vs = system.virtualStylus;
+      if (
+        vs.x !== prevVx ||
+        vs.y !== prevVy ||
+        vs.visible !== prevVVis ||
+        vs.isDown !== prevVDown ||
+        vs.dpadStylusMode !== prevVMode
+      ) {
+        prevVx = vs.x;
+        prevVy = vs.y;
+        prevVVis = vs.visible;
+        prevVDown = vs.isDown;
+        prevVMode = vs.dpadStylusMode;
+        setVStylusPos({
+          x: vs.x,
+          y: vs.y,
+          visible: vs.visible,
+          isDown: vs.isDown,
+          dpadStylusMode: vs.dpadStylusMode
+        });
+      }
+
       if (now - lastFpsReport > 500) {
         onFpsUpdate?.(system.fps);
         lastFpsReport = now;
       }
+    };
 
+    const renderLoop = (now: number) => {
+      executeFrameStep(now);
       animationFrameId = requestAnimationFrame(renderLoop);
     };
+
+    // Unfocused / Background 60Hz fallback timer so dual-instance Compete.Com multiplayer
+    // and background controller play continue running when the window is unfocused
+    const bgIntervalId = window.setInterval(() => {
+      const now = performance.now();
+      const shouldRunInBackground =
+        system.settings.backgroundInput || system.linkCable.mode !== 'off';
+      if (shouldRunInBackground && now - lastTickTime >= 24) {
+        executeFrameStep(now);
+      }
+    }, 16);
 
     animationFrameId = requestAnimationFrame(renderLoop);
     return () => {
       cancelAnimationFrame(animationFrameId);
+      clearInterval(bgIntervalId);
     };
   }, [system, onFpsUpdate]);
 
@@ -64,6 +121,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     const { x, y } = getLogicalCoords(e.clientX, e.clientY);
+    system.virtualStylus.visible = false;
     system.setTouch(x, y, true);
     setCursorPos({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, visible: true, isDown: true });
   };
@@ -183,8 +241,8 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         }}
       />
 
-      {/* Custom Stylus Cursor */}
-      {system.settings.stylusCursor && cursorPos.visible && (
+      {/* Custom Stylus Cursor (Mouse hover) */}
+      {system.settings.stylusCursor && cursorPos.visible && !vStylusPos.visible && (
         <div
           className="pointer-events-none absolute z-30 transition-transform duration-75"
           style={{
@@ -206,6 +264,76 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
             <path d="M5.5 4.5L8.5 3.5L32 27L29.5 29.5L5.5 4.5Z" fill="#9f1239" />
             <path d="M2.5 5.5L5.5 2.5L8.5 5.5L5.5 8.5L2.5 5.5Z" fill="#d4d4d8" />
           </svg>
+        </div>
+      )}
+
+      {/* DS-Style Virtual Stylus Reticle & Tip (Keyboard / Controller Stylus) */}
+      {system.isPoweredOn && vStylusPos.visible && (
+        <div
+          className="pointer-events-none absolute z-30"
+          style={{
+            left: Math.round((vStylusPos.x / SCREEN_WIDTH) * canvasWidth) + 7,
+            top: Math.round((vStylusPos.y / SCREEN_HEIGHT) * canvasHeight) + 7
+          }}
+        >
+          {/* DS-style precision target reticle centered on (0,0) */}
+          <svg
+            width="28"
+            height="28"
+            viewBox="-14 -14 28 28"
+            fill="none"
+            className="absolute -left-[14px] -top-[14px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
+          >
+            {/* Outer corner brackets */}
+            <path
+              d="M-9 -5 V-9 H-5 M5 -9 H9 V-5 M9 5 V9 H5 M-5 9 H-9 V5"
+              stroke={vStylusPos.isDown ? '#f43f5e' : '#111827'}
+              strokeWidth="1.6"
+            />
+            <path
+              d="M-8 -4 V-8 H-4 M4 -8 H8 V-4 M8 4 V8 H4 M-4 8 H-8 V4"
+              stroke={vStylusPos.isDown ? '#fda4af' : '#f8fafc'}
+              strokeWidth="1"
+            />
+            {/* Crosshair ticks */}
+            <line x1="-12" y1="0" x2="-4" y2="0" stroke={vStylusPos.isDown ? '#f43f5e' : '#0f172a'} strokeWidth="1.5" />
+            <line x1="4" y1="0" x2="12" y2="0" stroke={vStylusPos.isDown ? '#f43f5e' : '#0f172a'} strokeWidth="1.5" />
+            <line x1="0" y1="-12" x2="0" y2="-4" stroke={vStylusPos.isDown ? '#f43f5e' : '#0f172a'} strokeWidth="1.5" />
+            <line x1="0" y1="4" x2="0" y2="12" stroke={vStylusPos.isDown ? '#f43f5e' : '#0f172a'} strokeWidth="1.5" />
+            {/* Center contact dot */}
+            <circle
+              cx="0"
+              cy="0"
+              r={vStylusPos.isDown ? '3' : '1.8'}
+              fill={vStylusPos.isDown ? '#e11d48' : '#fef08a'}
+              stroke="#09090b"
+              strokeWidth="1"
+            />
+          </svg>
+
+          {/* Angled Stylus Pen Tip */}
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 36 36"
+            fill="none"
+            className="absolute left-0 top-0 drop-shadow-[2px_3px_3px_rgba(0,0,0,0.65)]"
+            style={{
+              transform: vStylusPos.isDown ? 'translate(0px, 1px) scale(0.93)' : 'translate(2px, 2px)'
+            }}
+          >
+            <path d="M2.5 5.5L8.5 3.5L32 27L27 32L2.5 5.5Z" fill="#27272a" stroke="#e4e4e7" strokeWidth="1" />
+            <path d="M5.5 4.5L8.5 3.5L32 27L29.5 29.5L5.5 4.5Z" fill={vStylusPos.isDown ? '#e11d48' : '#be123c'} />
+            <path d="M2.5 5.5L5.5 2.5L8.5 5.5L5.5 8.5L2.5 5.5Z" fill="#f4f4f5" />
+          </svg>
+
+          {/* Compact Grid Cell / Mode Indicator */}
+          {vStylusPos.dpadStylusMode && (
+            <div className="absolute left-3 -top-5 px-1 py-0.5 rounded bg-zinc-950/90 border border-rose-500/60 text-[8px] font-mono text-rose-300 whitespace-nowrap shadow">
+              STYLUS {Math.min(12, Math.floor((vStylusPos.x / SCREEN_WIDTH) * 13)).toString(16).toUpperCase()}
+              {Math.min(9, Math.floor((vStylusPos.y / SCREEN_HEIGHT) * 10)).toString(16).toUpperCase()}
+            </div>
+          )}
         </div>
       )}
 

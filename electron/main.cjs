@@ -7,12 +7,18 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
+const os = require('os');
 
 // Enable low-latency WebAudio & GPU rasterization for cycle-accurate 59.73 Hz STN LCD rendering
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
 let mainWindow = null;
+let secondWindow = null;
+let lanServerPort = 3197;
 let pendingStartupRomPath = null;
 
 // Check if a .bin or .tgc file was passed via Windows Explorer file association
@@ -197,7 +203,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false
+      webSecurity: false,
+      backgroundThrottling: false
     }
   });
 
@@ -223,11 +230,196 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.includes('instance=2')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 820,
+          height: 700,
+          title: 'Cub Spiele.Com — Player 2 (Compete.Com Link)',
+          backgroundColor: '#111319',
+          webPreferences: {
+            preload: path.join(__dirname, 'preload.cjs'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: false,
+            backgroundThrottling: false
+          }
+        }
+      };
+    }
     if (url.startsWith('https://') || url.startsWith('http://')) {
       shell.openExternal(url);
     }
     return { action: 'deny' };
   });
+}
+
+function createSecondInstanceWindow(roomCode = 'TIGER-1') {
+  if (secondWindow && !secondWindow.isDestroyed()) {
+    secondWindow.focus();
+    return true;
+  }
+
+  secondWindow = new BrowserWindow({
+    width: 820,
+    height: 700,
+    minWidth: 640,
+    minHeight: 540,
+    title: 'Cub Spiele.Com — Player 2 (Compete.Com Link)',
+    backgroundColor: '#111319',
+    icon: path.join(__dirname, '../public/assets/icon.ico'),
+    autoHideMenuBar: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false,
+      backgroundThrottling: false
+    }
+  });
+
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl) {
+    const sep = devServerUrl.includes('?') ? '&' : '?';
+    secondWindow.loadURL(`${devServerUrl}${sep}instance=2&autolink=1&room=${encodeURIComponent(roomCode)}`);
+  } else {
+    secondWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+      query: { instance: '2', autolink: '1', room: roomCode }
+    });
+  }
+
+  secondWindow.on('closed', () => {
+    secondWindow = null;
+  });
+
+  return true;
+}
+
+function startLanRelayServer() {
+  const clients = new Set();
+
+  function encodeWsText(text) {
+    const payload = Buffer.from(text, 'utf8');
+    const len = payload.length;
+    if (len < 126) return Buffer.concat([Buffer.from([0x81, len]), payload]);
+    if (len < 65536) {
+      const h = Buffer.alloc(4);
+      h[0] = 0x81;
+      h[1] = 126;
+      h.writeUInt16BE(len, 2);
+      return Buffer.concat([h, payload]);
+    }
+    const h = Buffer.alloc(10);
+    h[0] = 0x81;
+    h[1] = 127;
+    h.writeBigUInt64BE(BigInt(len), 2);
+    return Buffer.concat([h, payload]);
+  }
+
+  function decodeWs(buf) {
+    const messages = [];
+    let offset = 0;
+    let closed = false;
+    while (offset + 2 <= buf.length) {
+      const b0 = buf[offset];
+      const b1 = buf[offset + 1];
+      const opcode = b0 & 0x0f;
+      const masked = (b1 & 0x80) !== 0;
+      let len = b1 & 0x7f;
+      let hLen = 2;
+      if (len === 126) {
+        if (offset + 4 > buf.length) break;
+        len = buf.readUInt16BE(offset + 2);
+        hLen = 4;
+      } else if (len === 127) {
+        if (offset + 10 > buf.length) break;
+        len = Number(buf.readBigUInt64BE(offset + 2));
+        hLen = 10;
+      }
+      const mLen = masked ? 4 : 0;
+      if (offset + hLen + mLen + len > buf.length) break;
+      const start = offset + hLen + mLen;
+      const raw = Buffer.from(buf.subarray(start, start + len));
+      if (masked) {
+        const mask = buf.subarray(offset + hLen, offset + hLen + 4);
+        for (let i = 0; i < raw.length; i++) raw[i] ^= mask[i & 3];
+      }
+      offset = start + len;
+      if (opcode === 0x08) {
+        closed = true;
+        break;
+      }
+      if (opcode === 0x01) messages.push(raw.toString('utf8'));
+    }
+    return { messages, consumed: offset, closed };
+  }
+
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ service: 'Cub Spiele.Com Compete.Com LAN Relay', activeClients: clients.size }));
+  });
+
+  server.on('upgrade', (req, socket) => {
+    const key = req.headers['sec-websocket-key'];
+    if (!key) {
+      socket.destroy();
+      return;
+    }
+    const accept = crypto
+      .createHash('sha1')
+      .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+      .digest('base64');
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\n' +
+        'Upgrade: websocket\r\n' +
+        'Connection: Upgrade\r\n' +
+        `Sec-WebSocket-Accept: ${accept}\r\n\r\n`
+    );
+    const parsedUrl = new URL(req.url || '/', 'http://localhost');
+    const room = (parsedUrl.searchParams.get('room') || 'TIGER-1').toUpperCase();
+    const client = { socket, room };
+    clients.add(client);
+
+    let recvBuf = Buffer.alloc(0);
+    socket.on('data', (chunk) => {
+      recvBuf = Buffer.concat([recvBuf, chunk]);
+      const { messages, consumed, closed } = decodeWs(recvBuf);
+      if (consumed > 0) recvBuf = recvBuf.subarray(consumed);
+      for (const msg of messages) {
+        const frame = encodeWsText(msg);
+        for (const peer of clients) {
+          if (peer !== client && peer.room === client.room && !peer.socket.destroyed) {
+            peer.socket.write(frame);
+          }
+        }
+      }
+      if (closed) {
+        clients.delete(client);
+        socket.end();
+      }
+    });
+    socket.on('close', () => clients.delete(client));
+    socket.on('error', () => clients.delete(client));
+  });
+
+  server.on('error', () => {
+    // Port 3197 may already be bound by Instance 1 on the same PC
+  });
+  server.listen(lanServerPort, '0.0.0.0');
+}
+
+function getLocalLanAddresses() {
+  const result = [];
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        result.push(`ws://${net.address}:${lanServerPort}/compete-link`);
+      }
+    }
+  }
+  return result;
 }
 
 // IPC Handlers for Native Windows integration
@@ -274,7 +466,24 @@ ipcMain.handle('desktop:toggle-fullscreen', () => {
   return next;
 });
 
+ipcMain.handle('desktop:open-second-instance', (_event, roomCode = 'TIGER-1') => {
+  return createSecondInstanceWindow(roomCode);
+});
+
+ipcMain.handle('desktop:get-lan-ips', () => {
+  return getLocalLanAddresses();
+});
+
+ipcMain.on('desktop:link-packet', (event, packet) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && win.webContents.id !== event.sender.id) {
+      win.webContents.send('desktop:link-packet', packet);
+    }
+  }
+});
+
 app.whenReady().then(() => {
+  startLanRelayServer();
   createWindow();
 
   app.on('activate', () => {

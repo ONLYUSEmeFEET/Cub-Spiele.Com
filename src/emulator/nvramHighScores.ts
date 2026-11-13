@@ -21,6 +21,8 @@
  *   or cartridge games are synced back to the Unlimited Vault in real time.
  */
 
+import { NvramPhoneBookManager } from './nvramPhoneBook';
+
 export interface HighScoreRecord {
   gameId: number;       // 16-bit Game ID (e.g. 0x0917 = Lights Out, 0x2201 = Sonic Jam)
   title: string;        // Up to 11 ASCII characters displayed by BIOS High Score screen
@@ -112,15 +114,27 @@ export class NvramHighScoreManager {
     }
 
     // Ensure BIOS NVRAM magic signatures are set ($E000, $F3FC, $FC00..$FC23, $FEE0..$FEE8)
-    nvram[0xe000 - 0xe000] = 0xf0;
-    nvram[0xe001 - 0xe000] = 0x00;
-    nvram[0xe002 - 0xe000] = 0x00;
-    nvram[0xe003 - 0xe000] = 0xff;
+    // Only write empty $E003=0xFF terminator if Phone Book partition is not already initialized
+    const hasPhoneBookPartition =
+      nvram[0xe000 - 0xe000] === 0xf0 &&
+      nvram[0xe001 - 0xe000] === 0x00 &&
+      nvram[0xe002 - 0xe000] === 0x00 &&
+      nvram[0xf3fc - 0xe000] === 0xaa &&
+      nvram[0xf3fd - 0xe000] === 0xaa &&
+      nvram[0xf3fe - 0xe000] === 0xaa &&
+      nvram[0xf3ff - 0xe000] === 0xaa;
 
-    nvram[0xf3fc - 0xe000] = 0xaa;
-    nvram[0xf3fd - 0xe000] = 0xaa;
-    nvram[0xf3fe - 0xe000] = 0xaa;
-    nvram[0xf3ff - 0xe000] = 0xaa;
+    if (!hasPhoneBookPartition) {
+      nvram[0xe000 - 0xe000] = 0xf0;
+      nvram[0xe001 - 0xe000] = 0x00;
+      nvram[0xe002 - 0xe000] = 0x00;
+      nvram[0xe003 - 0xe000] = 0xff;
+
+      nvram[0xf3fc - 0xe000] = 0xaa;
+      nvram[0xf3fd - 0xe000] = 0xaa;
+      nvram[0xf3fe - 0xe000] = 0xaa;
+      nvram[0xf3ff - 0xe000] = 0xaa;
+    }
 
     const fc00Init = [
       0x00, 0x00, 0x00, 0x02, 0xc3, 0xff, 0x40, 0xff,
@@ -410,11 +424,12 @@ export class NvramHighScoreManager {
   }
 
   /**
-   * Exports all Unlimited High Score Vault records, Solitaire score, and the full 8KB battery-backed
-   * NVRAM ($E000-$FFFF) as a formatted JSON backup string.
+   * Exports all Unlimited High Score Vault records, Phone Book banks, Solitaire score, and the full 8KB
+   * battery-backed NVRAM ($E000-$FFFF) as a formatted JSON backup string.
    */
-  public exportVaultJson(nvram: Uint8Array): string {
+  public exportVaultJson(nvram: Uint8Array, phoneBook?: NvramPhoneBookManager): string {
     this.syncFromNvram(nvram);
+    phoneBook?.syncFromNvram(nvram);
     let binary = '';
     for (let i = 0; i < nvram.length; i++) {
       binary += String.fromCharCode(nvram[i]);
@@ -425,6 +440,8 @@ export class NvramHighScoreManager {
       activeBank: this.activeBank,
       solitaireScore: this.solitaireScore,
       records: this.records,
+      activePhoneBookBank: phoneBook ? phoneBook.activeBank : 0,
+      phoneBookBanks: phoneBook ? phoneBook.banks : undefined,
       nvram8kBase64: btoa(binary)
     };
     return JSON.stringify(payload, null, 2);
@@ -433,19 +450,21 @@ export class NvramHighScoreManager {
   /**
    * Exports the raw 8,192-byte ($E000-$FFFF) battery-backed NVRAM image compatible with MAME gamecom.
    */
-  public exportRawNvramBinary(nvram: Uint8Array): Uint8Array {
+  public exportRawNvramBinary(nvram: Uint8Array, phoneBook?: NvramPhoneBookManager): Uint8Array {
     this.syncFromNvram(nvram);
+    phoneBook?.syncFromNvram(nvram);
     return new Uint8Array(nvram);
   }
 
   /**
    * Imports either a JSON Vault backup (.json) or a raw 8KB NVRAM binary (.nvram, .sav, .bin)
-   * into both the Unlimited High Score Vault and live SM8521 CPU NVRAM ($E000-$FFFF).
+   * into the Unlimited High Score Vault, Unlimited Phone Book Vault, and live SM8521 CPU NVRAM ($E000-$FFFF).
    */
   public async importDataFromFile(
     file: File,
-    nvram: Uint8Array
-  ): Promise<{ format: 'json' | 'nvram'; recordsCount: number }> {
+    nvram: Uint8Array,
+    phoneBook?: NvramPhoneBookManager
+  ): Promise<{ format: 'json' | 'nvram'; recordsCount: number; phoneBookCount: number }> {
     const arrayBuf = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuf);
 
@@ -456,7 +475,13 @@ export class NvramHighScoreManager {
     if (isJsonName || (startsWithBrace && bytes.length !== 0x2000)) {
       const text = new TextDecoder().decode(bytes);
       const parsed = JSON.parse(text);
-      if (!parsed || (!Array.isArray(parsed.records) && typeof parsed.nvram8kBase64 !== 'string')) {
+      if (
+        !parsed ||
+        (!Array.isArray(parsed.records) &&
+          !Array.isArray(parsed.banks) &&
+          !Array.isArray(parsed.phoneBookBanks) &&
+          typeof parsed.nvram8kBase64 !== 'string')
+      ) {
         throw new Error('Invalid Game.Com JSON backup format.');
       }
 
@@ -474,21 +499,29 @@ export class NvramHighScoreManager {
           .filter((r: HighScoreRecord) => r && typeof r.title === 'string' && typeof r.gameId === 'number')
           .map((r: HighScoreRecord) => ({
             gameId: Number(r.gameId) & 0xffff,
-            title: String(r.title).toUpperCase().slice(0, 11),
-            scoreText: String(r.scoreText || '0').toUpperCase().slice(0, 16),
+            title: String(r.title).slice(0, 11),
+            scoreText: String(r.scoreText || '0').slice(0, 16),
             numericScore: Number(r.numericScore) || 0,
-            updatedAt: Number(r.updatedAt) || Date.now()
+            updatedAt: Number(r.updatedAt) || Date.now(),
+            rawSlot: Array.isArray(r.rawSlot) ? r.rawSlot : undefined
           }));
       }
 
       if (typeof parsed.solitaireScore === 'number') {
         this.solitaireScore = parsed.solitaireScore & 0xffff;
       }
-      this.activeBank = typeof parsed.activeBank === 'number' ? Math.max(0, parsed.activeBank) : 0;
+      if (Array.isArray(parsed.records)) {
+        this.activeBank = typeof parsed.activeBank === 'number' ? Math.max(0, parsed.activeBank) : 0;
+      }
+
+      let phoneBookCount = 0;
+      if (phoneBook) {
+        phoneBookCount = phoneBook.importFromParsedJson(parsed, nvram);
+      }
 
       this.saveVault();
       this.syncBankToNvram(nvram, this.activeBank);
-      return { format: 'json', recordsCount: this.records.length };
+      return { format: 'json', recordsCount: this.records.length, phoneBookCount };
     }
 
     // Otherwise treat as raw 8KB ($2000) NVRAM binary (.nvram / .sav / .bin)
@@ -513,11 +546,17 @@ export class NvramHighScoreManager {
       this.solitaireScore = solScore;
     }
 
+    let phoneBookCount = 0;
+    if (phoneBook) {
+      phoneBook.syncFromNvram(nvram);
+      phoneBookCount = phoneBook.getTotalEntriesCount();
+    }
+
     this.records = decodedRecords;
     this.activeBank = 0;
     this.saveVault();
     this.saveRawNvram(nvram);
-    return { format: 'nvram', recordsCount: this.records.length };
+    return { format: 'nvram', recordsCount: this.records.length, phoneBookCount };
   }
 
   public getTotalBanks(): number {
@@ -570,7 +609,7 @@ export class NvramHighScoreManager {
     }
   }
 
-  private saveRawNvram(nvram: Uint8Array) {
+  public saveRawNvram(nvram: Uint8Array) {
     try {
       let binary = '';
       for (let i = 0; i < nvram.length; i++) {

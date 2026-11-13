@@ -28,7 +28,11 @@ import {
   Check,
   ChevronRight,
   Monitor,
-  Palette
+  Palette,
+  BookUser,
+  Cable,
+  ExternalLink,
+  Crosshair
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -38,6 +42,8 @@ interface TopBarProps {
   onOpenDebugger: () => void;
   onOpenKeybinds: () => void;
   onOpenHighScores: () => void;
+  onOpenPhoneBook: () => void;
+  onOpenLinkCable: () => void;
   onOpenBios: () => void;
   onOpenWindowsRelease: () => void;
   onOpenColorCustomizer: () => void;
@@ -53,6 +59,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenDebugger,
   onOpenKeybinds,
   onOpenHighScores,
+  onOpenPhoneBook,
+  onOpenLinkCable,
   onOpenBios,
   onOpenWindowsRelease,
   onOpenColorCustomizer,
@@ -422,6 +430,63 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </span>
                 </button>
 
+                <button
+                  onClick={() => {
+                    system.openBiosPhoneBookScreen();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <BookUser className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Boot to BIOS Phone Book</span>
+                  </span>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <button
+                  onClick={() => {
+                    onOpenLinkCable();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Cable className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Compete.Com Link Cable...</span>
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    system.linkCable.launchSecondInstanceWindow();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Launch 2nd Instance (Multiplayer)</span>
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    system.settings.backgroundInput = !system.settings.backgroundInput;
+                    system.saveInputSettingsToStorage();
+                    onUpdate();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>Background Input (Unfocused)</span>
+                  {system.settings.backgroundInput && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                </button>
+
                 <div className="my-1 border-t border-zinc-800" />
 
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
@@ -785,6 +850,42 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
                 <button
                   onClick={() => {
+                    onOpenLinkCable();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <Cable className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Compete.Com Link Cable (2-Player)...</span>
+                </button>
+                <button
+                  onClick={() => {
+                    system.toggleDpadStylusMode();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Crosshair className="w-3.5 h-3.5 text-rose-400" />
+                    <span>DS-Style D-Pad Stylus Mode (Tab)</span>
+                  </span>
+                  {system.virtualStylus.dpadStylusMode && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenPhoneBook();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                >
+                  <BookUser className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Expanded Phone Book ($E000)...</span>
+                </button>
+                <button
+                  onClick={() => {
                     onOpenHighScores();
                     closeMenu();
                   }}
@@ -841,8 +942,71 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* Right: Minimal Quick Actions (Cartridge Name + View Mode + Mute) */}
+        {/* Right: Minimal Quick Actions (Compete.Com Link + Phone Book + Cartridge Name + View Mode + Mute) */}
         <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+          {system.linkCable.instanceNumber > 1 && (
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold">
+              P{system.linkCable.instanceNumber}
+            </span>
+          )}
+
+          {system.virtualStylus.dpadStylusMode && (
+            <button
+              onClick={() => {
+                system.toggleDpadStylusMode();
+                onUpdate();
+              }}
+              className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono text-[10px] cursor-pointer"
+              title="D-Pad Stylus Mode Active (Press Tab to switch back to D-Pad)"
+            >
+              <Crosshair className="w-3 h-3" />
+              <span>Stylus Mode</span>
+            </button>
+          )}
+
+          <button
+            onClick={onOpenLinkCable}
+            className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded transition cursor-pointer border ${
+              system.linkCable.status === 'connected'
+                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
+                : system.linkCable.status === 'waiting'
+                ? 'bg-amber-950/60 border-amber-500/50 text-amber-300'
+                : 'border-transparent hover:bg-zinc-800 text-zinc-300'
+            }`}
+            title="Compete.Com Link Cable (2-Player Local Network & Same-PC Dual Instance)"
+          >
+            <Cable
+              className={`w-3 h-3 ${
+                system.linkCable.status === 'connected'
+                  ? 'text-emerald-400'
+                  : system.linkCable.status === 'waiting'
+                  ? 'text-amber-400 animate-pulse'
+                  : 'text-sky-400'
+              }`}
+            />
+            <span className="font-medium">
+              {system.linkCable.status === 'connected'
+                ? 'Linked'
+                : system.linkCable.status === 'waiting'
+                ? 'Linking...'
+                : 'Compete.Com'}
+            </span>
+          </button>
+
+          <button
+            onClick={onOpenPhoneBook}
+            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+            title="Expanded Game.Com Phone Book Vault ($E000-$F3FF)"
+          >
+            <BookUser className="w-3 h-3 text-emerald-400" />
+            <span className="font-medium">Phone Book</span>
+            {system.phoneBook.getTotalEntriesCount() > 0 && (
+              <span className="font-mono text-[10px] text-emerald-400">
+                ({system.phoneBook.getTotalEntriesCount()})
+              </span>
+            )}
+          </button>
+
           <button
             onClick={onOpenLibrary}
             className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"

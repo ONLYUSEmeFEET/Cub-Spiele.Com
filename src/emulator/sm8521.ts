@@ -40,7 +40,12 @@ export const SM8521_MMU2 = 0x26;
 export const SM8521_MMU3 = 0x27;
 export const SM8521_MMU4 = 0x28;
 
+export const SM8521_URTT = 0x2b;
+export const SM8521_URTR = 0x2c;
+export const SM8521_URTS = 0x2d;
+export const SM8521_URTC = 0x2e;
 export const SM8521_CLKT = 0x2e;
+export const SM8521_URTB = 0x2f;
 export const SM8521_LCDC = 0x30;
 export const SM8521_LCH = 0x31;
 export const SM8521_LCV = 0x32;
@@ -191,6 +196,19 @@ export class SM8521CPU {
   public allowDataFoundPrompt: boolean = false;
   public lastDacCycle: number = 0;
 
+  // Compete.Com Serial Link Cable & SM8521 Hardware UART ($002B-$002F + P3 $0017 crossover)
+  public linkConnected: boolean = false;
+  public localPort3Bits: number = 0x00;  // Local P3 bits 0..1 (outputs to link cable)
+  public remotePort3Bits: number = 0x00; // Remote P3 bits 0..1 (received on local P3 bits 2..3)
+  public uartTxCyclesRemaining: number = 0;
+  public uartRxFifo: number[] = [];
+  public uartRxCooldown: number = 0;
+  public uartRxStaleCycles: number = 0;
+  public linkWaitFrames: number = 0;
+  public linkYieldScanline: boolean = false;
+  public onUartTxByte?: (byte: number) => void;
+  public onLinkPort3Change?: (lowBits: number) => void;
+
   public get pc(): number {
     return this.m_PC;
   }
@@ -261,9 +279,41 @@ export class SM8521CPU {
     this.mem_writebyte(0x19, 0x00);   // SYS
     this.mem_writebyte(0x1a, 0x00);   // CKC
     this.mem_writebyte(0x1f, 0x00);   // PS1
-    this.mem_writebyte(0x2b, 0xff);   // URTT
-    this.mem_writebyte(0x2d, 0x42);   // URTS
+    this.m_p_ram[SM8521_URTT] = 0xff; // URTT ($002B)
+    this.m_p_ram[SM8521_URTR] = 0x00; // URTR ($002C)
+    this.m_p_ram[SM8521_URTS] = 0x42; // URTS ($002D: Bit 6 TXEMPTY | Bit 1 TXRDY)
+    this.m_p_ram[SM8521_URTC] = 0x00; // URTC ($002E)
+    this.m_p_ram[SM8521_URTB] = 0x00; // URTB ($002F)
     this.mem_writebyte(0x5f, 0x38);   // WDTC
+
+    this.localPort3Bits = 0x00;
+    this.uartTxCyclesRemaining = 0;
+    this.uartRxFifo = [];
+    this.uartRxCooldown = 0;
+    this.uartRxStaleCycles = 0;
+    this.linkWaitFrames = 0;
+    this.linkYieldScanline = false;
+
+    // Initialize default BIOS UART ISR vector ($3D0E in Bank 2) & System TX/RX Queues ($0180/$0188)
+    this.m_p_ram[0x00a5] = 0x02; // UART_new_ibank
+    this.m_p_ram[0x0100] = 0x3d; // UART_new_isr hi ($3D0E)
+    this.m_p_ram[0x0101] = 0x0e; // UART_new_isr lo
+    this.m_p_ram[0x0190] = 0x01; // User_TX_qq ($0180)
+    this.m_p_ram[0x0191] = 0x80;
+    this.m_p_ram[0x0192] = 0x01; // User_RX_qq ($0188)
+    this.m_p_ram[0x0193] = 0x88;
+    this.m_p_ram[0x0194] = 0x00; // User_TX_qsize (8)
+    this.m_p_ram[0x0195] = 0x08;
+    this.m_p_ram[0x0196] = 0x00; // User_RX_qsize (8)
+    this.m_p_ram[0x0197] = 0x08;
+    this.m_p_ram[0x00ae] = 0x01; // TX_head ($0180)
+    this.m_p_ram[0x00af] = 0x80;
+    this.m_p_ram[0x011e] = 0x01; // TX_tail ($0180)
+    this.m_p_ram[0x011f] = 0x80;
+    this.m_p_ram[0x00a0] = 0x01; // RX_head ($0188)
+    this.m_p_ram[0x00a1] = 0x88;
+    this.m_p_ram[0x00a2] = 0x01; // RX_tail ($0188)
+    this.m_p_ram[0x00a3] = 0x88;
 
     this.m_p_ram[SM8521_LCH] = 0x07;
     this.m_p_ram[SM8521_LCV] = 0x27;
@@ -271,6 +321,26 @@ export class SM8521CPU {
 
     // Initialize internal Real-Time Clock & NVRAM Calendar to the user's device date & time
     this.syncDeviceDateTime();
+  }
+
+  /**
+   * Enqueues an incoming serial byte from the Compete.Com link cable into the SM8521 UART RX FIFO.
+   */
+  public enqueueUartRxByte(byte: number) {
+    if (this.uartRxFifo.length < 2048) {
+      this.uartRxFifo.push(byte & 0xff);
+      this.linkWaitFrames = 0;
+    }
+  }
+
+  /**
+   * Updates the remote console's Port 3 output bits (0..1), which appear on this console's Port 3 input bits (2..3).
+   */
+  public setRemotePort3Bits(remoteLowBits: number) {
+    this.remotePort3Bits = remoteLowBits & 0x03;
+    this.m_p_ram[SM8521_P3] =
+      (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
+    this.linkWaitFrames = 0;
   }
 
   /**
@@ -684,6 +754,16 @@ export class SM8521CPU {
   public program_read_byte(addr: number): number {
     addr &= 0xffff;
     if (addr < 0x0400) {
+      if (addr === SM8521_P3) {
+        const remoteIn = this.linkConnected ? ((this.remotePort3Bits & 0x03) << 2) : 0x00;
+        return (this.m_p_ram[SM8521_P3] & ~0x0c) | remoteIn;
+      }
+      if (addr === SM8521_URTR) {
+        // Reading UART Receive Data ($002C) clears RXRDY (bit 0) and error flags (bits 2..4) in URTS ($002D)
+        this.m_p_ram[SM8521_URTS] &= ~0x1d;
+        this.uartRxStaleCycles = 0;
+        return this.m_p_ram[SM8521_URTR];
+      }
       return this.m_p_ram[addr];
     }
     if (addr < 0x1000) {
@@ -739,6 +819,18 @@ export class SM8521CPU {
             const slotBits = this.latchedCartSlot === 2 ? 0x80 : 0x40;
             data = (data & 0x3f) | slotBits;
           }
+
+          // Compete.Com Link Cable Port 3 Crossover:
+          // Local Console P3 bits 0..1 are outputs wired to Peer Console P3 bits 2..3 (inputs).
+          const newLowBits = data & 0x03;
+          const prevLowBits = this.localPort3Bits;
+          this.localPort3Bits = newLowBits;
+          const remoteIn = this.linkConnected ? ((this.remotePort3Bits & 0x03) << 2) : 0x00;
+          data = (data & ~0x0c) | remoteIn;
+          if (newLowBits !== prevLowBits) {
+            this.linkWaitFrames = 0;
+            this.onLinkPort3Change?.(newLowBits);
+          }
         }
         this.m_p_ram[addr] = data;
         if (addr === SM8521_P1 || addr === SM8521_P2) {
@@ -755,6 +847,23 @@ export class SM8521CPU {
           case SM8521_MMU2: this.mmu[2] = data; break;
           case SM8521_MMU3: this.mmu[3] = data; break;
           case SM8521_MMU4: this.mmu[4] = data; break;
+          case SM8521_URTT:
+            // Writing a byte to UART Transmit Data ($002B) begins serial transmission:
+            // Clear TXRDY (bit 1 = 0x02) and TXEMPTY (bit 6 = 0x40) in URTS ($002D) for 48 cycles,
+            // and transmit the byte over the Compete.Com link cable.
+            this.m_p_ram[SM8521_URTT] = data;
+            this.m_p_ram[SM8521_URTS] &= ~0x42;
+            this.uartTxCyclesRemaining = 48;
+            this.linkWaitFrames = 0;
+            this.onUartTxByte?.(data);
+            return;
+          case SM8521_URTS:
+            // Preserve hardware TXRDY/RXRDY status bits (0x43) while allowing software to clear error bits
+            data = (this.m_p_ram[SM8521_URTS] & 0x43) | (data & ~0x5f);
+            break;
+          case SM8521_URTC:
+            // $002E is SM8521 UART Control Register (URTC: bit 4 = TX Enable, bit 3 = RX Enable, bits 0..2 = mode/baud)
+            break;
           case SM8521_DMBR: data &= 0x7f; break;
           case SM8521_TM0D:
             this.m_timer[0].upcounter_max = data;
@@ -781,11 +890,6 @@ export class SM8521CPU {
             }
             this.m_timer[1].prescale_count = 0;
             this.m_p_ram[SM8521_TM1D] = 0;
-            break;
-          case SM8521_CLKT:
-            if (!(data & 0x80)) {
-              data &= 0xc0;
-            }
             break;
           case SM8521_SGC:
             this.m_sound.sgc = data;
@@ -1108,10 +1212,40 @@ export class SM8521CPU {
     const oneSecondCycles = this.correctClockSpeed ? (411 * 200 * 60) : (462 * 200 * 60);
     while (this.clockTimerAccumCycles >= oneSecondCycles) {
       this.clockTimerAccumCycles -= oneSecondCycles;
-      const clkt = this.m_p_ram[SM8521_CLKT];
-      this.m_p_ram[SM8521_CLKT] = (clkt & 0xc0) | ((clkt + 1) & 0x3f);
       if (this.m_p_ram[SM8521_IE1] & 0x10) {
         this.set_input_line(CK_INT, true);
+      }
+    }
+
+    // SM8521 Hardware UART ($002B-$002F) TX Completion & RX FIFO Clocking:
+    if (this.uartTxCyclesRemaining > 0) {
+      this.uartTxCyclesRemaining -= cycles;
+      if (this.uartTxCyclesRemaining <= 0) {
+        this.uartTxCyclesRemaining = 0;
+        this.m_p_ram[SM8521_URTS] |= 0x42; // TXRDY (0x02) | TXEMPTY (0x40)
+        if (this.m_p_ram[SM8521_IE0] & 0x08) {
+          this.set_input_line(UART_INT, true);
+        }
+      }
+    }
+
+    if (this.uartRxCooldown > 0) {
+      this.uartRxCooldown -= cycles;
+    }
+    if (this.uartRxFifo.length > 0 && this.uartRxCooldown <= 0) {
+      const rxBusy = (this.m_p_ram[SM8521_URTS] & 0x01) !== 0;
+      if (!rxBusy || this.uartRxStaleCycles >= 1024) {
+        const nextByte = this.uartRxFifo.shift()! & 0xff;
+        this.m_p_ram[SM8521_URTR] = nextByte;
+        this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1c) | 0x01; // RXRDY (0x01), 0 errors
+        this.uartRxCooldown = 48;
+        this.uartRxStaleCycles = 0;
+        this.linkWaitFrames = 0;
+        if (this.m_p_ram[SM8521_IE0] & 0x08) {
+          this.set_input_line(UART_INT, true);
+        }
+      } else {
+        this.uartRxStaleCycles += cycles;
       }
     }
   }
@@ -1197,6 +1331,25 @@ export class SM8521CPU {
       if (this.m_PC === 0x56b4 && this.mmu[2] === 5) {
         if (this.onDacStreamStart) {
           this.onDacStreamStart();
+        }
+      }
+
+      // 3. Compete.Com Link Cable Asynchronous Transport Synchronizer ($46C6 = BIOS Receive_a_byte in Bank 5):
+      //    When a Head-to-Head game polls Receive_a_byte in a tight 0x180-iteration loop (~6ms) while waiting
+      //    for an in-flight packet over BroadcastChannel or LAN WebSocket, yield the scanline to the JS event
+      //    loop and hold the caller's RR4 timeout counter for up to 90 frames (~1.5s) until the byte arrives.
+      if (this.linkConnected && this.m_PC === 0x46c6 && this.mmu[2] === 5) {
+        const rxEmpty =
+          this.m_p_ram[0x00a0] === this.m_p_ram[0x00a2] &&
+          this.m_p_ram[0x00a1] === this.m_p_ram[0x00a3];
+        if (rxEmpty && this.uartRxFifo.length === 0 && this.linkWaitFrames < 90) {
+          const bankBase = this.m_PS0 & 0xf8;
+          const rr4 = (this.m_register_ram[bankBase + 4] << 8) | this.m_register_ram[bankBase + 5];
+          if (rr4 > 0x0008 && rr4 < 0x0280) {
+            this.m_register_ram[bankBase + 4] = 0x00;
+            this.m_register_ram[bankBase + 5] = 0x04;
+            this.linkYieldScanline = true;
+          }
         }
       }
 
@@ -2523,12 +2676,19 @@ default:
    * - 5.5296 MHz MAME clock / 59.732155 Hz / 200 scanlines = 462 cycles per scanline (~92,573 cycles/frame)
    */
   public runFrame(speedMultiplier: number = 1.0) {
+    if (this.linkConnected) {
+      this.linkWaitFrames++;
+    }
     const baseScanlineCycles = this.correctClockSpeed ? 411 : 462;
     const cyclesPerScanline = Math.max(64, Math.floor(baseScanlineCycles * speedMultiplier));
     for (let line = 0; line < 200; line++) {
       let lineCycles = 0;
+      this.linkYieldScanline = false;
       while (lineCycles < cyclesPerScanline) {
         lineCycles += this.step();
+        if (this.linkYieldScanline) {
+          break;
+        }
       }
       this.renderScanline();
     }

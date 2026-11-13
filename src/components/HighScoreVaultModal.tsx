@@ -9,7 +9,8 @@ import {
   Download,
   Upload,
   HardDriveDownload,
-  ShieldAlert
+  ShieldAlert,
+  BookUser
 } from 'lucide-react';
 
 interface HighScoreVaultModalProps {
@@ -17,6 +18,7 @@ interface HighScoreVaultModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenInBios: () => void;
+  onOpenPhoneBook?: () => void;
   onUpdated: () => void;
   onNotify?: (message: string, sub?: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -26,6 +28,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
   isOpen,
   onClose,
   onOpenInBios,
+  onOpenPhoneBook,
   onUpdated,
   onNotify
 }) => {
@@ -55,7 +58,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
   };
 
   const handleExportJson = () => {
-    const jsonStr = hs.exportVaultJson(system.cpu.nvram);
+    const jsonStr = hs.exportVaultJson(system.cpu.nvram, system.phoneBook);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -63,11 +66,15 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
     a.download = `gamecom_nvram_vault_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    onNotify?.('Exported NVRAM Vault (.json)', `${hs.records.length} high score records + 8KB NVRAM image exported`, 'success');
+    onNotify?.(
+      'Exported NVRAM Vault (.json)',
+      `${hs.records.length} high score records + ${system.phoneBook.getTotalEntriesCount()} Phone Book contacts exported`,
+      'success'
+    );
   };
 
   const handleExportRawNvram = () => {
-    const rawBytes = hs.exportRawNvramBinary(system.cpu.nvram);
+    const rawBytes = hs.exportRawNvramBinary(system.cpu.nvram, system.phoneBook);
     const blob = new Blob([rawBytes.buffer as ArrayBuffer], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -83,11 +90,12 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
     e.target.value = '';
     if (!file) return;
     try {
-      const res = await hs.importDataFromFile(file, system.cpu.nvram);
+      const res = await hs.importDataFromFile(file, system.cpu.nvram, system.phoneBook);
+      system.refreshBiosPhoneBookIfOpen();
       onUpdated();
       onNotify?.(
         `Imported ${res.format === 'json' ? 'JSON Vault' : '8KB NVRAM Binary'}`,
-        `Loaded ${res.recordsCount} high score record(s) into $FC60-$FEDF`,
+        `Loaded ${res.recordsCount} high score(s) & ${res.phoneBookCount} Phone Book contact(s)`,
         'success'
       );
     } catch (err) {
@@ -161,6 +169,18 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {onOpenPhoneBook && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenPhoneBook();
+                    }}
+                    className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <BookUser className="w-3.5 h-3.5" />
+                    Phone Book Vault ($E000)
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     onOpenInBios();

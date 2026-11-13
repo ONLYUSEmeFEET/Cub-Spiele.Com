@@ -11,9 +11,12 @@ import { SoundEngine } from './sound';
 import { BiosSubsystem } from './bios';
 import { SM8521CPU } from './sm8521';
 import { NvramHighScoreManager } from './nvramHighScores';
+import { NvramPhoneBookManager } from './nvramPhoneBook';
+import { CompeteComLinkManager } from './linkCable';
 import {
   GameComButtons,
   TouchPoint,
+  VirtualStylusState,
   CartridgeInfo,
   EmulatorSettings,
   CPURegisters,
@@ -29,6 +32,7 @@ import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
 const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v2';
 const TWO_SHADE_STORAGE_KEY = 'cub_spiele_two_shade_v2';
 const GHOSTING_SETTINGS_STORAGE_KEY = 'cub_spiele_ghosting_v2';
+const INPUT_SETTINGS_STORAGE_KEY = 'cub_spiele_input_settings_v1';
 
 export interface EmulationAccuracyFixes {
   correctClockSpeed: boolean;      // Calibrated 4.9152 MHz SM8521 scanline cycle timing
@@ -39,7 +43,14 @@ export interface EmulationAccuracyFixes {
   dualCartridgeSlotFix: boolean;   // Hardware P3 dual cartridge slot chip-select isolation
 }
 
-export type FastBootTarget = 'NONE' | 'MAIN_MENU' | 'CART_1' | 'CART_2' | 'HIGH_SCORE' | 'KEEP_CLEAR_PROMPT';
+export type FastBootTarget =
+  | 'NONE'
+  | 'MAIN_MENU'
+  | 'CART_1'
+  | 'CART_2'
+  | 'HIGH_SCORE'
+  | 'PHONE_BOOK'
+  | 'KEEP_CLEAR_PROMPT';
 
 export class GameComSystem {
   public lcd: LCDSubsystem;
@@ -47,6 +58,8 @@ export class GameComSystem {
   public bios: BiosSubsystem;
   public cpu: SM8521CPU;
   public highScores: NvramHighScoreManager;
+  public phoneBook: NvramPhoneBookManager;
+  public linkCable: CompeteComLinkManager;
 
   // Dual cartridge slots
   public slot1: CartridgeInfo | null = null;
@@ -64,6 +77,7 @@ export class GameComSystem {
   public bootFrameCounter: number = 0;
   public fastBootTarget: FastBootTarget = 'NONE';
   private nvramDirtyFrames: number = 0;
+  private phoneBookDirtyFrames: number = 0;
 
   // Single-touch discrete lock (strictly 1 touch input per pointer press)
   private touchLockedUntilRelease: boolean = false;
@@ -90,6 +104,16 @@ export class GameComSystem {
     x: 0,
     y: 0,
     isDown: false
+  };
+
+  // DS-Style Virtual Stylus (Keyboard & Gamepad/Controller control)
+  public virtualStylus: VirtualStylusState = {
+    x: 100,
+    y: 80,
+    isDown: false,
+    visible: false,
+    dpadStylusMode: false,
+    snapToGrid: false
   };
 
   // Accuracy Fixes Toggle state
@@ -123,7 +147,11 @@ export class GameComSystem {
     speed: 1.0,
     showFps: true,
     smoothMode: false,
-    stylusCursor: false
+    stylusCursor: false,
+    backgroundInput: true,
+    stylusSpeed: 2.5,
+    gamepadIndex: -1,
+    gamepadDeadzone: 0.15
   };
 
   // Timing
@@ -136,6 +164,8 @@ export class GameComSystem {
     this.sound = new SoundEngine();
     this.cpu = new SM8521CPU();
     this.highScores = new NvramHighScoreManager();
+    this.phoneBook = new NvramPhoneBookManager();
+    this.linkCable = new CompeteComLinkManager(this.cpu);
 
     // Wire hardware sound generator, 8-bit SGDA ($004E) DAC streamer, & BIOS digitized waveform callbacks
     this.cpu.onSoundRegWrite = (audioState) => {
@@ -164,6 +194,8 @@ export class GameComSystem {
     this.cpu.onNvramWrite = (addr) => {
       if (addr >= 0xfc60 && addr <= 0xfee5) {
         this.nvramDirtyFrames = 15;
+      } else if (addr >= 0xe000 && addr <= 0xf3ff) {
+        this.phoneBookDirtyFrames = 15;
       }
     };
 
@@ -175,6 +207,11 @@ export class GameComSystem {
 
     this.syncBiosToMemory();
     this.highScores.initializeNvramSignatures(this.cpu.nvram);
+    if (this.phoneBook.getTotalEntriesCount() === 0) {
+      this.phoneBook.syncFromNvram(this.cpu.nvram);
+    }
+    this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
+    this.highScores.saveRawNvram(this.cpu.nvram);
 
     // Preload Slot 1 (Lights Out) & Slot 2 (Sonic Jam)
     this.slot1 = PRELOADED_CARTRIDGES[0] || null;
@@ -227,6 +264,43 @@ export class GameComSystem {
           this.accuracyFixes.stnGhostingAccurate = parsedG.stnGhostingAccurate;
         }
       }
+
+      const rawInput = localStorage.getItem(INPUT_SETTINGS_STORAGE_KEY);
+      if (rawInput) {
+        const parsedI = JSON.parse(rawInput);
+        if (typeof parsedI.backgroundInput === 'boolean') {
+          this.settings.backgroundInput = parsedI.backgroundInput;
+        }
+        if (typeof parsedI.stylusSpeed === 'number') {
+          this.settings.stylusSpeed = Math.max(0.5, Math.min(8.0, parsedI.stylusSpeed));
+        }
+        if (typeof parsedI.gamepadIndex === 'number') {
+          this.settings.gamepadIndex = parsedI.gamepadIndex;
+        }
+        if (typeof parsedI.gamepadDeadzone === 'number') {
+          this.settings.gamepadDeadzone = Math.max(0.05, Math.min(0.5, parsedI.gamepadDeadzone));
+        }
+        if (typeof parsedI.snapToGrid === 'boolean') {
+          this.virtualStylus.snapToGrid = parsedI.snapToGrid;
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  public saveInputSettingsToStorage() {
+    try {
+      localStorage.setItem(
+        INPUT_SETTINGS_STORAGE_KEY,
+        JSON.stringify({
+          backgroundInput: this.settings.backgroundInput,
+          stylusSpeed: this.settings.stylusSpeed,
+          gamepadIndex: this.settings.gamepadIndex,
+          gamepadDeadzone: this.settings.gamepadDeadzone,
+          snapToGrid: this.virtualStylus.snapToGrid
+        })
+      );
     } catch {
       // Ignore storage errors
     }
@@ -421,6 +495,7 @@ export class GameComSystem {
     } else {
       this.sound.clearScheduledDacStream();
       this.highScores.syncFromNvram(this.cpu.nvram);
+      this.phoneBook.syncFromNvram(this.cpu.nvram);
     }
   }
 
@@ -447,6 +522,8 @@ export class GameComSystem {
     }
 
     this.highScores.initializeNvramSignatures(this.cpu.nvram);
+    this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
+    this.highScores.saveRawNvram(this.cpu.nvram);
     this.cpu.reset();
     this.cpu.syncDeviceDateTime();
     this.cpu.allowDataFoundPrompt = target === 'KEEP_CLEAR_PROMPT';
@@ -472,6 +549,32 @@ export class GameComSystem {
       this.triggerSingleStylusTap(100, 120, 12);
     } else {
       this.resetSystem('HIGH_SCORE');
+    }
+  }
+
+  public openBiosPhoneBookScreen() {
+    this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
+    this.highScores.saveRawNvram(this.cpu.nvram);
+    if (this.bootFrameCounter >= 480 && this.cpu.mmu[1] === 2 && this.cpu.m_p_ram[0x168] === 0) {
+      this.triggerSingleStylusTap(100, 35, 12);
+    } else {
+      this.resetSystem('PHONE_BOOK');
+    }
+  }
+
+  /**
+   * If the user is currently inside the BIOS Phone Book ($0168 == 1, MMU2 == 1),
+   * fast-boots back into PHONE_BOOK so the BIOS immediately re-reads and redraws $E000-$F3FB.
+   */
+  public refreshBiosPhoneBookIfOpen() {
+    this.highScores.saveRawNvram(this.cpu.nvram);
+    if (
+      this.isPoweredOn &&
+      this.cpu.mmu[1] === 2 &&
+      this.cpu.mmu[2] === 1 &&
+      this.cpu.m_p_ram[0x0168] === 1
+    ) {
+      this.resetSystem('PHONE_BOOK');
     }
   }
 
@@ -592,6 +695,18 @@ export class GameComSystem {
         if (f >= 545) {
           this.fastBootTarget = 'NONE';
         }
+      } else if (this.fastBootTarget === 'PHONE_BOOK') {
+        if (f >= 500 && f <= 512) {
+          // Tap PHONE BOOK icon on BIOS Main Menu (top-center column)
+          this.cpu.stylusPressed = true;
+          this.cpu.stylusX = 100;
+          this.cpu.stylusY = 35;
+        } else {
+          this.cpu.stylusPressed = false;
+        }
+        if (f >= 550) {
+          this.fastBootTarget = 'NONE';
+        }
       } else if (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') {
         if (f >= 500 && f <= 512) {
           // Tap CARTRIDGE icon on BIOS Main Menu
@@ -624,15 +739,21 @@ export class GameComSystem {
         this.cpu.stylusPressed = false;
       }
     } else {
-      // Normal interactive input: sync physical buttons and single-touch stylus pulse
+      // Normal interactive input: sync physical buttons and single-touch / held stylus
       this.cpu.buttonsState = { ...this.buttons };
 
-      if (this.stylusPulseFrames > 0) {
+      if (this.stylusPulseFrames > 0 || this.virtualStylus.isDown) {
         this.cpu.stylusPressed = true;
-        this.cpu.stylusX = this.touch.x;
-        this.cpu.stylusY = this.touch.y;
-        this.stylusPulseFrames--;
-        if (this.stylusPulseFrames === 0 && !this.touch.isDown) {
+        this.cpu.stylusX = Math.floor(
+          this.virtualStylus.isDown ? this.virtualStylus.x : this.touch.x
+        );
+        this.cpu.stylusY = Math.floor(
+          this.virtualStylus.isDown ? this.virtualStylus.y : this.touch.y
+        );
+        if (this.stylusPulseFrames > 0) {
+          this.stylusPulseFrames--;
+        }
+        if (this.stylusPulseFrames === 0 && !this.touch.isDown && !this.virtualStylus.isDown) {
           this.cpu.stylusPressed = false;
         }
       } else {
@@ -696,6 +817,14 @@ export class GameComSystem {
       }
     }
 
+    if (this.phoneBookDirtyFrames > 0) {
+      this.phoneBookDirtyFrames--;
+      if (this.phoneBookDirtyFrames === 0) {
+        this.phoneBook.syncFromNvram(this.cpu.nvram);
+        this.highScores.saveRawNvram(this.cpu.nvram);
+      }
+    }
+
     this.frameCount++;
     const now = performance.now();
     if (now - this.fpsTimer >= 1000) {
@@ -734,9 +863,87 @@ export class GameComSystem {
     this.touch.x = px;
     this.touch.y = py;
     this.touch.isDown = true;
+    this.virtualStylus.x = px;
+    this.virtualStylus.y = py;
     this.touchLockedUntilRelease = true;
     this.stylusPulseFrames = 8;
     this.sound.playTouchBeep();
+  }
+
+  /**
+   * Moves the DS-style virtual stylus cursor across the 200x160 LCD screen
+   * via Keyboard (IJKL / Numpad / D-Pad Stylus Mode) or Gamepad Analog Stick.
+   */
+  public moveVirtualStylus(dx: number, dy: number) {
+    if (!this.isPoweredOn) return;
+    if (dx === 0 && dy === 0) return;
+
+    this.virtualStylus.visible = true;
+    this.virtualStylus.x = Math.max(0, Math.min(SCREEN_WIDTH - 1, this.virtualStylus.x + dx));
+    this.virtualStylus.y = Math.max(0, Math.min(SCREEN_HEIGHT - 1, this.virtualStylus.y + dy));
+
+    if (this.virtualStylus.isDown) {
+      this.touch.x = Math.floor(this.virtualStylus.x);
+      this.touch.y = Math.floor(this.virtualStylus.y);
+    }
+  }
+
+  /**
+   * Steps the virtual stylus by discrete 13x10 touch grid cells (for Snap-to-Grid mode).
+   */
+  public stepVirtualStylusGridCell(dCol: number, dRow: number) {
+    if (!this.isPoweredOn) return;
+    this.virtualStylus.visible = true;
+    const cellW = SCREEN_WIDTH / 13;
+    const cellH = SCREEN_HEIGHT / 10;
+    const curCol = Math.min(12, Math.max(0, Math.floor(this.virtualStylus.x / cellW)));
+    const curRow = Math.min(9, Math.max(0, Math.floor(this.virtualStylus.y / cellH)));
+    const nextCol = Math.min(12, Math.max(0, curCol + dCol));
+    const nextRow = Math.min(9, Math.max(0, curRow + dRow));
+    this.virtualStylus.x = Math.round((nextCol + 0.5) * cellW);
+    this.virtualStylus.y = Math.round((nextRow + 0.5) * cellH);
+
+    if (this.virtualStylus.isDown) {
+      this.touch.x = Math.floor(this.virtualStylus.x);
+      this.touch.y = Math.floor(this.virtualStylus.y);
+    }
+  }
+
+  /**
+   * Presses or releases the virtual stylus tip against the resistive touchscreen
+   * at the current virtualStylus coordinates (DS emulation style).
+   */
+  public setVirtualStylusTouch(isDown: boolean) {
+    if (!this.isPoweredOn) return;
+    this.virtualStylus.visible = true;
+
+    if (isDown && !this.virtualStylus.isDown) {
+      const px = Math.max(0, Math.min(SCREEN_WIDTH - 1, Math.floor(this.virtualStylus.x)));
+      const py = Math.max(0, Math.min(SCREEN_HEIGHT - 1, Math.floor(this.virtualStylus.y)));
+      this.virtualStylus.isDown = true;
+      this.touch.x = px;
+      this.touch.y = py;
+      this.touch.isDown = true;
+      this.stylusPulseFrames = Math.max(this.stylusPulseFrames, 8);
+      this.sound.playTouchBeep();
+    } else if (!isDown && this.virtualStylus.isDown) {
+      this.virtualStylus.isDown = false;
+      this.touch.isDown = false;
+      this.touchLockedUntilRelease = false;
+    }
+  }
+
+  public toggleDpadStylusMode(): boolean {
+    this.virtualStylus.dpadStylusMode = !this.virtualStylus.dpadStylusMode;
+    if (this.virtualStylus.dpadStylusMode) {
+      this.virtualStylus.visible = true;
+      // Release any held D-Pad directional inputs when switching D-Pad to Stylus control
+      this.buttons.up = false;
+      this.buttons.down = false;
+      this.buttons.left = false;
+      this.buttons.right = false;
+    }
+    return this.virtualStylus.dpadStylusMode;
   }
 
   public handlePointerMove(_normX: number, _normY: number) {
@@ -769,6 +976,7 @@ export class GameComSystem {
 
   public saveState(slotIndex: number = 0) {
     this.highScores.syncFromNvram(this.cpu.nvram);
+    this.phoneBook.syncFromNvram(this.cpu.nvram);
     const stateData = {
       timestamp: Date.now(),
       slotIndex,
@@ -818,6 +1026,7 @@ export class GameComSystem {
       if (Array.isArray(stateData.nvram)) {
         this.cpu.nvram.set(stateData.nvram);
         this.highScores.syncFromNvram(this.cpu.nvram);
+        this.phoneBook.syncFromNvram(this.cpu.nvram);
       }
       return true;
     } catch {
