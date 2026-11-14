@@ -305,6 +305,8 @@ export interface EmulatorSettings {
   gamepadDeadzone: number;
   /** Show advanced technical options, dual-slot manual controls, and developer tools */
   advancedMode: boolean;
+  /** Toggle on-screen Score / Leaderboard HUD overlay on the LCD screen (defaults to false / OFF) */
+  showScoreOverlay: boolean;
 }
 
 export interface CPURegisters {

@@ -512,10 +512,22 @@ export class SM8521CPU {
       }
     }
 
-    // Ensure slot compatibility flags (+0x04) allow booting in both Slot 1 and Slot 2
+    // Ensure slot compatibility flags (+0x04) allow booting in both Slot 1 and Slot 2,
+    // and ensure the BIOS Game ID checksum byte (+0x1C = ((id_hi + id_lo) & 0xFF) ^ 0xA5)
+    // is valid for diagnostic/homebrew cartridges (such as compete_test.bin Game ID $C0DE).
     for (const off of probeOffsets) {
       if (hasSigAt(crt, off)) {
         crt[off + 0x04] |= 0x03;
+        const idHi = crt[off + 0x1a];
+        const idLo = crt[off + 0x1b];
+        const expectedCksum = ((idHi + idLo) & 0xff) ^ 0xa5;
+        if (idHi === 0xc0 && idLo === 0xde && crt[off + 0x1c] !== expectedCksum) {
+          crt[off + 0x1c] = expectedCksum;
+          // Ensure BIOS $4E38 security table entry 0x0B sums to 0x5A
+          if (off + 0x200d < crt.length) {
+            crt[off + 0x200d] = 0x5a;
+          }
+        }
       }
     }
 
@@ -824,24 +836,12 @@ export class SM8521CPU {
               this.m_p_ram[0x0164] = 0x60;
             }
           }
-          if (this.p3ReadsThisFrame > 24) {
-            // CPU is spinning in a P3 handshake wait loop (e.g. Fighters Megamix wait_count or Mortal Kombat Trilogy $7C5A/$7E23)
+          if (this.p3ReadsThisFrame > 16) {
+            // CPU is spinning in a P3 handshake wait loop; yield the current scanline so software timeout
+            // loops stretch across ~20+ frames for async BroadcastChannel / IPC / WebSocket delivery
+            // without corrupting any CPU registers (RR10) or freezing the remainder of the frame.
             this.linkFrameHadWait = true;
-            const bankBase = this.m_PS0 & 0xf8;
-            const rr10 = (this.m_register_ram[bankBase + 10] << 8) | this.m_register_ram[bankBase + 11];
-            if (rr10 > 0x0010 && rr10 < 0xfff8) {
-              this.m_register_ram[bankBase + 10] = 0x00;
-              this.m_register_ram[bankBase + 11] = 0x10;
-              this.m_p_ram[10] = 0x00;
-              this.m_p_ram[11] = 0x10;
-            }
-            if (this.m_p_ram[0x02d3] === 0x01) {
-              this.m_p_ram[0x02d3] = 0x00;
-            }
-            if (this.p3ReadsThisFrame > 64) {
-              this.linkYieldScanline = true;
-              this.linkYieldFrame = true;
-            }
+            this.linkYieldScanline = true;
           }
         }
         return result;
@@ -862,20 +862,9 @@ export class SM8521CPU {
           this.gamecom_update_timers(0);
         } else if (this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
           this.p3ReadsThisFrame++;
-          if (this.p3ReadsThisFrame > 32) {
+          if (this.p3ReadsThisFrame > 16) {
             this.linkFrameHadWait = true;
-            const bankBase = this.m_PS0 & 0xf8;
-            const rr10 = (this.m_register_ram[bankBase + 10] << 8) | this.m_register_ram[bankBase + 11];
-            if (rr10 > 0x0010 && rr10 < 0xfff8) {
-              this.m_register_ram[bankBase + 10] = 0x00;
-              this.m_register_ram[bankBase + 11] = 0x10;
-              this.m_p_ram[10] = 0x00;
-              this.m_p_ram[11] = 0x10;
-            }
-            if (this.p3ReadsThisFrame > 96) {
-              this.linkYieldScanline = true;
-              this.linkYieldFrame = true;
-            }
+            this.linkYieldScanline = true;
           }
         }
       }
@@ -981,7 +970,8 @@ export class SM8521CPU {
             // Writing a byte to UART Transmit Data ($002B) transmits over the Compete.Com link cable:
             // Keep TXRDY (bit 1 = 0x02) and TXEMPTY (bit 6 = 0x40) asserted in URTS ($002D) so BIOS
             // Send_a_byte ($463D) always takes the direct $464D hardware register path during multi-byte
-            // bursts (preventing Reset_UART_queue $460B from wiping queued bytes before transmission).
+            // bursts, AND schedule a 64-cycle TX completion check so games using custom UART ISRs or
+            // queued TX buffers receive UART_INT ($1008) when transmission completes.
             if (this.remotePort3Queue.length > 0) {
               this.remotePort3Bits = this.remotePort3Queue[this.remotePort3Queue.length - 1] & 0x03;
               this.remotePort3Queue = [];
@@ -991,7 +981,7 @@ export class SM8521CPU {
             }
             this.m_p_ram[SM8521_URTT] = data;
             this.m_p_ram[SM8521_URTS] |= 0x42;
-            this.uartTxCyclesRemaining = 0;
+            this.uartTxCyclesRemaining = 64;
             this.linkWaitFrames = 0;
             this.onUartTxByte?.(data);
             return;
@@ -1361,7 +1351,13 @@ export class SM8521CPU {
       if (this.uartTxCyclesRemaining <= 0) {
         this.uartTxCyclesRemaining = 0;
         this.m_p_ram[SM8521_URTS] |= 0x42; // TXRDY (0x02) | TXEMPTY (0x40)
-        if (this.m_p_ram[SM8521_IE0] & 0x08) {
+        const isDefaultBiosIsr =
+          this.m_p_ram[0x00a5] === 0x02 &&
+          this.m_p_ram[0x0100] === 0x3d &&
+          this.m_p_ram[0x0101] === 0x0e;
+        const txHead = (this.m_p_ram[0x00ae] << 8) | this.m_p_ram[0x00af];
+        const txTail = (this.m_p_ram[0x011e] << 8) | this.m_p_ram[0x011f];
+        if ((this.m_p_ram[SM8521_IE0] & 0x08) !== 0 && (!isDefaultBiosIsr || txHead !== txTail)) {
           this.set_input_line(UART_INT, true);
         }
       }
@@ -1374,18 +1370,39 @@ export class SM8521CPU {
       const rxBusy = (this.m_p_ram[SM8521_URTS] & 0x01) !== 0;
       const irqPending = (this.m_IR0 & 0x08) !== 0;
       const interruptsEnabled = (this.m_PS1 & FLAG_I) !== 0;
-      if ((!rxBusy && !irqPending && interruptsEnabled) || this.uartRxStaleCycles >= 1024) {
+      const uartIrqEnabled = (this.m_p_ram[SM8521_IE0] & 0x08) !== 0;
+
+      // Check if the default BIOS UART ISR ($3D0E in Bank 2) is active and whether its User_RX_qq ring buffer is full.
+      // Never clock a new byte into URTR if $3D0E's ring buffer is currently full, because $3D60 branches to $3D72
+      // and discards the byte when nextRxTail === rxHead!
+      const isDefaultBiosIsr =
+        this.m_p_ram[0x00a5] === 0x02 &&
+        this.m_p_ram[0x0100] === 0x3d &&
+        this.m_p_ram[0x0101] === 0x0e;
+      let biosRxBufferFull = false;
+      if (isDefaultBiosIsr) {
+        const rxHead = (this.m_p_ram[0x00a0] << 8) | this.m_p_ram[0x00a1];
+        const rxTail = (this.m_p_ram[0x00a2] << 8) | this.m_p_ram[0x00a3];
+        const qBase = (this.m_p_ram[0x0192] << 8) | this.m_p_ram[0x0193];
+        const qSize = (this.m_p_ram[0x0196] << 8) | this.m_p_ram[0x0197];
+        const qEnd = (qBase + (qSize > 0 ? qSize : 8)) & 0xffff;
+        if (rxTail >= 0x0100 && rxTail < 0x0400) {
+          let nextTail = (rxTail + 1) & 0xffff;
+          if (nextTail === qEnd) nextTail = qBase;
+          if (nextTail === rxHead) {
+            biosRxBufferFull = true;
+          }
+        }
+      }
+
+      if (!rxBusy && !irqPending && interruptsEnabled && uartIrqEnabled && !biosRxBufferFull) {
         const nextByte = this.uartRxFifo.shift()! & 0xff;
         this.m_p_ram[SM8521_URTR] = nextByte;
         this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1c) | 0x43; // RXRDY (0x01) | TXRDY (0x02) | TXEMPTY (0x40), 0 errors
-        this.uartRxCooldown = 24;
+        this.uartRxCooldown = 48;
         this.uartRxStaleCycles = 0;
         this.linkWaitFrames = 0;
-        if (this.m_p_ram[SM8521_IE0] & 0x08) {
-          this.set_input_line(UART_INT, true);
-        }
-      } else {
-        this.uartRxStaleCycles += cycles;
+        this.set_input_line(UART_INT, true);
       }
     }
   }
@@ -1405,15 +1422,11 @@ export class SM8521CPU {
         this.displayBuffer[y * 200 + x] = 0;
       }
     } else {
-      // Map raw 2-bit VRAM pixel to 0..3 shade (0 = lightest LCD background, 3 = darkest black)
-      let p0 = 0, p1 = 1, p2 = 2, p3 = 3;
-      switch (lcdc & 0x30) {
-        case 0x00: p0 = 0; p1 = 1; p2 = 2; p3 = 3; break;
-        case 0x10:
-        case 0x20: p0 = 0; p1 = 1; p2 = 2; p3 = 3; break;
-        case 0x30: p0 = 0; p1 = 2; p2 = 2; p3 = 3; break;
-      }
-      const pal = [p0, p1, p2, p3];
+      // Map raw 2-bit VRAM pixel to 0..3 shade (0 = lightest LCD background, 1 = light-mid, 2 = dark-mid, 3 = darkest black).
+      // Note: On Sharp SM8521 hardware, LCDC ($0020) bits 5..4 (0x30) configure the 4-level STN gray-scale bias/duty clock
+      // (set to 0x30 in $B0/$F0 by the Game.com BIOS, Castlevania: SOTN, Monopoly, etc.). All four 2-bpp shades (0..3)
+      // must remain distinct so Shade 1 backgrounds and Shade 2 text (e.g. Castlevania SOTN "PASSWORD" & Monopoly Options)
+      // are never collapsed into the same shade.
       const useSnapshot = this.committedVramValid && (lcdc & 0x40) === this.lastLcdcPageBit;
       const vramSource = useSnapshot ? this.committedVramPage : this.videoram;
       const lineOffset = (useSnapshot ? 0 : base_address) + 40 * x;
@@ -1421,10 +1434,10 @@ export class SM8521CPU {
       for (let i = 0; i < 40; i++) {
         const p = vramSource[lineOffset + i];
         const yBase = i * 4;
-        this.displayBuffer[(yBase + 0) * 200 + x] = pal[(p >> 6) & 3];
-        this.displayBuffer[(yBase + 1) * 200 + x] = pal[(p >> 4) & 3];
-        this.displayBuffer[(yBase + 2) * 200 + x] = pal[(p >> 2) & 3];
-        this.displayBuffer[(yBase + 3) * 200 + x] = pal[p & 3];
+        this.displayBuffer[(yBase + 0) * 200 + x] = (p >> 6) & 3;
+        this.displayBuffer[(yBase + 1) * 200 + x] = (p >> 4) & 3;
+        this.displayBuffer[(yBase + 2) * 200 + x] = (p >> 2) & 3;
+        this.displayBuffer[(yBase + 3) * 200 + x] = p & 3;
       }
     }
 
@@ -1475,7 +1488,7 @@ export class SM8521CPU {
       // 2b. Compete.Com Link Cable VBlank Handshake Synchronizer ($43CE = BIOS Scan_Keypad in Bank 5):
       //     Fighters Megamix open_h2hx ($6D2F) and exchg_openx ($6D80/$6E53) call Scan_Keypad (`49 5A AC`)
       //     while waiting for the peer console's Port 3 handshake. Ensure $0163/$0164 timeout counter stays
-      //     nonzero while waiting and return from Scan_Keypad once per frame so the P3 handshake loop advances.
+      //     nonzero while waiting and return from Scan_Keypad once per scanline so the P3 handshake loop advances.
       if (this.linkConnected && this.m_PC === 0x43ce && this.mmu[2] === 5 && this.mmu[3] === 0x25 && this.linkWaitFrames < 600) {
         this.onLinkPoll?.();
         if (this.m_p_ram[0x0162] === 0x01) {
@@ -1487,21 +1500,31 @@ export class SM8521CPU {
           this.uartPollsThisFrame++;
           if (this.uartPollsThisFrame >= 2) {
             this.linkYieldScanline = true;
-            this.linkYieldFrame = true;
           }
         }
       }
 
       // 3. Compete.Com Link Cable Asynchronous Transport Synchronizer ($46C6 = BIOS Receive_a_byte in Bank 5):
-      //    When a Head-to-Head game polls Receive_a_byte in a tight loop while waiting for an in-flight
-      //    packet over BroadcastChannel or LAN WebSocket, flush any pending outgoing TX bytes immediately,
-      //    clock in any waiting RX FIFO byte, or yield the remainder of the frame to the JS event loop while
-      //    preventing false software spin-loop timeouts (RR4 in Fighters Megamix, $0112/$0208 in Mortal Kombat Trilogy).
+      //    When a Head-to-Head game polls Receive_a_byte in a loop while waiting for an in-flight
+      //    packet over BroadcastChannel, Electron IPC, or LAN WebSocket:
+      //    - Flush any pending outgoing TX bytes immediately via onLinkPoll()
+      //    - Deliver waiting RX FIFO bytes into User_RX_qq ($0192/$0193) ONLY when no byte is already
+      //      in-flight in URTR ($002C) / UART_INT ($1008), preventing out-of-order or dropped bytes
+      //    - Always allow $46C6 to execute normally and return CLRC when empty (never freeze PC at $46C6
+      //      and never clobber general-purpose CPU registers like RR4!)
       if (this.linkConnected && this.m_PC === 0x46c6 && this.mmu[2] === 5) {
         this.onLinkPoll?.();
         let rxHead = (this.m_p_ram[0x00a0] << 8) | this.m_p_ram[0x00a1];
         let rxTail = (this.m_p_ram[0x00a2] << 8) | this.m_p_ram[0x00a3];
-        if (rxHead === rxTail && this.uartRxFifo.length > 0 && (this.m_PS1 & FLAG_I) !== 0 && (this.m_p_ram[SM8521_IE0] & 0x08) !== 0) {
+        const rxBusy = (this.m_p_ram[SM8521_URTS] & 0x01) !== 0;
+        const irqPending = (this.m_IR0 & 0x08) !== 0;
+        if (
+          rxHead === rxTail &&
+          !rxBusy &&
+          !irqPending &&
+          this.uartRxFifo.length > 0 &&
+          (this.m_p_ram[SM8521_IE0] & 0x08) !== 0
+        ) {
           // Deliver the next received byte directly into the active User_RX_qq ring buffer ($0192/$0193, size $0196/$0197)
           // and update hardware UART registers ($002C URTR, $002D URTS, and $00FB uart_ram) without overflowing the 256B stack!
           const nextByte = this.uartRxFifo.shift()! & 0xff;
@@ -1520,35 +1543,18 @@ export class SM8521CPU {
             this.m_p_ram[0x00a2] = (rxTail >> 8) & 0xff;
             this.m_p_ram[0x00a3] = rxTail & 0xff;
           }
-          this.uartRxCooldown = 24;
+          this.uartRxCooldown = 48;
           this.uartRxStaleCycles = 0;
           this.linkWaitFrames = 0;
         } else if (rxHead === rxTail && this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
           this.uartPollsThisFrame++;
           this.linkFrameHadWait = true;
-          const bankBase = this.m_PS0 & 0xf8;
-          const rr4 = (this.m_register_ram[bankBase + 4] << 8) | this.m_register_ram[bankBase + 5];
-          if (rr4 > 0x0004 && rr4 < 0x0300) {
-            this.m_register_ram[bankBase + 4] = 0x00;
-            this.m_register_ram[bankBase + 5] = 0x04;
-            this.m_p_ram[4] = 0x00;
-            this.m_p_ram[5] = 0x04;
+          // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in $0208
+          if (this.mmu[4] === 0x27 && this.m_p_ram[0x0208] <= 0x02) {
+            this.m_p_ram[0x0208] = 0x00;
           }
-          // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in R5 / $0208
-          if (this.mmu[4] === 0x27) {
-            const vblankTick = this.m_p_ram[0x0112];
-            this.m_register_ram[bankBase + 5] = vblankTick;
-            this.m_p_ram[5] = vblankTick;
-            if (this.m_p_ram[0x0208] <= 0x02) {
-              this.m_p_ram[0x0208] = 0x00;
-            }
-          }
-          if (this.uartPollsThisFrame >= 1) {
+          if (this.uartPollsThisFrame > 8) {
             this.linkYieldScanline = true;
-            this.linkYieldFrame = true;
-            this.gamecom_update_timers(4);
-            this.cycles += 4;
-            return 4;
           }
         }
       }

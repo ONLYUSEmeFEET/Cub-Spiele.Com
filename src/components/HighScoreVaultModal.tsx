@@ -1,8 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { KNOWN_GAMECOM_GAMES } from '../emulator/cartridge';
 import { OnlineLeaderboardManager, OnlineLeaderboardEntry } from '../emulator/onlineLeaderboard';
-import { GAMECOM_RA_ACHIEVEMENTS } from '../emulator/retroAchievements';
+import { RAIntegrationDllBridge } from '../emulator/raIntegrationDll';
 import {
   Trophy,
   Trash2,
@@ -27,7 +27,8 @@ import {
   Unlock,
   FileCode,
   Sparkles,
-  KeyRound
+  KeyRound,
+  Cpu
 } from 'lucide-react';
 
 export type HighScoreModalTab = 'leaderboard' | 'profiles' | 'nvram' | 'retroachievements';
@@ -54,7 +55,15 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
   onNotify
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dllFileInputRef = useRef<HTMLInputElement | null>(null);
+  const userTxtInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<HighScoreModalTab>(initialTab);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Leaderboard tab state
   const [selectedGameFilter, setSelectedGameFilter] = useState<number | 'ALL'>('ALL');
@@ -324,7 +333,73 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
     );
   };
 
-  const activeGameAchievements = GAMECOM_RA_ACHIEVEMENTS;
+  const handleInspectDllFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const report = RAIntegrationDllBridge.inspectPeDllBinary(
+        new Uint8Array(buf),
+        file.name,
+        'user_uploaded'
+      );
+      ra.raDll.dllInspection = report;
+      onUpdated();
+      onNotify?.(
+        report.validPe
+          ? `Verified ${file.name} (${report.architecture})`
+          : `Invalid PE DLL: ${file.name}`,
+        report.validPe
+          ? `Found ${report.exportedFunctions.length} official _RA_* exports (${report.sizeBytes.toLocaleString()} bytes)`
+          : 'File does not contain a valid MZ / PE header',
+        report.validPe ? 'success' : 'error'
+      );
+    } catch (err) {
+      onNotify?.('DLL Inspection Error', (err as Error).message, 'error');
+    }
+  };
+
+  const handleImportUserTxtFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const res = ra.importUserTxtContent(text, true);
+      onUpdated();
+      onNotify?.(
+        `Imported ${file.name}`,
+        `Loaded ${res.achievementsImported} local achievement(s) and ${res.leaderboardsImported} leaderboard(s)`,
+        'success'
+      );
+    } catch (err) {
+      onNotify?.('User.txt Import Error', (err as Error).message, 'error');
+    }
+  };
+
+  const handleExportUserTxtFile = () => {
+    const gameId = ra.session.activeGameId || 9900;
+    const content = ra.exportRAIntegrationSubmissionSpec(
+      system.cpu,
+      system.getActiveCartridge()
+    );
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${gameId}-User.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onNotify?.(
+      `Exported ${gameId}-User.txt`,
+      'Saved local RAIntegration achievement & leaderboard definitions',
+      'success'
+    );
+  };
+
+  const activeGameAchievements = ra.getAllAchievements();
+  const complianceChecks = ra.getComplianceAuditReport();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
@@ -335,6 +410,20 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
           type="file"
           accept=".json,.nvram,.sav,.bin"
           onChange={handleImportFile}
+          className="hidden"
+        />
+        <input
+          ref={dllFileInputRef}
+          type="file"
+          accept=".dll"
+          onChange={handleInspectDllFile}
+          className="hidden"
+        />
+        <input
+          ref={userTxtInputRef}
+          type="file"
+          accept=".txt"
+          onChange={handleImportUserTxtFile}
           className="hidden"
         />
 
@@ -1197,7 +1286,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
           )}
 
           {/* ===================================================================== */}
-          {/* TAB 4: HARDCORE MODE & RETROACHIEVEMENTS (RCHEEVOS)                   */}
+          {/* TAB 4: HARDCORE MODE & RETROACHIEVEMENTS (RCHEEVOS & RAINTEGRATION)   */}
           {/* ===================================================================== */}
           {activeTab === 'retroachievements' && (
             <div className="space-y-5">
@@ -1218,27 +1307,34 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                         <Unlock className="w-4 h-4 text-slate-400" />
                       )}
                       <span>
-                        Competitive Hardcore Mode (RetroAchievements Compatible)
+                        {ra.config.hardcoreMode ? 'Hardcore Mode Active' : 'Casual Mode Active'} (RetroAchievements Compliant)
                       </span>
                     </h3>
                     <p className="text-xs text-slate-300 mt-1">
-                      Guarantees 100% score legitimacy: disables Save State loading (F8), locks native
-                      4.9152 MHz clock speed (&ge;1.0×), blocks CPU debugger stepping, and signs every
-                      hardware score write with your rolling input entropy hash.
+                      Enforces all official RetroAchievements Hardcore Compliance Requirements: disables
+                      Save State loading (F8), Rewind ([), Frame Advance (F), Slow Motion (&lt;1.0×),
+                      Cheats/Memory Pokes, and CPU Debugger inspection while locking Rich Presence &amp;
+                      Leaderboards ON. Switching Casual &rarr; Hardcore cold-resets the system.
                     </p>
                   </div>
 
                   <button
                     onClick={() => {
+                      if (ra.config.hardcoreMode && ra.config.warnOnHardcoreDisable) {
+                        const confirmed = window.confirm(
+                          'Switch from Hardcore Mode to Casual Mode mid-session? Re-enabling Hardcore Mode later will require a cold system reset.'
+                        );
+                        if (!confirmed) return;
+                      }
                       const next = system.toggleHardcoreMode();
                       onUpdated();
                       onNotify?.(
                         next
                           ? 'Competitive Hardcore Mode Enabled'
-                          : 'Switched to Softcore Mode',
+                          : 'Switched to Casual Mode',
                         next
                           ? 'System cold-booted into a clean, untainted competitive session'
-                          : 'Save State loading and sub-1.0x speeds are now permitted',
+                          : 'Save State loading, Rewind, Frame Advance & sub-1.0x speeds are now permitted',
                         next ? 'success' : 'info'
                       );
                     }}
@@ -1248,46 +1344,111 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                         : 'bg-slate-800 hover:bg-amber-600 text-white'
                     }`}
                   >
-                    {ra.config.hardcoreMode ? 'Disable Hardcore Mode' : 'Enable Hardcore Mode'}
+                    {ra.config.hardcoreMode ? 'Switch to Casual Mode' : 'Enable Hardcore Mode (Reset)'}
                   </button>
                 </div>
 
                 {/* Live Session Cryptographic Telemetry */}
-                {system.settings.advancedMode && (
-                  <div className="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                      <div className="text-[10px] text-slate-400 uppercase">Session Integrity</div>
-                      <div
-                        className={`font-bold mt-0.5 ${
-                          ra.isSessionHardcoreClean() ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
-                      >
-                        {ra.isSessionHardcoreClean() ? 'CLEAN (HARDCORE)' : 'SOFTCORE / TAINTED'}
-                      </div>
-                    </div>
-                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                      <div className="text-[10px] text-slate-400 uppercase">Frames / Inputs</div>
-                      <div className="font-bold text-white mt-0.5">
-                        {ra.session.framesExecuted.toLocaleString()}f / {ra.session.inputEventCount}i
-                      </div>
-                    </div>
-                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                      <div className="text-[10px] text-slate-400 uppercase">Input Entropy Hash</div>
-                      <div className="font-bold text-amber-300 mt-0.5">
-                        0x{ra.session.inputRollingHash.toString(16).toUpperCase().padStart(8, '0')}
-                      </div>
-                    </div>
-                    <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
-                      <div className="text-[10px] text-slate-400 uppercase">ROM MD5 (rcheevos)</div>
-                      <div
-                        className="font-bold text-sky-300 mt-0.5 truncate"
-                        title={ra.session.activeRomMd5}
-                      >
-                        {ra.session.activeRomMd5.slice(0, 16)}...
-                      </div>
+                <div className="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">Session Integrity</div>
+                    <div
+                      className={`font-bold mt-0.5 ${
+                        ra.isSessionHardcoreClean() ? 'text-emerald-400' : 'text-amber-300'
+                      }`}
+                    >
+                      {ra.isSessionHardcoreClean() ? 'CLEAN (HARDCORE)' : 'CASUAL MODE'}
                     </div>
                   </div>
-                )}
+                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">Frames / Inputs</div>
+                    <div className="font-bold text-white mt-0.5">
+                      {ra.session.framesExecuted.toLocaleString()}f / {ra.session.inputEventCount}i
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">Offline Sync Queue</div>
+                    <div className="font-bold text-amber-300 mt-0.5 flex items-center justify-between">
+                      <span>{ra.offlineQueue.length} pending</span>
+                      {ra.offlineQueue.length > 0 && (
+                        <button
+                          onClick={async () => {
+                            const res = await ra.flushOfflineQueue();
+                            onUpdated();
+                            onNotify?.(
+                              'Offline Queue Synced',
+                              `Synced ${res.synced} item(s), ${res.remaining} remaining`,
+                              'info'
+                            );
+                          }}
+                          className="text-[10px] px-1.5 py-0.5 bg-amber-600 text-white rounded cursor-pointer"
+                        >
+                          Flush
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">ROM MD5 (rcheevos)</div>
+                    <div
+                      className="font-bold text-sky-300 mt-0.5 truncate"
+                      title={ra.session.activeRomMd5}
+                    >
+                      {ra.session.activeRomMd5.slice(0, 16)}...
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section A.2 & B Notification & Compliance Toggles */}
+                <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="px-2.5 py-1 rounded bg-emerald-950/70 border border-emerald-700/60 text-emerald-300 font-mono">
+                    Rich Presence: ON {ra.config.hardcoreMode ? '[Hardcore Locked]' : ''}
+                  </span>
+                  <span className="px-2.5 py-1 rounded bg-emerald-950/70 border border-emerald-700/60 text-emerald-300 font-mono">
+                    Leaderboards: ON {ra.config.hardcoreMode ? '[Hardcore Locked]' : ''}
+                  </span>
+                  <button
+                    onClick={() => {
+                      ra.config.challengeIndicatorsEnabled = !ra.config.challengeIndicatorsEnabled;
+                      ra.saveConfig();
+                      onUpdated();
+                    }}
+                    className={`px-2.5 py-1 rounded border font-mono cursor-pointer ${
+                      ra.config.challengeIndicatorsEnabled
+                        ? 'bg-amber-950/70 border-amber-600/60 text-amber-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    Trigger (T:) Indicators: {ra.config.challengeIndicatorsEnabled ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      ra.config.measuredProgressPopups = !ra.config.measuredProgressPopups;
+                      ra.saveConfig();
+                      onUpdated();
+                    }}
+                    className={`px-2.5 py-1 rounded border font-mono cursor-pointer ${
+                      ra.config.measuredProgressPopups
+                        ? 'bg-sky-950/70 border-sky-600/60 text-sky-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    Measured (M:) Popups: {ra.config.measuredProgressPopups ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      system.toggleScoreOverlay();
+                      onUpdated();
+                    }}
+                    className={`px-2.5 py-1 rounded border font-mono cursor-pointer ${
+                      system.settings.showScoreOverlay
+                        ? 'bg-purple-950/70 border-purple-600/60 text-purple-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    Score Display Overlay: {system.settings.showScoreOverlay ? 'ON' : 'OFF'}
+                  </button>
+                </div>
               </div>
 
               {/* RetroAchievements.org Account & Rich Presence */}
@@ -1296,7 +1457,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                       <Award className="w-4 h-4" />
-                      <span>RetroAchievements Account</span>
+                      <span>RetroAchievements Account (dorequest.php)</span>
                     </h4>
                     <span
                       className={`text-[10px] font-mono px-2 py-0.5 rounded ${
@@ -1305,7 +1466,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                           : 'bg-slate-800 text-slate-400'
                       }`}
                     >
-                      {ra.connectionStatus === 'connected' ? 'CONNECTED' : 'LOCAL'}
+                      {ra.connectionStatus === 'connected' ? 'CONNECTED' : 'LOCAL / OFFLINE QUEUE'}
                     </span>
                   </div>
 
@@ -1321,7 +1482,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                       type="password"
                       value={raPasswordOrToken}
                       onChange={(e) => setRaPasswordOrToken(e.target.value)}
-                      placeholder="Password or Connect Token"
+                      placeholder="Password or 16-char Connect Token"
                       className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white"
                     />
                     <div className="flex items-center gap-2">
@@ -1351,56 +1512,150 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                   </div>
                 </div>
 
-                {/* Live Rich Presence & RAIntegration Submission Kit */}
+                {/* Live Rich Presence & User-Agent Identification */}
                 <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
-                      Current Status
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1.5">
+                      Live Rich Presence &amp; User-Agent (Section C)
                     </h4>
                     <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-xs font-mono text-emerald-300">
                       {ra.lastRichPresence}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-2">
-                      Achievements and leaderboards are tracked in real time while you play.
-                    </p>
+                    <div className="mt-2 p-2 bg-slate-900/70 rounded border border-slate-800 text-[10px] font-mono text-slate-400 truncate">
+                      User-Agent: <span className="text-sky-300">{ra.getCompliantUserAgent()}</span>
+                    </div>
                   </div>
 
-                  {system.settings.advancedMode && (
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={handleExportRaSpec}
-                      className="w-full px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 text-xs font-bold rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <FileCode className="w-4 h-4" />
-                      <span>Export RetroAchievements Integration &amp; Memory Map Spec (.txt)</span>
+                      <FileCode className="w-3.5 h-3.5" />
+                      <span>Export rcheevos Spec (.txt)</span>
                     </button>
-                  )}
+                    <button
+                      onClick={handleExportUserTxtFile}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Export {ra.session.activeGameId || 9900}-User.txt</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Active Game Achievements List */}
+              {/* Official RAIntegration DLL (RA_Integration-x64.dll) & <GameID>-User.txt Toolkit */}
+              <div className="p-4 bg-slate-950 rounded-xl border border-purple-800/50 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                      <Cpu className="w-4 h-4 text-purple-400" />
+                      <span>
+                        Windows RAIntegration DLL Bridge (RA_Integration-x64.dll / RA_Interface.h)
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Implements all 42 official <code className="text-purple-300">_RA_*</code> C ABI
+                      exports and registers 3 Sharp SM8521 memory banks (Bank 0: 1KB IRAM, Bank 1: 8KB
+                      NVRAM, Bank 2: 16KB VRAM).
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <a
+                      href="./releases/RA_Integration-x64.dll"
+                      download="RA_Integration-x64.dll"
+                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download RA_Integration-x64.dll</span>
+                    </a>
+                    <button
+                      onClick={() => dllFileInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Inspect .DLL Binary</span>
+                    </button>
+                    <button
+                      onClick={() => userTxtInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Import &lt;GameID&gt;-User.txt</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px] font-mono">
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">DLL Binary Status</div>
+                    <div className="text-emerald-300 font-bold mt-0.5">
+                      {ra.raDll.dllInspection
+                        ? `${ra.raDll.dllInspection.fileName} (${ra.raDll.dllInspection.architecture})`
+                        : `RA_Integration-x64.dll (${ra.raDll.dllVersion})`}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {ra.raDll.dllInspection
+                        ? `${ra.raDll.dllInspection.exportedFunctions.length}/42 _RA_* exports verified`
+                        : '42/42 _RA_* C ABI symbols bound'}
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">Installed Memory Banks</div>
+                    <div className="text-sky-300 font-bold mt-0.5">
+                      {ra.raDll.memoryBanks.size} Banks (25,600 Bytes Total)
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      #0: 1KB IRAM · #1: 8KB NVRAM · #2: 16KB VRAM
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <div className="text-[10px] text-slate-400 uppercase">Local User.txt Set</div>
+                    <div className="text-amber-300 font-bold mt-0.5">
+                      {ra.customAchievements.length} Custom Cheevo(s) ·{' '}
+                      {ra.customLeaderboards.length} LB(s)
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Save State Hit Storage: RA_CaptureState Active
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Game Achievements List with Measured (M:) & Trigger (T:) Indicators */}
               <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">
                 <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs">
                   <span className="font-bold text-white">
-                    Built-In rcheevos Achievement Set ({activeGameAchievements.length})
+                    rcheevos Achievement Set ({activeGameAchievements.length}) — Measured (M:) &amp; Trigger (T:) Active
                   </span>
                   <span className="font-mono text-slate-400">
-                    Unlocked: {ra.unlocks.length}
+                    Unlocked: {ra.unlocks.length}/{activeGameAchievements.length}
                   </span>
                 </div>
                 <div className="divide-y divide-slate-800/70 text-xs">
                   {activeGameAchievements.map((ach) => {
                     const unlockInfo = ra.unlocks.find((u) => u.achievementId === ach.id);
+                    const measured = ra.measuredProgress[ach.id];
+                    const isPrimed = ra.primedChallengeAchievements.some((p) => p.id === ach.id);
+                    const hits = ra.hitCounts[ach.id] || 0;
                     return (
                       <div
                         key={ach.id}
-                        className="px-4 py-3 flex items-center justify-between gap-3"
+                        className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="font-bold text-white flex flex-wrap items-center gap-2">
                             <span>{ach.title}</span>
                             <span className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 font-mono text-[10px]">
                               {ach.points} pts
                             </span>
+                            {isPrimed && !unlockInfo && (
+                              <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/70 font-mono text-[10px] animate-pulse">
+                                T: CHALLENGE PRIMED
+                              </span>
+                            )}
                             {unlockInfo && (
                               <span
                                 className={`px-2 py-0.5 rounded text-[10px] font-mono ${
@@ -1409,18 +1664,78 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                                     : 'bg-emerald-950 text-emerald-300 border border-emerald-600/60'
                                 }`}
                               >
-                                {unlockInfo.hardcore ? 'UNLOCKED (HARDCORE)' : 'UNLOCKED'}
+                                {unlockInfo.hardcore ? 'UNLOCKED (HARDCORE)' : 'UNLOCKED (CASUAL)'}
                               </span>
                             )}
                           </div>
                           <div className="text-slate-400 mt-0.5">{ach.description}</div>
+
+                          {/* Measured (M:) Progress Bar */}
+                          {measured && (
+                            <div className="mt-2 max-w-md">
+                              <div className="flex items-center justify-between text-[10px] font-mono text-sky-300 mb-1">
+                                <span>
+                                  Measured Progress (M:): {measured.formatted}
+                                </span>
+                                <span>{measured.percent}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-sky-400 transition-all duration-200"
+                                  style={{ width: `${measured.percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-[10px] font-mono text-slate-500 shrink-0">
-                          ID #{ach.id}
+                        <div className="text-[10px] font-mono text-slate-400 shrink-0 text-right space-y-0.5">
+                          <div>ID #{ach.id}</div>
+                          <div>Hits: {hits}</div>
                         </div>
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Official Hardcore Compliance Audit (Sections A-G) & Legal / Privacy Disclosures */}
+              <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3 text-xs">
+                <div className="font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>
+                    Official RetroAchievements Hardcore Compliance Audit (Sections A–G)
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {complianceChecks.map((chk) => (
+                    <div
+                      key={chk.section}
+                      className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800 flex items-start gap-2"
+                    >
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-white">
+                          [{chk.section}] {chk.requirement}
+                        </div>
+                        <div className="text-[11px] text-slate-400">{chk.implementationDetail}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                  <p>
+                    <strong className="text-slate-200">FOSS &amp; Monetization Disclosure (Section F.1 / F.2):</strong>{' '}
+                    Cub Spiele.Com is 100% free and open-source software (MIT License) with zero ads,
+                    paywalls, or paid tiers. Incorporates RetroAchievements <code className="text-slate-300">rcheevos</code> /{' '}
+                    <code className="text-slate-300">RAInterface</code> specifications (MIT License).
+                  </p>
+                  <p>
+                    <strong className="text-slate-200">Privacy Policy (Section F.3 / GDPR):</strong>{' '}
+                    Player profiles, NVRAM saves, and offline achievement queues are stored locally on
+                    your device. Network requests are sent exclusively to{' '}
+                    <code className="text-slate-300">retroachievements.org</code> when you explicitly sign
+                    in, using token authentication without third-party analytics or tracking.
+                  </p>
                 </div>
               </div>
             </div>

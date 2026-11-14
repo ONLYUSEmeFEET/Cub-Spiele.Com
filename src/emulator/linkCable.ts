@@ -59,12 +59,6 @@ export const COMPETE_COMPATIBLE_GAMES: CompeteCompatibilityTitle[] = [
     notes: 'Synchronizes buzzer lockouts, clues, and player bankrolls via compete.com cable'
   },
   {
-    title: 'Monopoly',
-    gameId: '$1A00',
-    mode: 'Multi-Console Board Game Link',
-    notes: 'Synchronizes board state, dice rolls, trades, and property auctions'
-  },
-  {
     title: 'Scrabble',
     gameId: '$1800',
     mode: '2-Player Crossword Link',
@@ -127,6 +121,7 @@ export class CompeteComLinkManager {
   private txSeq: number = 1;
   private lastRxSeqByPeer: Map<string, number> = new Map();
   private onStateChange?: () => void;
+  public onLinkActivated?: () => void;
   private storageListener?: (e: StorageEvent) => void;
   private ipcUnsubscribe?: () => void;
 
@@ -251,6 +246,7 @@ export class CompeteComLinkManager {
     this.pushLog('SYS', `Same-PC Link ready on channel "${this.roomCode}" (Instance #${this.instanceId})`);
     this.sendHello();
     this.startHeartbeat();
+    this.onLinkActivated?.();
     this.onStateChange?.();
   }
 
@@ -264,6 +260,7 @@ export class CompeteComLinkManager {
     this.roomCode = (room || 'TIGER-1').trim().toUpperCase();
     this.status = 'waiting';
     this.cpu.linkConnected = true;
+    this.onLinkActivated?.();
 
     try {
       const separator = this.lanUrl.includes('?') ? '&' : '?';
@@ -322,6 +319,7 @@ export class CompeteComLinkManager {
     this.cpu.linkConnected = true;
     this.cpu.setRemotePort3Bits(this.cpu.localPort3Bits);
     this.pushLog('SYS', 'Compete.Com Hardware Loopback Mode active (P3.0/1 -> P3.2/3, URTT -> URTR)');
+    this.onLinkActivated?.();
     this.onStateChange?.();
   }
 

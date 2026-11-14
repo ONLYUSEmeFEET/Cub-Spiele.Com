@@ -319,6 +319,20 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     coverColor: '#581c87',
     coverAccent: '#d8b4fe',
     scoreUnit: 'Points'
+  },
+  competetest: {
+    id: 'competetest',
+    title: 'Compete.Com Link Test Cartridge',
+    publisher: 'Cub Spiele.Com Diagnostics',
+    year: 1998,
+    genre: 'Diagnostic / Link Test',
+    description:
+      'Hardware diagnostic cartridge testing Port 3 ($0017) crossover lines, BIOS UART ($002B-$002E) full-duplex serial I/O, and multi-byte burst checksums.',
+    gameIds: [0xc0de],
+    headerMatches: ['LINK TEST', 'LINKTEST', 'COMPETE'],
+    coverColor: '#064e3b',
+    coverAccent: '#10b981',
+    scoreUnit: 'Bytes'
   }
 };
 

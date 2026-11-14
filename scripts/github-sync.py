@@ -206,13 +206,24 @@ def main():
             *topic_args
         ], check=False)
 
-        # 2. Ensure every release in releases-manifest.json is properly titled, labeled, and clean
+        # 2. Update the latest release (and create any missing historical releases) from releases-manifest.json
         releases_dir = os.path.join(ROOT_DIR, "public", "releases")
-        # Process oldest to newest so v1.4.0 ends as Latest
         for rel in reversed(manifest.get("releases", [])):
             r_tag = rel["tag"]
             r_title = rel["title"]
             r_is_latest = bool(rel.get("isLatest"))
+
+            view_res = subprocess.run(
+                [GH_EXE, "release", "view", r_tag, "--repo", REPO_SLUG, "--json", "assets"],
+                cwd=LOCAL_GIT_STAGE,
+                capture_output=True,
+                text=True
+            )
+
+            # Skip re-uploading historical releases that already exist on GitHub
+            if view_res.returncode == 0 and not r_is_latest:
+                continue
+
             notes_md = format_release_notes(rel)
             notes_file = os.path.join(LOCAL_GIT_STAGE, f"release-notes-{r_tag}.md")
             with open(notes_file, "w", encoding="utf-8") as nf:
@@ -232,13 +243,6 @@ def main():
                     upload_specs.append(f"{candidate}#{a_label}")
                 elif a_name.endswith(".exe") and os.path.exists(versioned_exe_path):
                     upload_specs.append(f"{versioned_exe_path}#{a_label}")
-
-            view_res = subprocess.run(
-                [GH_EXE, "release", "view", r_tag, "--repo", REPO_SLUG, "--json", "assets"],
-                cwd=LOCAL_GIT_STAGE,
-                capture_output=True,
-                text=True
-            )
 
             if view_res.returncode == 0:
                 print(f"Updating existing GitHub Release {r_tag}: {r_title}")

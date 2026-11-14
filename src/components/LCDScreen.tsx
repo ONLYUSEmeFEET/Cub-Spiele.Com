@@ -30,6 +30,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
     isDown: system.virtualStylus.isDown,
     dpadStylusMode: system.virtualStylus.dpadStylusMode
   });
+  const [, setHudTick] = useState(0);
 
   const canvasWidth = Math.round(SCREEN_WIDTH * scale);
   const canvasHeight = Math.round(SCREEN_HEIGHT * scale);
@@ -78,8 +79,9 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         });
       }
 
-      if (now - lastFpsReport > 500) {
+      if (now - lastFpsReport > 250) {
         onFpsUpdate?.(system.fps);
+        setHudTick((t) => (t + 1) & 0xffff);
         lastFpsReport = now;
       }
     };
@@ -335,6 +337,91 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
             </div>
           )}
         </div>
+      )}
+
+      {/* RetroAchievements Hardcore Compliance Overlays (Section A & Section E) */}
+      {system.isPoweredOn && system.retroAchievements.config.enabled && (
+        <>
+          {/* Section E: Game Start Mode Notification Banner */}
+          {system.retroAchievements.bootBanner.visible && (
+            <div className="pointer-events-none absolute top-2.5 left-2.5 z-20 max-w-[85%] bg-zinc-950/90 border border-zinc-700/90 rounded-md px-2.5 py-1.5 shadow-lg backdrop-blur-xs">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                <span
+                  className={`px-1.5 py-0.2 rounded text-[9px] uppercase ${
+                    system.retroAchievements.bootBanner.mode === 'HARDCORE'
+                      ? 'bg-amber-500 text-zinc-950'
+                      : 'bg-zinc-700 text-zinc-200'
+                  }`}
+                >
+                  {system.retroAchievements.bootBanner.mode === 'HARDCORE'
+                    ? 'HARDCORE MODE'
+                    : 'CASUAL MODE'}
+                </span>
+                <span className="text-zinc-100 truncate">
+                  {system.retroAchievements.bootBanner.gameTitle}
+                </span>
+              </div>
+              <div className="text-[9px] font-mono text-zinc-400 mt-0.5">
+                Achievements: {system.retroAchievements.bootBanner.unlockedCount}/
+                {system.retroAchievements.bootBanner.totalCount} Unlocked
+              </div>
+            </div>
+          )}
+
+          {/* Section A.3: Active Leaderboard / Score Overlay (Toggled via View -> Score Display, default OFF) */}
+          {system.settings.showScoreOverlay &&
+            system.retroAchievements.config.leaderboardPopups &&
+            Object.values(system.retroAchievements.activeLeaderboards).length > 0 && (
+              <div className="pointer-events-none absolute top-2.5 right-2.5 z-20 bg-zinc-950/88 border border-amber-500/50 rounded-md px-2 py-1 shadow-md text-right font-mono">
+                {Object.values(system.retroAchievements.activeLeaderboards)
+                  .slice(0, 1)
+                  .map((lb) => (
+                    <div key={lb.leaderboardId}>
+                      <div className="text-[8px] uppercase text-amber-400 tracking-wider truncate max-w-[140px]">
+                        LB: {lb.title.split('—')[1] || lb.title}
+                      </div>
+                      <div className="text-[10px] font-bold text-white">{lb.formattedValue}</div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+          {/* Section A.2: Measured (`M:`) Achievement Progress Toast */}
+          {system.retroAchievements.activeMeasuredOverlay?.visible && (
+            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 bg-zinc-950/92 border border-sky-500/60 rounded-md px-2.5 py-1.5 shadow-lg min-w-[155px]">
+              <div className="flex items-center justify-between gap-2 text-[9px] font-mono">
+                <span className="text-sky-300 font-bold truncate max-w-[120px]">
+                  {system.retroAchievements.activeMeasuredOverlay.title}
+                </span>
+                <span className="text-white font-bold">
+                  {system.retroAchievements.activeMeasuredOverlay.formatted}
+                </span>
+              </div>
+              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
+                <div
+                  className="h-full bg-sky-400 transition-all duration-150"
+                  style={{ width: `${system.retroAchievements.activeMeasuredOverlay.percent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Section A.2: Trigger (`T:`) Primed Challenge Indicator */}
+          {system.retroAchievements.config.challengeIndicatorsEnabled &&
+            system.retroAchievements.primedChallengeAchievements.length > 0 && (
+              <div
+                className="pointer-events-none absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1 bg-amber-950/92 border border-amber-400/80 rounded-md px-2 py-1 shadow-md font-mono"
+                title={system.retroAchievements.primedChallengeAchievements
+                  .map((a) => `Challenge Primed: ${a.title}`)
+                  .join(' | ')}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[9px] font-bold text-amber-200 truncate max-w-[130px]">
+                  T: {system.retroAchievements.primedChallengeAchievements[0].title}
+                </span>
+              </div>
+            )}
+        </>
       )}
 
       {/* Powered Off STN Reflective State */}

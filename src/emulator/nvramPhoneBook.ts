@@ -59,10 +59,18 @@ export const PHONEBOOK_ENTRIES_PER_BANK = 50;
 const PHONEBOOK_VAULT_STORAGE_KEY = 'cub_spiele_phonebook_vault_v1';
 
 export class NvramPhoneBookManager {
+  public readonly isSecondaryInstance: boolean;
+  private readonly storageKey: string;
   public banks: PhoneBookEntry[][] = [[]];
   public activeBank: number = 0;
 
   constructor() {
+    this.isSecondaryInstance =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('instance') === '2';
+    this.storageKey = this.isSecondaryInstance
+      ? 'cub_spiele_phonebook_vault_instance2_v1'
+      : PHONEBOOK_VAULT_STORAGE_KEY;
     this.loadVault();
   }
 
@@ -623,7 +631,7 @@ export class NvramPhoneBookManager {
 
   public loadVault() {
     try {
-      const raw = localStorage.getItem(PHONEBOOK_VAULT_STORAGE_KEY);
+      const raw = localStorage.getItem(this.storageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.banks)) {
@@ -661,7 +669,7 @@ export class NvramPhoneBookManager {
   public saveVault() {
     try {
       localStorage.setItem(
-        PHONEBOOK_VAULT_STORAGE_KEY,
+        this.storageKey,
         JSON.stringify({
           activeBank: this.activeBank,
           banks: this.banks

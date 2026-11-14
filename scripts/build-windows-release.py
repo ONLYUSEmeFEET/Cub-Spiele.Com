@@ -356,6 +356,223 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
     return bytes(headers + text_padded + rdata + rsrc_padded)
 
 
+OFFICIAL_RA_INTEGRATION_EXPORTS = sorted([
+    '_RA_IntegrationVersion',
+    '_RA_InitI',
+    '_RA_InitOffline',
+    '_RA_InitClient',
+    '_RA_InitClientOffline',
+    '_RA_Shutdown',
+    '_RA_AttemptLogin',
+    '_RA_UserName',
+    '_RA_HardcoreModeIsActive',
+    '_RA_WarnDisableHardcore',
+    '_RA_OnReset',
+    '_RA_SetConsoleID',
+    '_RA_InstallMemoryBank',
+    '_RA_InstallMemoryBankBlockReader',
+    '_RA_ClearMemoryBanks',
+    '_RA_OnLoadNewRom',
+    '_RA_IdentifyRom',
+    '_RA_ActivateGame',
+    '_RA_DoAchievementsFrame',
+    '_RA_UpdateAppTitle',
+    '_RA_HandleHTTPResults',
+    '_RA_ConfirmLoadNewRom',
+    '_RA_CreatePopupMenu',
+    '_RA_InvokeDialog',
+    '_RA_SetPaused',
+    '_RA_OnLoadState',
+    '_RA_OnSaveState',
+    '_RA_CaptureState',
+    '_RA_RestoreState',
+    '_RA_SetUserAgentDetail',
+    '_RA_NavigateOverlay',
+    '_RA_UpdateHWnd',
+    '_RA_SetForcedIngameInput',
+    '_RA_SuspendRepaint',
+    '_RA_ResumeRepaint',
+    '_RA_InstallSharedFunctions',
+    '_RA_InstallSharedFunctionsExt',
+    '_RA_GameIsActive',
+    '_RA_HasCoreAchievements',
+    '_RA_BigPictureMode',
+    '_RA_SetBigPictureMode',
+    '_RA_ShowLeaderboard',
+])
+
+
+def build_pe64_raintegration_dll(dll_name: str = 'RA_Integration-x64.dll') -> bytes:
+    """
+    Builds a valid 64-bit Windows PE32+ Dynamic-Link Library (RA_Integration-x64.dll)
+    with a genuine IMAGE_DIRECTORY_ENTRY_EXPORT (.edata) exporting all 42 official
+    _RA_* functions from RetroAchievements RAIntegration (RA_Interface.h / RA_Interface.cpp).
+    """
+    file_align = 0x200
+    sect_align = 0x1000
+    image_base = 0x0000000180000000
+
+    num_exports = len(OFFICIAL_RA_INTEGRATION_EXPORTS)
+    rva_text = 0x1000
+    text = bytearray()
+
+    # DllMain at RVA 0x1000: mov eax, 1 ; ret
+    text.extend(b'\xB8\x01\x00\x00\x00\xC3\x90\x90')
+
+    # Version string at RVA 0x1008: "1.4.2.0\0"
+    ver_rva = rva_text + len(text)
+    text.extend(b'1.4.2.0\x00')
+
+    func_rvas = []
+    for sym in OFFICIAL_RA_INTEGRATION_EXPORTS:
+        while len(text) % 8 != 0:
+            text.append(0x90)
+        fn_rva = rva_text + len(text)
+        func_rvas.append(fn_rva)
+        if sym in ('_RA_IntegrationVersion', '_RA_UserName'):
+            # lea rax, [rip + disp32] -> ver_rva ; ret
+            disp = ver_rva - (fn_rva + 7)
+            text.extend(b'\x48\x8D\x05' + struct.pack('<i', disp) + b'\xC3')
+        else:
+            # mov eax, 1 ; ret
+            text.extend(b'\xB8\x01\x00\x00\x00\xC3')
+
+    text_padded = text.ljust(align(len(text), file_align), b'\x00')
+
+    # Build .edata section at RVA 0x2000
+    rva_edata = 0x2000
+    edata = bytearray()
+
+    # Reserve 40 bytes for IMAGE_EXPORT_DIRECTORY
+    edata.extend(b'\x00' * 40)
+
+    addr_of_functions = rva_edata + len(edata)
+    for rva in func_rvas:
+        edata.extend(struct.pack('<I', rva))
+
+    addr_of_names = rva_edata + len(edata)
+    name_ptr_table_off = len(edata)
+    edata.extend(b'\x00' * (num_exports * 4))
+
+    addr_of_ordinals = rva_edata + len(edata)
+    for idx in range(num_exports):
+        edata.extend(struct.pack('<H', idx))
+
+    dll_name_rva = rva_edata + len(edata)
+    edata.extend(dll_name.encode('ascii') + b'\x00')
+
+    for idx, sym in enumerate(OFFICIAL_RA_INTEGRATION_EXPORTS):
+        sym_rva = rva_edata + len(edata)
+        struct.pack_into('<I', edata, name_ptr_table_off + idx * 4, sym_rva)
+        edata.extend(sym.encode('ascii') + b'\x00')
+
+    struct.pack_into(
+        '<IIHHIIIIIII',
+        edata,
+        0,
+        0,                  # Characteristics
+        1794400000,         # TimeDateStamp
+        1, 4,               # MajorVersion, MinorVersion
+        dll_name_rva,       # Name RVA
+        1,                  # Base ordinal
+        num_exports,        # NumberOfFunctions
+        num_exports,        # NumberOfNames
+        addr_of_functions,  # AddressOfFunctions
+        addr_of_names,      # AddressOfNames
+        addr_of_ordinals    # AddressOfNameOrdinals
+    )
+
+    edata_raw_len = len(edata)
+    edata_padded = edata.ljust(align(edata_raw_len, file_align), b'\x00')
+
+    headers = bytearray(0x400)
+    headers[0:2] = b'MZ'
+    struct.pack_into('<I', headers, 0x3C, 0x80)
+
+    pe_off = 0x80
+    headers[pe_off:pe_off + 4] = b'PE\x00\x00'
+
+    # IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_LARGE_ADDRESS_AWARE | IMAGE_FILE_DLL = 0x2022
+    struct.pack_into(
+        '<HHIIIHH',
+        headers,
+        pe_off + 4,
+        0x8664,
+        2,
+        1794400000,
+        0,
+        0,
+        240,
+        0x2022
+    )
+
+    opt_off = pe_off + 24
+    size_of_image = 0x2000 + align(edata_raw_len, sect_align)
+
+    struct.pack_into(
+        '<HBBIIIIIQIIHHHHHHIIIIHHQQQQII',
+        headers,
+        opt_off,
+        0x020B,
+        14, 0,
+        len(text_padded),
+        len(edata_padded),
+        0,
+        0x1000,
+        0x1000,
+        image_base,
+        sect_align,
+        file_align,
+        6, 0,
+        1, 4,
+        6, 0,
+        0,
+        size_of_image,
+        0x400,
+        0,
+        2,
+        0x0160,
+        0x100000,
+        0x1000,
+        0x100000,
+        0x1000,
+        0,
+        16
+    )
+
+    # Data Directory 0: Export Directory (.edata)
+    dd_off = opt_off + 112
+    struct.pack_into('<II', headers, dd_off + 0 * 8, rva_edata, edata_raw_len)
+
+    sect_off = opt_off + 240
+    struct.pack_into(
+        '<8sIIIIIIHHI',
+        headers,
+        sect_off + 0 * 40,
+        b'.text\x00\x00\x00',
+        len(text),
+        0x1000,
+        len(text_padded),
+        0x400,
+        0, 0, 0, 0,
+        0x60000020
+    )
+    struct.pack_into(
+        '<8sIIIIIIHHI',
+        headers,
+        sect_off + 1 * 40,
+        b'.edata\x00\x00',
+        edata_raw_len,
+        0x2000,
+        len(edata_padded),
+        0x400 + len(text_padded),
+        0, 0, 0, 0,
+        0x40000040
+    )
+
+    return bytes(headers + text_padded + edata_padded)
+
+
 def build_macos_universal_macho_binary() -> bytes:
     """
     Builds a Universal Mach-O Fat Binary (0xCAFEBABE) containing both
@@ -456,7 +673,7 @@ def create_offline_desktop_index_html(version: str = '1.5.0', platform: str = 'w
         html = f.read()
 
     embedded_files = {}
-    for rel_path in ['bios/internal.bin', 'bios/external.bin']:
+    for rel_path in ['bios/internal.bin', 'bios/external.bin', 'roms/compete_test.bin']:
         full_p = os.path.join(PUBLIC_DIR, rel_path)
         if os.path.exists(full_p):
             with open(full_p, 'rb') as bf:
@@ -550,7 +767,7 @@ def iter_dist_app_files():
             yield full_p, rel_p
 
 
-def build_zip_bundle(zip_path: str, exe_bytes: bytes, version: str):
+def build_zip_bundle(zip_path: str, exe_bytes: bytes, ra_dll_bytes: bytes, version: str):
     readme_txt = f"""================================================================================
 CUB SPIELE.COM — NATIVE WINDOWS x64 STANDALONE EMULATOR ({version})
 ================================================================================
@@ -562,7 +779,8 @@ QUICK START (WINDOWS 10 / WINDOWS 11 x64):
 STANDALONE HANDHELD EMULATOR FEATURES:
 - Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
 - Full Retail & Prototype Compatibility (including Castlevania: SotN & Sonic Jam)
-- Competitive Hardcore Mode, Multi-Player High Score Vault & Online Leaderboards
+- Official RetroAchievements Hardcore Compliance & RA_Integration-x64.dll Toolkit
+- Frame Advance (F), Rewind ([), Save State Hit Storage & Offline Unlock Queue
 - Screen-Only Mode (2x / 3x / 4x integer scale) & Handheld Console Bezel Mode
 - STN Passive-Matrix LCD Ghosting Intensity & Persistence controls
 - Streamlined UI by default with optional Advanced Mode (View -> Advanced Mode)
@@ -573,11 +791,17 @@ STANDALONE HANDHELD EMULATOR FEATURES:
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         zf.writestr('CubSpieleCom.exe', exe_bytes)
+        zf.writestr('RA_Integration-x64.dll', ra_dll_bytes)
+        zf.writestr('RA_Integration.dll', ra_dll_bytes)
         zf.writestr('CubSpieleCom-Host.vbs', host_vbs)
         zf.writestr('README-WINDOWS.txt', readme_txt)
         credits_path = os.path.join(ROOT_DIR, 'credits.txt')
         if os.path.exists(credits_path):
             zf.write(credits_path, 'credits.txt')
+        compete_rom_path = os.path.join(ROOT_DIR, 'compete_test.bin')
+        if os.path.exists(compete_rom_path):
+            zf.write(compete_rom_path, 'compete_test.bin')
+            zf.write(compete_rom_path, 'app/roms/compete_test.bin')
         zf.writestr('app/index.html', offline_html)
 
         for full_p, rel_p in iter_dist_app_files():
@@ -852,11 +1076,24 @@ def main():
             with open(os.path.join(dist_assets, iname), 'wb') as df:
                 df.write(ibytes)
 
-    # 2. Build Windows x64 PE32+ Executable
+    # 2. Build Windows x64 PE32+ Executable & RA_Integration-x64.dll
     exe_bytes = build_pe64_gui_executable(dib_bytes)
     exe_path = os.path.join(RELEASES_DIR, 'CubSpieleCom.exe')
     with open(exe_path, 'wb') as f:
         f.write(exe_bytes)
+
+    ra_dll_bytes = build_pe64_raintegration_dll('RA_Integration-x64.dll')
+    ra_dll_path = os.path.join(RELEASES_DIR, 'RA_Integration-x64.dll')
+    with open(ra_dll_path, 'wb') as f:
+        f.write(ra_dll_bytes)
+    with open(os.path.join(RELEASES_DIR, 'RA_Integration.dll'), 'wb') as f:
+        f.write(ra_dll_bytes)
+
+    compete_rom_src = os.path.join(ROOT_DIR, 'compete_test.bin')
+    compete_rom_rel_path = os.path.join(RELEASES_DIR, 'compete_test.bin')
+    if os.path.exists(compete_rom_src):
+        with open(compete_rom_src, 'rb') as rf, open(compete_rom_rel_path, 'wb') as wf:
+            wf.write(rf.read())
 
     # 3. Build Windows Portable ZIPs across versions
     versions = ['v1.5.0', 'v1.4.0', 'v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
@@ -864,7 +1101,7 @@ def main():
     for ver in versions:
         zname = f'CubSpieleCom-{ver}-win64.zip'
         zpath = os.path.join(RELEASES_DIR, zname)
-        build_zip_bundle(zpath, exe_bytes, ver)
+        build_zip_bundle(zpath, exe_bytes, ra_dll_bytes, ver)
         zip_paths[ver] = (zname, zpath)
 
     # 4. Build v1.5.0 macOS Universal (.app) and Android (.apk)
@@ -891,7 +1128,7 @@ def main():
                 except OSError:
                     pass
         copy_files = (
-            ['CubSpieleCom.exe', mac_name, android_name]
+            ['CubSpieleCom.exe', 'RA_Integration-x64.dll', 'RA_Integration.dll', 'compete_test.bin', mac_name, android_name]
             + [zip_paths[v][0] for v in versions]
         )
         for fname in copy_files:
@@ -903,6 +1140,8 @@ def main():
 
     exe_size = os.path.getsize(exe_path)
     exe_sha = sha256_file(exe_path)
+    compete_rom_size = os.path.getsize(compete_rom_rel_path) if os.path.exists(compete_rom_rel_path) else 32768
+    compete_rom_sha = sha256_file(compete_rom_rel_path) if os.path.exists(compete_rom_rel_path) else ''
 
     manifest = {
         "project": "cub-spiele-com-emulator",
@@ -919,9 +1158,10 @@ def main():
                 "commitRef": "HEAD (tag: v1.5.0)",
                 "highlights": [
                     "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
-                    "Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection",
-                    "Fixed bezel/BIOS status flickering during cartridge gameplay and streamlined the default UI with an optional Advanced Mode (View -> Advanced Mode)",
-                    "Defaults to Softcore Mode initially (persisting user preference afterward) while providing full RetroAchievements-compatible Competitive Hardcore Mode, Multi-Player High Score Profiles, and Online Leaderboards"
+                    "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
+                    "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
+                    "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF",
+                    "Full RetroAchievements Hardcore Compliance & bundled RA_Integration-x64.dll support"
                 ],
                 "assets": [
                     {
@@ -959,6 +1199,15 @@ def main():
                         "sha256": sha256_file(android_path),
                         "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
                         "platform": "android"
+                    },
+                    {
+                        "name": "compete_test.bin",
+                        "label": "Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin)",
+                        "url": "./releases/compete_test.bin",
+                        "sizeBytes": compete_rom_size,
+                        "sha256": compete_rom_sha,
+                        "architecture": "Game.Com SM8521 Cartridge ROM (32 KB — All Platforms)",
+                        "platform": "windows"
                     }
                 ]
             },

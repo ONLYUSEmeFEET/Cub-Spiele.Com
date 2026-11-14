@@ -56,9 +56,10 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
       commitRef: 'HEAD (tag: v1.5.0)',
       highlights: [
         'Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)',
-        'Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection',
-        'Fixed bezel/BIOS status flickering during cartridge gameplay and streamlined the default UI with an optional Advanced Mode (View -> Advanced Mode)',
-        'Defaults to Softcore Mode initially (persisting user preference afterward) while providing full RetroAchievements-compatible Competitive Hardcore Mode, Multi-Player High Score Profiles, and Online Leaderboards'
+        'Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)',
+        'Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes',
+        'Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF',
+        'Full RetroAchievements Hardcore Compliance & bundled RA_Integration-x64.dll support'
       ],
       assets: [
         {
@@ -96,6 +97,15 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
           sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
           architecture: 'Android 8.0+ (ARM64-v8a / Universal Touch APK)',
           platform: 'android'
+        },
+        {
+          name: 'compete_test.bin',
+          label: 'Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin)',
+          url: './releases/compete_test.bin',
+          sizeBytes: 32768,
+          sha256: '7e56a41b25f815f5b925a15e2873bc19a250a08657f9a0d650b541b6d6c3c6f1',
+          architecture: 'Game.Com SM8521 Cartridge ROM (32 KB — All Platforms)',
+          platform: 'windows'
         }
       ]
     },

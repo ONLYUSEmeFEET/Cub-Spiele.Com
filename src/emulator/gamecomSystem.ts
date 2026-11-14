@@ -90,6 +90,26 @@ export class GameComSystem {
   private touchLockedUntilRelease: boolean = false;
   private stylusPulseFrames: number = 0;
 
+  // Casual Mode Rewind Ring Buffer (disabled & cleared in Hardcore Mode per Section B)
+  private rewindBuffer: Array<{
+    pc: number;
+    sp: number;
+    ps0: number;
+    ps1: number;
+    sys: number;
+    ie0: number;
+    ie1: number;
+    ir0: number;
+    ir1: number;
+    mmu: Uint8Array;
+    regRam: Uint8Array;
+    internalRam: Uint8Array;
+    vram: Uint8Array;
+    nvram: Uint8Array;
+    raHitCounts: Record<number, number>;
+  }> = [];
+  private rewindCaptureCounter: number = 0;
+
   // Input states
   public buttons: GameComButtons = {
     up: false,
@@ -159,7 +179,8 @@ export class GameComSystem {
     stylusSpeed: 2.5,
     gamepadIndex: -1,
     gamepadDeadzone: 0.15,
-    advancedMode: false
+    advancedMode: false,
+    showScoreOverlay: false
   };
 
   // Timing
@@ -177,12 +198,49 @@ export class GameComSystem {
     this.retroAchievements = new RetroAchievementsEngine();
     this.onlineLeaderboard = new OnlineLeaderboardManager();
 
+    // Enforce Softcore (Casual) Mode on Instance #2 and whenever Compete.Com Link Cable multiplayer is active
+    if (this.linkCable.instanceId === 2) {
+      this.retroAchievements.config.hardcoreMode = false;
+      this.retroAchievements.session.hardcoreActive = false;
+    }
+    this.linkCable.onLinkActivated = () => {
+      if (this.retroAchievements.config.hardcoreMode) {
+        this.retroAchievements.config.hardcoreMode = false;
+        this.retroAchievements.session.hardcoreActive = false;
+        this.retroAchievements.saveConfig();
+        this.onHardcoreViolation?.(
+          'Compete.Com Link Multiplayer is Softcore (Casual) Mode only — switched to Softcore.'
+        );
+      } else {
+        this.retroAchievements.session.hardcoreActive = false;
+      }
+    };
+
     // Wire competitive Hardcore & Online Leaderboard attestation into NVRAM High Score Manager
     this.highScores.attachCompetitiveEngines(
       this.retroAchievements,
       this.onlineLeaderboard,
       (entry) => this.onScoreRecorded?.(entry)
     );
+
+    // Wire RAIntegration DLL (`RA_Interface.h`) shared callbacks & SM8521 memory banks (Banks 0, 1, 2)
+    this.retroAchievements.raDll.installSM8521MemoryBanks(
+      this.cpu,
+      () => this.retroAchievements.config.hardcoreMode
+    );
+    this.retroAchievements.raDll.RA_InstallSharedFunctions({
+      fpIsActive: () => this.isPoweredOn && !this.isPaused,
+      fpCauseUnpause: () => {
+        this.isPaused = false;
+        this.retroAchievements.raDll.RA_SetPaused(false);
+      },
+      fpCausePause: () => {
+        this.isPaused = true;
+        this.retroAchievements.raDll.RA_SetPaused(true);
+      },
+      fpEstimateTitle: () => this.getActiveCartridge()?.title || 'BIOS Built-In PDA',
+      fpResetEmulator: () => this.resetSystem('MAIN_MENU')
+    });
 
     // Wire hardware sound generator, 8-bit SGDA ($004E) DAC streamer, & BIOS digitized waveform callbacks
     this.cpu.onSoundRegWrite = (audioState) => {
@@ -249,21 +307,30 @@ export class GameComSystem {
 
   /**
    * Toggles Competitive / RetroAchievements Hardcore Mode.
-   * When enabled:
-   * - Forces 1.0x+ native speed (disables 0.5x slowdown)
-   * - Locks calibrated 4.9152 MHz clock timing
-   * - Disables loading Save States (F8) and CPU debugger stepping
-   * - Performs a clean cold hardware reset so the session starts untainted from frame 0
+   * Section B Compliance:
+   * - Switching from Casual (Softcore) Mode to Hardcore Mode forces a full cold hardware reset of the game.
+   * - Switching from Hardcore Mode to Casual (Softcore) Mode is allowed mid-session without resetting.
+   * - Forces 1.0x+ native speed (disables 0.5x slowdown), clears Rewind buffer, and blocks Save State loading,
+   *   Frame Advance, Cheats, and CPU Debugger stepping.
    */
   public toggleHardcoreMode(enabled?: boolean): boolean {
     const nextState =
       enabled !== undefined ? enabled : !this.retroAchievements.config.hardcoreMode;
+    if (nextState && (this.linkCable.mode !== 'off' || this.linkCable.instanceId === 2)) {
+      this.retroAchievements.config.hardcoreMode = false;
+      this.retroAchievements.session.hardcoreActive = false;
+      this.onHardcoreViolation?.(
+        'Compete.Com Link Multiplayer is Softcore (Casual) Mode only. Disconnect Link Cable to enable Hardcore Mode.'
+      );
+      return false;
+    }
     this.retroAchievements.config.hardcoreMode = nextState;
     this.retroAchievements.saveConfig();
     if (nextState) {
       if (this.settings.speed < 1.0) {
         this.settings.speed = 1.0;
       }
+      this.rewindBuffer = [];
       this.accuracyFixes.correctClockSpeed = true;
       const bootTarget: FastBootTarget =
         this.activeApp === 'CARTRIDGE'
@@ -281,13 +348,106 @@ export class GameComSystem {
   public setClockSpeed(spd: number): boolean {
     if (this.retroAchievements.config.hardcoreMode && spd < 1.0) {
       this.onHardcoreViolation?.(
-        'Hardcore Mode prohibits sub-1.0x slowdown. Disable Hardcore Mode to use 0.5x speed.'
+        'Hardcore Mode prohibits sub-1.0x slowdown. Switch to Casual Mode to use 0.5x speed.'
       );
       return false;
     }
     this.settings.speed = spd;
     if (spd < 1.0) {
       this.retroAchievements.taintSession('slowdown');
+    }
+    if (spd > 1.0) {
+      this.retroAchievements.raDll.RA_SuspendRepaint();
+    } else {
+      this.retroAchievements.raDll.RA_ResumeRepaint();
+    }
+    return true;
+  }
+
+  /**
+   * Advances emulation by exactly 1 hardware frame while paused (Casual Mode only).
+   * Section B & G Compliance: Frame Advance is strictly disabled in Hardcore Mode.
+   */
+  public frameAdvance(): boolean {
+    if (!this.isPoweredOn) return false;
+    if (this.retroAchievements.config.hardcoreMode) {
+      this.onHardcoreViolation?.(
+        'Frame Advance is disabled in Hardcore Mode per RetroAchievements compliance rules.'
+      );
+      return false;
+    }
+    this.retroAchievements.taintSession('frame_advance');
+    this.isPaused = true;
+    this.retroAchievements.raDll.RA_SetPaused(true);
+    this.stepHardwareFrame(1.0);
+    this.lcd.currentBuffer.set(this.cpu.displayBuffer);
+    return true;
+  }
+
+  /**
+   * Rewinds emulation to the most recent snapshot in the Casual Mode Rewind ring buffer.
+   * Section B & G Compliance: Rewind is strictly disabled in Hardcore Mode.
+   */
+  public rewindStep(): boolean {
+    if (!this.isPoweredOn) return false;
+    if (this.retroAchievements.config.hardcoreMode) {
+      this.onHardcoreViolation?.(
+        'Rewind is disabled in Hardcore Mode per RetroAchievements compliance rules.'
+      );
+      return false;
+    }
+    const snap = this.rewindBuffer.pop();
+    if (!snap) {
+      return false;
+    }
+    this.retroAchievements.taintSession('rewind');
+    this.fastBootTarget = 'NONE';
+    this.cpu.m_PC = snap.pc;
+    this.cpu.m_SP = snap.sp;
+    this.cpu.m_PS0 = snap.ps0;
+    this.cpu.m_PS1 = snap.ps1;
+    this.cpu.m_SYS = snap.sys;
+    this.cpu.m_IE0 = snap.ie0;
+    this.cpu.m_IE1 = snap.ie1;
+    this.cpu.m_IR0 = snap.ir0;
+    this.cpu.m_IR1 = snap.ir1;
+    this.cpu.mmu.set(snap.mmu);
+    this.cpu.m_register_ram.set(snap.regRam);
+    this.cpu.m_p_ram.set(snap.internalRam);
+    this.cpu.videoram.set(snap.vram);
+    this.cpu.nvram.set(snap.nvram);
+    this.retroAchievements.hitCounts = { ...snap.raHitCounts };
+    this.lcd.currentBuffer.set(this.cpu.displayBuffer);
+    return true;
+  }
+
+  public getRewindSnapshotsCount(): number {
+    return this.rewindBuffer.length;
+  }
+
+  /**
+   * Applies a memory poke / cheat byte write (Casual Mode only).
+   * Section B & G Compliance: Cheats and memory editors are strictly prohibited in Hardcore Mode.
+   */
+  public applyMemoryPoke(address: number, value: number): boolean {
+    if (this.retroAchievements.config.hardcoreMode) {
+      this.onHardcoreViolation?.(
+        'Cheats and memory editing are prohibited in Hardcore Mode per RetroAchievements compliance rules.'
+      );
+      return false;
+    }
+    this.retroAchievements.taintSession('cheat');
+    const addr = address & 0xffff;
+    const val = value & 0xff;
+    if (addr >= 0x0000 && addr <= 0x03ff) {
+      this.cpu.m_p_ram[addr] = val;
+    } else if (addr >= 0xe000 && addr <= 0xffff) {
+      this.cpu.nvram[addr - 0xe000] = val;
+      this.nvramDirtyFrames = 10;
+    } else if (addr >= 0xa000 && addr <= 0xdfff) {
+      this.cpu.videoram[addr - 0xa000] = val;
+    } else {
+      this.cpu.writeByte(addr, val);
     }
     return true;
   }
@@ -352,7 +512,11 @@ export class GameComSystem {
         if (typeof parsedI.advancedMode === 'boolean') {
           this.settings.advancedMode = parsedI.advancedMode;
         }
+        if (typeof parsedI.showScoreOverlay === 'boolean') {
+          this.settings.showScoreOverlay = parsedI.showScoreOverlay;
+        }
       }
+      this.retroAchievements.config.leaderboardPopups = this.settings.showScoreOverlay;
     } catch {
       // Ignore storage errors
     }
@@ -368,12 +532,57 @@ export class GameComSystem {
           gamepadIndex: this.settings.gamepadIndex,
           gamepadDeadzone: this.settings.gamepadDeadzone,
           snapToGrid: this.virtualStylus.snapToGrid,
-          advancedMode: this.settings.advancedMode
+          advancedMode: this.settings.advancedMode,
+          showScoreOverlay: this.settings.showScoreOverlay
         })
       );
     } catch {
       // Ignore storage errors
     }
+  }
+
+  /**
+   * Toggles the on-screen Score / Leaderboard HUD overlay (defaults to OFF).
+   */
+  public toggleScoreOverlay(enabled?: boolean): boolean {
+    const next = enabled !== undefined ? enabled : !this.settings.showScoreOverlay;
+    this.settings.showScoreOverlay = next;
+    this.retroAchievements.config.leaderboardPopups = next;
+    this.retroAchievements.saveConfig();
+    this.saveInputSettingsToStorage();
+    return next;
+  }
+
+  /**
+   * Captures a clean PNG screenshot of the 200x160 LCD display and downloads it.
+   */
+  public captureScreenshot(): { filename: string; dataUrl: string } {
+    const scale = this.settings.screenScale || 3;
+    const dataUrl = this.lcd.captureScreenshotDataUrl(scale);
+    const activeCart = this.getActiveCartridge();
+    const rawTitle =
+      this.activeApp === 'CARTRIDGE' && activeCart ? activeCart.title : 'System-Menu';
+    const cleanTitle =
+      rawTitle
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'Screen';
+    const now = new Date();
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}-${pad2(
+      now.getHours()
+    )}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`;
+    const filename = `CubSpieleCom-${cleanTitle}-${stamp}.png`;
+
+    if (typeof document !== 'undefined') {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    return { filename, dataUrl };
   }
 
   public saveDisplaySettingsToStorage() {
@@ -599,6 +808,8 @@ export class GameComSystem {
     this.biosOnlyFrames = 0;
     this.touchLockedUntilRelease = false;
     this.stylusPulseFrames = 0;
+    this.rewindBuffer = [];
+    this.rewindCaptureCounter = 0;
 
     // Start a fresh, untainted cryptographic session on cold hardware reset
     const targetCart =
@@ -876,6 +1087,34 @@ export class GameComSystem {
       this.getActiveCartridge(),
       this.highScores.getActiveProfile().name
     );
+
+    // Capture a lightweight Casual Mode Rewind snapshot every 15 frames (when not in Hardcore Mode)
+    if (!this.retroAchievements.config.hardcoreMode && this.fastBootTarget === 'NONE') {
+      this.rewindCaptureCounter++;
+      if (this.rewindCaptureCounter >= 15) {
+        this.rewindCaptureCounter = 0;
+        if (this.rewindBuffer.length >= 48) {
+          this.rewindBuffer.shift();
+        }
+        this.rewindBuffer.push({
+          pc: this.cpu.m_PC,
+          sp: this.cpu.m_SP,
+          ps0: this.cpu.m_PS0,
+          ps1: this.cpu.m_PS1,
+          sys: this.cpu.m_SYS,
+          ie0: this.cpu.m_IE0,
+          ie1: this.cpu.m_IE1,
+          ir0: this.cpu.m_IR0,
+          ir1: this.cpu.m_IR1,
+          mmu: new Uint8Array(this.cpu.mmu),
+          regRam: new Uint8Array(this.cpu.m_register_ram),
+          internalRam: new Uint8Array(this.cpu.m_p_ram),
+          vram: new Uint8Array(this.cpu.videoram),
+          nvram: new Uint8Array(this.cpu.nvram),
+          raHitCounts: { ...this.retroAchievements.hitCounts }
+        });
+      }
+    }
   }
 
   /**
@@ -1102,7 +1341,9 @@ export class GameComSystem {
       regRam: Array.from(this.cpu.m_register_ram),
       internalRam: Array.from(this.cpu.m_p_ram),
       vram: Array.from(this.cpu.videoram),
-      nvram: Array.from(this.cpu.nvram)
+      nvram: Array.from(this.cpu.nvram),
+      // Section A Compliance: Save state hit storage (RA_CaptureState)
+      raRuntimeState: this.retroAchievements.captureRuntimeState()
     };
     try {
       localStorage.setItem(`gamecom_hw_save_state_${slotIndex}`, JSON.stringify(stateData));
@@ -1114,7 +1355,7 @@ export class GameComSystem {
   public loadState(slotIndex: number = 0): boolean {
     if (this.retroAchievements.config.hardcoreMode) {
       this.onHardcoreViolation?.(
-        'Save State loading is disabled in Competitive Hardcore Mode to guarantee score legitimacy.'
+        'Save State loading is disabled in Hardcore Mode per RetroAchievements compliance rules.'
       );
       return false;
     }
@@ -1147,6 +1388,11 @@ export class GameComSystem {
         this.highScores.syncFromNvram(this.cpu.nvram);
         this.phoneBook.syncFromNvram(this.cpu.nvram);
       }
+      // Restore achievement hit counts & delta RAM buffers (`RA_RestoreState`)
+      if (stateData.raRuntimeState) {
+        this.retroAchievements.restoreRuntimeState(stateData.raRuntimeState);
+      }
+      this.lcd.currentBuffer.set(this.cpu.displayBuffer);
       return true;
     } catch {
       return false;

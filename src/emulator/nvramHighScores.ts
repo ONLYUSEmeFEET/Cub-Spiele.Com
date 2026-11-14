@@ -63,6 +63,10 @@ const MULTI_PLAYER_PROFILES_KEY = 'cub_spiele_player_profiles_v1';
 export const DEFAULT_HIGH_SCORE_RECORDS: HighScoreRecord[] = [];
 
 export class NvramHighScoreManager {
+  public readonly isSecondaryInstance: boolean;
+  private readonly nvramRawKey: string;
+  private readonly profilesKey: string;
+  private readonly vaultKey: string;
   public profiles: PlayerProfile[] = [];
   public activeProfileId: string = 'player_1';
   public records: HighScoreRecord[] = [];
@@ -78,9 +82,23 @@ export class NvramHighScoreManager {
     onlineLeaderboard?: OnlineLeaderboardManager,
     onScoreRecorded?: (entry: OnlineLeaderboardEntry) => void
   ) {
+    this.isSecondaryInstance =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('instance') === '2';
+    this.nvramRawKey = this.isSecondaryInstance
+      ? 'gamecom_nvram_8k_instance2_v3'
+      : NVRAM_RAW_STORAGE_KEY;
+    this.profilesKey = this.isSecondaryInstance
+      ? 'cub_spiele_player_profiles_instance2_v1'
+      : MULTI_PLAYER_PROFILES_KEY;
+    this.vaultKey = this.isSecondaryInstance
+      ? 'gamecom_unlimited_highscores_instance2_v3'
+      : HIGH_SCORE_VAULT_KEY;
+    this.activeProfileId = this.isSecondaryInstance ? 'player_2' : 'player_1';
+
     this.raEngine = raEngine;
-    this.onlineLeaderboard = onlineLeaderboard;
-    this.onScoreRecordedCallback = onScoreRecorded;
+    this.onlineLeaderboard = this.isSecondaryInstance ? undefined : onlineLeaderboard;
+    this.onScoreRecordedCallback = this.isSecondaryInstance ? undefined : onScoreRecorded;
     this.loadVault();
   }
 
@@ -90,6 +108,10 @@ export class NvramHighScoreManager {
     onScoreRecorded?: (entry: OnlineLeaderboardEntry) => void
   ) {
     this.raEngine = raEngine;
+    if (this.isSecondaryInstance) {
+      // Instance #2 uses isolated NVRAM and does not overwrite Instance #1's competitive leaderboard
+      return;
+    }
     this.onlineLeaderboard = onlineLeaderboard;
     this.onScoreRecordedCallback = onScoreRecorded;
     this.syncAllProfileScoresToLeaderboard();
@@ -99,9 +121,11 @@ export class NvramHighScoreManager {
     let found = this.profiles.find((p) => p.id === this.activeProfileId);
     if (!found) {
       if (this.profiles.length === 0) {
+        const defaultId = this.isSecondaryInstance ? 'player_2' : 'player_1';
+        const defaultName = this.isSecondaryInstance ? 'Player 2' : 'Player 1';
         found = {
-          id: 'player_1',
-          name: 'Player 1',
+          id: defaultId,
+          name: defaultName,
           createdAt: Date.now(),
           activeBank: 0,
           solitaireScore: 0,
@@ -311,7 +335,7 @@ export class NvramHighScoreManager {
    */
   public initializeNvramSignatures(nvram: Uint8Array) {
     try {
-      const savedB64 = localStorage.getItem(NVRAM_RAW_STORAGE_KEY);
+      const savedB64 = localStorage.getItem(this.nvramRawKey);
       if (savedB64) {
         const bin = atob(savedB64);
         if (bin.length === 0x2000) {
@@ -1031,7 +1055,7 @@ export class NvramHighScoreManager {
 
   public loadVault() {
     try {
-      const rawProfiles = localStorage.getItem(MULTI_PLAYER_PROFILES_KEY);
+      const rawProfiles = localStorage.getItem(this.profilesKey);
       if (rawProfiles) {
         const parsedP = JSON.parse(rawProfiles);
         if (parsedP && Array.isArray(parsedP.profiles) && parsedP.profiles.length > 0) {
@@ -1061,8 +1085,8 @@ export class NvramHighScoreManager {
         }
       }
 
-      // Migrate legacy single-profile vault if present
-      const rawLegacy = localStorage.getItem(HIGH_SCORE_VAULT_KEY);
+      // Migrate legacy single-profile vault if present (Instance #1 only)
+      const rawLegacy = !this.isSecondaryInstance ? localStorage.getItem(this.vaultKey) : null;
       if (rawLegacy) {
         const parsed = JSON.parse(rawLegacy);
         if (Array.isArray(parsed.records)) {
@@ -1100,17 +1124,19 @@ export class NvramHighScoreManager {
       // Ignore storage error
     }
 
+    const defaultId = this.isSecondaryInstance ? 'player_2' : 'player_1';
+    const defaultName = this.isSecondaryInstance ? 'Player 2' : 'Player 1';
     this.profiles = [
       {
-        id: 'player_1',
-        name: 'Player 1',
+        id: defaultId,
+        name: defaultName,
         createdAt: Date.now(),
         activeBank: 0,
         solitaireScore: 0,
         records: DEFAULT_HIGH_SCORE_RECORDS.map((r) => ({ ...r }))
       }
     ];
-    this.activeProfileId = 'player_1';
+    this.activeProfileId = defaultId;
     this.syncActiveFieldsFromProfile();
   }
 
@@ -1118,14 +1144,14 @@ export class NvramHighScoreManager {
     this.syncActiveFieldsToProfile();
     try {
       localStorage.setItem(
-        MULTI_PLAYER_PROFILES_KEY,
+        this.profilesKey,
         JSON.stringify({
           activeProfileId: this.activeProfileId,
           profiles: this.profiles
         })
       );
       localStorage.setItem(
-        HIGH_SCORE_VAULT_KEY,
+        this.vaultKey,
         JSON.stringify({
           records: this.records,
           solitaireScore: this.solitaireScore
@@ -1142,7 +1168,7 @@ export class NvramHighScoreManager {
       for (let i = 0; i < nvram.length; i++) {
         binary += String.fromCharCode(nvram[i]);
       }
-      localStorage.setItem(NVRAM_RAW_STORAGE_KEY, btoa(binary));
+      localStorage.setItem(this.nvramRawKey, btoa(binary));
     } catch {
       // Ignore storage error
     }

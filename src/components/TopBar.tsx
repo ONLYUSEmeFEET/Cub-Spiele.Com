@@ -32,7 +32,8 @@ import {
   BookUser,
   Cable,
   ExternalLink,
-  Crosshair
+  Crosshair,
+  Camera
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -42,11 +43,13 @@ interface TopBarProps {
   onOpenDebugger: () => void;
   onOpenKeybinds: () => void;
   onOpenHighScores: () => void;
+  onOpenAchievements?: () => void;
   onOpenPhoneBook: () => void;
   onOpenLinkCable: () => void;
   onOpenBios: () => void;
   onOpenWindowsRelease: () => void;
   onOpenColorCustomizer: () => void;
+  onTakeScreenshot?: () => void;
   onUpdate: () => void;
 }
 
@@ -59,11 +62,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenDebugger,
   onOpenKeybinds,
   onOpenHighScores,
+  onOpenAchievements,
   onOpenPhoneBook,
   onOpenLinkCable,
   onOpenBios,
   onOpenWindowsRelease,
   onOpenColorCustomizer,
+  onTakeScreenshot,
   onUpdate
 }) => {
   const [openMenu, setOpenMenu] = useState<MenuId>(null);
@@ -134,6 +139,15 @@ export const TopBar: React.FC<TopBarProps> = ({
       document.documentElement.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen().catch(() => {});
+    }
+    closeMenu();
+  };
+
+  const handleScreenshot = () => {
+    if (onTakeScreenshot) {
+      onTakeScreenshot();
+    } else {
+      system.captureScreenshot();
     }
     closeMenu();
   };
@@ -492,9 +506,41 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span>
                     Load State
-                    {system.retroAchievements.config.hardcoreMode ? ' (Hardcore Locked)' : ''}
+                    {system.retroAchievements.config.hardcoreMode ? ' [Hardcore Locked]' : ''}
                   </span>
                   <span className="text-[10px] opacity-60 font-mono">F8</span>
+                </button>
+
+                <button
+                  disabled={system.retroAchievements.config.hardcoreMode}
+                  onClick={() => {
+                    system.frameAdvance();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>
+                    Frame Advance (+1 Frame)
+                    {system.retroAchievements.config.hardcoreMode ? ' [Hardcore Locked]' : ''}
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">F</span>
+                </button>
+
+                <button
+                  disabled={system.retroAchievements.config.hardcoreMode}
+                  onClick={() => {
+                    system.rewindStep();
+                    onUpdate();
+                    closeMenu();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span>
+                    Rewind ({system.getRewindSnapshotsCount()})
+                    {system.retroAchievements.config.hardcoreMode ? ' [Hardcore Locked]' : ''}
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">[</span>
                 </button>
 
                 <div className="my-1 border-t border-zinc-800" />
@@ -502,7 +548,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                   Game Speed
                 </div>
-                {[0.5, 1.0, 2.0].map((spd) => {
+                {[0.5, 1.0, 1.5, 2.0, 3.0].map((spd) => {
                   const lockedByHardcore =
                     system.retroAchievements.config.hardcoreMode && spd < 1.0;
                   return (
@@ -519,8 +565,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                       <span>
                         {spd === 1.0
                           ? '1x (Normal Speed)'
-                          : spd === 2.0
-                            ? '2x (Fast Forward)'
+                          : spd > 1.0
+                            ? `${spd}x (Fast Forward)`
                             : `0.5x (Slow Motion)${lockedByHardcore ? ' [Locked]' : ''}`}
                       </span>
                       {system.settings.speed === spd && (
@@ -831,6 +877,34 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="my-1 border-t border-zinc-800" />
                 <button
                   onClick={() => {
+                    system.toggleScoreOverlay();
+                    onUpdate();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Score Display Overlay</span>
+                  </span>
+                  {system.settings.showScoreOverlay && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                </button>
+
+                <button
+                  onClick={handleScreenshot}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Camera className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Take Screenshot (PNG)</span>
+                  </span>
+                  <span className="text-[10px] opacity-60 font-mono">F9 / F12</span>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800" />
+                <button
+                  onClick={() => {
                     system.settings.advancedMode = !system.settings.advancedMode;
                     system.saveInputSettingsToStorage();
                     onUpdate();
@@ -873,16 +947,40 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
             {openMenu === 'tools' && (
               <div className="absolute left-0 top-full mt-0.5 w-68 bg-[#1c1f26] border border-zinc-700 rounded-md shadow-2xl py-1 z-50 text-xs text-zinc-200">
-                <button
-                  onClick={() => {
-                    onOpenHighScores();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                  <span>High Scores & Leaderboards...</span>
-                </button>
+                {system.linkCable.instanceNumber === 1 && (
+                  <>
+                    <button
+                      onClick={() => {
+                        onOpenHighScores();
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                    >
+                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                      <span>High Scores & Leaderboards...</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (onOpenAchievements) {
+                          onOpenAchievements();
+                        } else {
+                          onOpenHighScores();
+                        }
+                        closeMenu();
+                      }}
+                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>RetroAchievements & RAIntegration...</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-amber-400">
+                        {system.retroAchievements.unlocks.length}/
+                        {system.retroAchievements.getAllAchievements().length}
+                      </span>
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => {
                     onOpenKeybinds();
@@ -929,16 +1027,18 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Palette className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Screen Colors...</span>
                 </button>
-                <button
-                  onClick={() => {
-                    onOpenWindowsRelease();
-                    closeMenu();
-                  }}
-                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Downloads (Windows / macOS / Android)...</span>
-                </button>
+                {system.linkCable.instanceNumber === 1 && (
+                  <button
+                    onClick={() => {
+                      onOpenWindowsRelease();
+                      closeMenu();
+                    }}
+                    className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Downloads (Windows / macOS / Android)...</span>
+                  </button>
+                )}
 
                 {system.settings.advancedMode && (
                   <>
@@ -956,16 +1056,18 @@ export const TopBar: React.FC<TopBarProps> = ({
                       <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                       <span>Hardware Accuracy & Ghosting...</span>
                     </button>
-                    <button
-                      onClick={() => {
-                        onOpenPhoneBook();
-                        closeMenu();
-                      }}
-                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                    >
-                      <BookUser className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Phone Book Manager...</span>
-                    </button>
+                    {system.linkCable.instanceNumber === 1 && (
+                      <button
+                        onClick={() => {
+                          onOpenPhoneBook();
+                          closeMenu();
+                        }}
+                        className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                      >
+                        <BookUser className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Phone Book Manager...</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         onOpenDebugger();
@@ -976,16 +1078,18 @@ export const TopBar: React.FC<TopBarProps> = ({
                       <Terminal className="w-3.5 h-3.5 text-sky-400" />
                       <span>CPU Debugger...</span>
                     </button>
-                    <button
-                      onClick={() => {
-                        onOpenBios();
-                        closeMenu();
-                      }}
-                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
-                    >
-                      <HardDrive className="w-3.5 h-3.5 text-purple-400" />
-                      <span>BIOS ROM Manager...</span>
-                    </button>
+                    {system.linkCable.instanceNumber === 1 && (
+                      <button
+                        onClick={() => {
+                          onOpenBios();
+                          closeMenu();
+                        }}
+                        className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
+                      >
+                        <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+                        <span>BIOS ROM Manager...</span>
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -995,10 +1099,72 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right: Clean Quick Actions */}
         <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-          {system.linkCable.instanceNumber > 1 && (
-            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold">
-              P{system.linkCable.instanceNumber}
+          {system.linkCable.instanceNumber > 1 ? (
+            <span
+              className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold"
+              title="Player 2 Linked Instance with Isolated NVRAM (Softcore Only)"
+            >
+              P{system.linkCable.instanceNumber} • Softcore Link (Isolated NVRAM)
             </span>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  system.toggleHardcoreMode();
+                  onUpdate();
+                }}
+                className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] font-semibold transition cursor-pointer border ${
+                  system.retroAchievements.config.hardcoreMode
+                    ? system.retroAchievements.isSessionHardcoreClean()
+                      ? 'bg-amber-950/70 border-amber-500/60 text-amber-300 hover:bg-amber-900/70'
+                      : 'bg-rose-950/70 border-rose-500/60 text-rose-300 hover:bg-rose-900/70'
+                    : 'bg-zinc-800/70 border-zinc-700 text-zinc-400 hover:text-zinc-200'
+                }`}
+                title={
+                  system.linkCable.mode !== 'off'
+                    ? 'Compete.Com Link Multiplayer is locked to Softcore (Casual) Mode'
+                    : system.retroAchievements.config.hardcoreMode
+                      ? 'Hardcore Mode Active (Save states, rewind, frame advance & slow motion disabled per RetroAchievements compliance)'
+                      : 'Casual Mode Active (Click to cold-boot into Hardcore Mode)'
+                }
+              >
+                <ShieldCheck className="w-3 h-3" />
+                <span>
+                  {system.linkCable.mode !== 'off'
+                    ? 'Softcore (Link)'
+                    : system.retroAchievements.config.hardcoreMode
+                      ? 'Hardcore'
+                      : 'Casual'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (onOpenAchievements) {
+                    onOpenAchievements();
+                  } else {
+                    onOpenHighScores();
+                  }
+                }}
+                className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-200 font-mono text-[10px] transition cursor-pointer"
+                title="Open RetroAchievements & RAIntegration DLL Manager"
+              >
+                <Trophy className="w-3 h-3 text-purple-400" />
+                <span>
+                  RA {system.retroAchievements.unlocks.length}/
+                  {system.retroAchievements.getAllAchievements().length}
+                </span>
+              </button>
+
+              <button
+                onClick={onOpenHighScores}
+                className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 transition cursor-pointer"
+                title="High Scores, Leaderboards & Achievements"
+              >
+                <Trophy className="w-3 h-3 text-amber-400" />
+                <span className="font-medium">High Scores</span>
+              </button>
+            </>
           )}
 
           {system.virtualStylus.dpadStylusMode && (
@@ -1016,37 +1182,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           )}
 
           <button
-            onClick={() => {
-              system.toggleHardcoreMode();
-              onUpdate();
-            }}
-            className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] font-semibold transition cursor-pointer border ${
-              system.retroAchievements.config.hardcoreMode
-                ? system.retroAchievements.isSessionHardcoreClean()
-                  ? 'bg-amber-950/70 border-amber-500/60 text-amber-300 hover:bg-amber-900/70'
-                  : 'bg-rose-950/70 border-rose-500/60 text-rose-300 hover:bg-rose-900/70'
-                : 'bg-zinc-800/70 border-zinc-700 text-zinc-400 hover:text-zinc-200'
-            }`}
-            title={
-              system.retroAchievements.config.hardcoreMode
-                ? 'Hardcore Mode (Save states & slow motion disabled for verified leaderboards)'
-                : 'Softcore Mode (Click to switch to Hardcore Mode)'
-            }
-          >
-            <ShieldCheck className="w-3 h-3" />
-            <span>{system.retroAchievements.config.hardcoreMode ? 'Hardcore' : 'Softcore'}</span>
-          </button>
-
-          <button
-            onClick={onOpenHighScores}
-            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 transition cursor-pointer"
-            title="High Scores, Leaderboards & Achievements"
-          >
-            <Trophy className="w-3 h-3 text-amber-400" />
-            <span className="font-medium">High Scores</span>
-          </button>
-
-          <button
             onClick={onOpenLibrary}
             className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
             title="Open Game Library"
@@ -1055,6 +1190,15 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span className="truncate max-w-[150px] font-medium">
               {activeCart ? activeCart.title : 'Open Game'}
             </span>
+          </button>
+
+          <button
+            onClick={handleScreenshot}
+            className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white font-medium transition cursor-pointer"
+            title="Take Screenshot (F9 / F12)"
+          >
+            <Camera className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden md:inline">Screenshot</span>
           </button>
 
           <button

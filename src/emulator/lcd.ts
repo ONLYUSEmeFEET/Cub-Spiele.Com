@@ -457,4 +457,21 @@ export class LCDSubsystem {
       targetCtx.fillRect(0, 0, 12, targetCanvas.height);
     }
   }
+
+  /**
+   * Renders a clean, crisp integer-scaled PNG screenshot of the current 200x160 LCD frame
+   * (without any HTML HUD overlays or cursors) and returns its PNG data URL.
+   */
+  public captureScreenshotDataUrl(scale: number = 3): string {
+    const cleanScale = Math.max(1, Math.min(6, Math.round(scale)));
+    const snapCanvas = document.createElement('canvas');
+    snapCanvas.width = SCREEN_WIDTH * cleanScale;
+    snapCanvas.height = SCREEN_HEIGHT * cleanScale;
+    const snapCtx = snapCanvas.getContext('2d');
+    if (!snapCtx) {
+      return this.offscreenCanvas.toDataURL('image/png');
+    }
+    this.renderToCanvas(snapCanvas, snapCtx);
+    return snapCanvas.toDataURL('image/png');
+  }
 }

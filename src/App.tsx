@@ -25,6 +25,9 @@ export function App() {
   const [isDebuggerOpen, setIsDebuggerOpen] = useState(false);
   const [isKeybindsOpen, setIsKeybindsOpen] = useState(false);
   const [isHighScoresOpen, setIsHighScoresOpen] = useState(false);
+  const [highScoresInitialTab, setHighScoresInitialTab] = useState<
+    'leaderboard' | 'profiles' | 'nvram' | 'retroachievements'
+  >('leaderboard');
   const [isPhoneBookOpen, setIsPhoneBookOpen] = useState(false);
   const [isBiosOpen, setIsBiosOpen] = useState(false);
   const [isWindowsReleaseOpen, setIsWindowsReleaseOpen] = useState(false);
@@ -49,6 +52,12 @@ export function App() {
       setToastMessage(null);
     }, 3000);
   }, []);
+
+  const handleTakeScreenshot = useCallback(() => {
+    const snap = system.captureScreenshot();
+    showToast(`Screenshot saved: ${snap.filename}`);
+    forceUpdate();
+  }, [system, showToast, forceUpdate]);
 
   // Periodic UI refresh for FPS and status bar + Electron menu bridge + Competitive callbacks
   useEffect(() => {
@@ -92,6 +101,10 @@ export function App() {
         } else if (action === 'open-library') {
           setIsLibraryOpen(true);
         } else if (action === 'open-high-scores' || action === 'open-vault') {
+          setHighScoresInitialTab('leaderboard');
+          setIsHighScoresOpen(true);
+        } else if (action === 'open-achievements') {
+          setHighScoresInitialTab('retroachievements');
           setIsHighScoresOpen(true);
         } else if (action === 'open-debugger') {
           setIsDebuggerOpen(true);
@@ -212,6 +225,12 @@ export function App() {
         return;
       }
 
+      if (e.code === 'F9' || e.code === 'F12') {
+        e.preventDefault();
+        handleTakeScreenshot();
+        return;
+      }
+
       if (e.code === 'F11') {
         e.preventDefault();
         if (!document.fullscreenElement) {
@@ -225,6 +244,28 @@ export function App() {
       if (e.code === 'KeyP') {
         e.preventDefault();
         system.pauseToggle();
+        forceUpdate();
+        return;
+      }
+
+      if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const stepped = system.frameAdvance();
+        if (stepped) {
+          showToast('Frame Advance (+1 Frame)');
+        }
+        forceUpdate();
+        return;
+      }
+
+      if (e.code === 'BracketLeft' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const rewound = system.rewindStep();
+        if (rewound) {
+          showToast(`Rewound (-15 Frames, ${system.getRewindSnapshotsCount()} left)`);
+        } else if (!system.retroAchievements.config.hardcoreMode) {
+          showToast('Rewind Buffer Empty');
+        }
         forceUpdate();
         return;
       }
@@ -478,7 +519,7 @@ export function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [system, forceUpdate, showToast]);
+  }, [system, forceUpdate, showToast, handleTakeScreenshot]);
 
   // Global Drag-and-Drop ROM handler
   const handleDragOver = (e: React.DragEvent) => {
@@ -538,12 +579,20 @@ export function App() {
         onOpenAccuracy={() => setIsAccuracyOpen(true)}
         onOpenDebugger={() => setIsDebuggerOpen(true)}
         onOpenKeybinds={() => setIsKeybindsOpen(true)}
-        onOpenHighScores={() => setIsHighScoresOpen(true)}
+        onOpenHighScores={() => {
+          setHighScoresInitialTab('leaderboard');
+          setIsHighScoresOpen(true);
+        }}
+        onOpenAchievements={() => {
+          setHighScoresInitialTab('retroachievements');
+          setIsHighScoresOpen(true);
+        }}
         onOpenPhoneBook={() => setIsPhoneBookOpen(true)}
         onOpenLinkCable={() => setIsLinkCableOpen(true)}
         onOpenBios={() => setIsBiosOpen(true)}
         onOpenWindowsRelease={() => setIsWindowsReleaseOpen(true)}
         onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
+        onTakeScreenshot={handleTakeScreenshot}
         onUpdate={forceUpdate}
       />
 
@@ -677,6 +726,7 @@ export function App() {
       <HighScoreVaultModal
         system={system}
         isOpen={isHighScoresOpen}
+        initialTab={highScoresInitialTab}
         onClose={() => setIsHighScoresOpen(false)}
         onOpenInBios={() => {
           setIsHighScoresOpen(false);

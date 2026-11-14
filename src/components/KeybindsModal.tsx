@@ -101,6 +101,26 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
       action: 'SOUND (Toggle Sound)',
       keys: ['O'],
       gamepad: 'L1 / LB Shoulder Button'
+    },
+    {
+      action: 'Frame Advance (+1 Frame — Casual Mode)',
+      keys: ['F'],
+      gamepad: 'Locked in Hardcore Mode'
+    },
+    {
+      action: 'Rewind (-15 Frames — Casual Mode)',
+      keys: ['['],
+      gamepad: 'Locked in Hardcore Mode'
+    },
+    {
+      action: 'Save State / Load State (Load Casual Only)',
+      keys: ['F5 (Save)', 'F8 (Load)'],
+      gamepad: 'Menu Bar -> Emulation'
+    },
+    {
+      action: 'Take Emulator Screenshot (PNG)',
+      keys: ['F9', 'F12'],
+      gamepad: 'Top Bar Camera Button / View Menu'
     }
   ];
 

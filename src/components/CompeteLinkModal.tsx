@@ -459,12 +459,39 @@ export const CompeteLinkModal: React.FC<CompeteLinkModalProps> = ({
 
           {/* Compatible Compete.Com Games Reference */}
           <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800/80">
-            <div className="text-xs font-bold text-zinc-300 mb-2">
-              Compatible Compete.Com™ Two-Player Games &amp; Instructions
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="text-xs font-bold text-zinc-300">
+                Compatible Compete.Com™ Two-Player Games &amp; Instructions
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('roms/compete_test.bin');
+                    if (res.ok) {
+                      const blob = await res.blob();
+                      const file = new File([blob], 'compete_test.bin', {
+                        type: 'application/octet-stream'
+                      });
+                      await system.loadRomFromFile(file, 1);
+                      onUpdate();
+                      onClose();
+                    }
+                  } catch {
+                    // Ignore fetch error
+                  }
+                }}
+                className="px-2.5 py-1 rounded-md bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                title="Boot built-in Compete.Com Link Diagnostic Cartridge (compete_test.bin) in Slot 1"
+              >
+                Boot Link Test ROM (compete_test.bin)
+              </button>
             </div>
-            <p className="text-xs text-zinc-400 mb-2.5">
+            <p className="text-xs text-zinc-400 mb-2">
               1. Connect both emulator instances above until status shows <strong>Compete.Com Cable Linked</strong>.{' '}
               2. Load the same game ROM into both instances. 3. Select <strong>2 Players / Compete</strong> on both screens.
+            </p>
+            <p className="text-[11px] text-amber-300/90 mb-2.5">
+              Note: Compete.Com Link Multiplayer runs in <strong>Softcore (Casual) Mode</strong> only, and Instance #2 uses its own isolated NVRAM file so Player 1 &amp; Player 2 saves and scores never overwrite each other.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {COMPETE_COMPATIBLE_GAMES.map((game) => (

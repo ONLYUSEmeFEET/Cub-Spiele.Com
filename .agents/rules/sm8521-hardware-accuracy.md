@@ -1,9 +1,6 @@
 ---
-description: Enforce Sharp SM8521 hardware accuracy, NVRAM slot integrity, and standalone desktop UX standards.
-globs:
-  - "src/**/*"
-  - "electron/**/*"
-  - "scripts/**/*"
+description: "Enforce Sharp SM8521 hardware accuracy, NVRAM slot integrity, and standalone desktop UX standards."
+globs: "src/**/*, electron/**/*, scripts/**/*"
 ---
 
 # Cub Spiele.Com — SM8521 Hardware & Standalone Emulator Rules

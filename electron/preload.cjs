@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('gamecomDesktop', {
   toggleFullscreen: () => ipcRenderer.invoke('desktop:toggle-fullscreen'),
   openSecondInstance: (roomCode = 'TIGER-1') => ipcRenderer.invoke('desktop:open-second-instance', roomCode),
   getLanIps: () => ipcRenderer.invoke('desktop:get-lan-ips'),
+  raDoRequest: (paramsObj) => ipcRenderer.invoke('desktop:ra-do-request', paramsObj),
+  getRaDllStatus: () => ipcRenderer.invoke('desktop:ra-dll-status'),
   sendLinkPacket: (packet) => ipcRenderer.send('desktop:link-packet', packet),
   onLinkPacket: (callback) => {
     const listener = (_event, packet) => callback(packet);

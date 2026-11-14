@@ -146,7 +146,7 @@ def build_rom() -> bytes:
     asm.emit(0xC0)                    # +0x10: Icon Y (192)
     asm.buf.extend(b'LINK TEST')      # +0x11..+0x19: 9-byte ASCII Cartridge Title
     asm.emit_word_be(0xC0DE)          # +0x1A..+0x1B: Game ID ($C0DE)
-    asm.emit(0x85, 0x00, 0x00, 0x00)  # +0x1C..+0x1F: Header padding
+    asm.emit(0x3B, 0x00, 0x00, 0x00)  # +0x1C: BIOS Game ID Checksum (((0xC0 + 0xDE) & 0xFF) ^ 0xA5 = 0x3B)
 
     assert asm.pc == 0x4020
 
@@ -627,17 +627,26 @@ def build_rom() -> bytes:
     asm.resolve()
 
     bank0 = bytes(asm.buf) + bytes(8192 - len(asm.buf))
-    bank1 = bytes(8192)
+    # BIOS security check $4E38..$4E80: for checksum 0x3B (index 0x0B in $4E87 table),
+    # the BIOS sums bank+1[$600D] + bank+1[$73C9] + bank+3[$63EC] and verifies sum == 0x5A.
+    bank1_buf = bytearray(8192)
+    bank1_buf[0x000D] = 0x5A
+    bank1 = bytes(bank1_buf)
+    bank3 = bytes(8192)
 
-    full_rom = bank0 + bank1 + bank0 + bank1
+    full_rom = bank0 + bank1 + bank0 + bank3
     assert len(full_rom) == 32768
     return full_rom
 
 
 if __name__ == '__main__':
-    out_path = os.path.join(os.path.dirname(__file__), '..', 'public', 'roms', 'compete_test.bin')
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_paths = [
+        os.path.join(os.path.dirname(__file__), '..', 'public', 'roms', 'compete_test.bin'),
+        os.path.join(os.path.dirname(__file__), '..', 'compete_test.bin'),
+    ]
     rom_bytes = build_rom()
-    with open(out_path, 'wb') as f:
-        f.write(rom_bytes)
-    print(f"Built {out_path} ({len(rom_bytes)} bytes)")
+    for out_path in out_paths:
+        os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+        with open(out_path, 'wb') as f:
+            f.write(rom_bytes)
+        print(f"Built {out_path} ({len(rom_bytes)} bytes)")

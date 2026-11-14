@@ -9,6 +9,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
 const os = require('os');
 
@@ -158,6 +159,10 @@ function createApplicationMenu() {
           label: 'Expanded NVRAM High Score Vault',
           accelerator: 'CmdOrCtrl+H',
           click: () => mainWindow?.webContents.send('desktop:menu-action', 'open-vault')
+        },
+        {
+          label: 'RetroAchievements & RAIntegration DLL...',
+          click: () => mainWindow?.webContents.send('desktop:menu-action', 'open-achievements')
         },
         {
           label: 'SM8521 Chip Accuracy Audit',
@@ -599,6 +604,70 @@ ipcMain.handle('desktop:open-second-instance', (_event, roomCode = 'TIGER-1') =>
 
 ipcMain.handle('desktop:get-lan-ips', () => {
   return getLocalLanAddresses();
+});
+
+ipcMain.handle('desktop:ra-do-request', async (_event, paramsObj) => {
+  return new Promise((resolve) => {
+    try {
+      const formBody = new URLSearchParams(paramsObj || {}).toString();
+      const userAgent = `CubSpieleCom/${app.getVersion() || '1.5.0'} (${process.platform} ${os.release()}; ${process.arch}) sm8521_core/v1.5.0`;
+      const req = https.request(
+        'https://retroachievements.org/dorequest.php',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(formBody),
+            'User-Agent': userAgent
+          },
+          timeout: 8000
+        },
+        (res) => {
+          let raw = '';
+          res.on('data', (chunk) => {
+            raw += chunk.toString('utf8');
+          });
+          res.on('end', () => {
+            try {
+              resolve({ ok: true, status: res.statusCode, data: JSON.parse(raw) });
+            } catch {
+              resolve({ ok: false, status: res.statusCode, raw });
+            }
+          });
+        }
+      );
+      req.on('error', (err) => resolve({ ok: false, error: err.message }));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ ok: false, error: 'Request timeout' });
+      });
+      req.write(formBody);
+      req.end();
+    } catch (err) {
+      resolve({ ok: false, error: err.message });
+    }
+  });
+});
+
+ipcMain.handle('desktop:ra-dll-status', async () => {
+  const candidates = [
+    path.join(process.cwd(), 'RA_Integration-x64.dll'),
+    path.join(process.cwd(), 'RA_Integration.dll'),
+    path.join(__dirname, '../public/releases/RA_Integration-x64.dll'),
+    path.join(__dirname, '../dist/releases/RA_Integration-x64.dll')
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const buf = fs.readFileSync(p);
+      return {
+        found: true,
+        fileName: path.basename(p),
+        path: p,
+        bytes: Array.from(buf)
+      };
+    }
+  }
+  return { found: false };
 });
 
 ipcMain.on('desktop:link-packet', (event, packet) => {
