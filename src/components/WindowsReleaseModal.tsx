@@ -8,7 +8,6 @@ import {
   FileArchive,
   Monitor,
   Smartphone,
-  Terminal,
   Laptop,
   Loader2
 } from 'lucide-react';
@@ -21,7 +20,7 @@ interface ReleaseAsset {
   sizeBytes: number;
   sha256: string;
   architecture: string;
-  platform?: 'windows' | 'macos' | 'linux' | 'android';
+  platform?: 'windows' | 'macos' | 'android';
 }
 
 interface ReleaseEntry {
@@ -51,12 +50,12 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
     {
       tag: 'v1.5.0',
       title:
-        'Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal, Linux x86_64 & Android APK), Castlevania SotN & Streamlined UI',
+        'Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI',
       publishedAt: '2026-11-13T23:45:00Z',
       isLatest: true,
       commitRef: 'HEAD (tag: v1.5.0)',
       highlights: [
-        'Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), Linux x86_64 / SteamOS (native ELF64 binary & .desktop bundle), and Android (.apk & installable offline touch PWA)',
+        'Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)',
         'Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection',
         'Fixed bezel/BIOS status flickering during cartridge gameplay and streamlined the default UI with an optional Advanced Mode (View -> Advanced Mode)',
         'Defaults to Softcore Mode initially (persisting user preference afterward) while providing full RetroAchievements-compatible Competitive Hardcore Mode, Multi-Player High Score Profiles, and Online Leaderboards'
@@ -66,7 +65,7 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
           name: 'CubSpieleCom-v1.5.0-win64.zip',
           label: 'Windows x64 Portable Build (v1.5.0 .zip)',
           url: './releases/CubSpieleCom-v1.5.0-win64.zip',
-          sizeBytes: 695000,
+          sizeBytes: 700037,
           sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
           architecture: 'Windows 10/11 x64 (PE32+ AMD64)',
           platform: 'windows'
@@ -84,25 +83,16 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
           name: 'CubSpieleCom-v1.5.0-macos-universal.zip',
           label: 'macOS Universal App Bundle (v1.5.0 .app.zip)',
           url: './releases/CubSpieleCom-v1.5.0-macos-universal.zip',
-          sizeBytes: 702000,
+          sizeBytes: 702925,
           sha256: '4f8b42c22dd3729b519ba6f68d2da7cc5b2d606d05daed5ad5128cc03e6c6358',
           architecture: 'macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)',
           platform: 'macos'
         },
         {
-          name: 'CubSpieleCom-v1.5.0-linux-x86_64.tar.gz',
-          label: 'Linux x86_64 & SteamOS Bundle (v1.5.0 .tar.gz)',
-          url: './releases/CubSpieleCom-v1.5.0-linux-x86_64.tar.gz',
-          sizeBytes: 692000,
-          sha256: 'e32a183f5e018bc6d615bcfa034d922fe97ab2196394c052882f73db652c01f0',
-          architecture: 'Linux x86_64 / SteamOS (ELF64 + FreeDesktop)',
-          platform: 'linux'
-        },
-        {
           name: 'CubSpieleCom-v1.5.0-android.apk',
           label: 'Android Universal Package (v1.5.0 .apk)',
           url: './releases/CubSpieleCom-v1.5.0-android.apk',
-          sizeBytes: 698000,
+          sizeBytes: 699408,
           sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
           architecture: 'Android 8.0+ (ARM64-v8a / Universal Touch APK)',
           platform: 'android'
@@ -150,7 +140,7 @@ interface WindowsReleaseModalProps {
   onClose: () => void;
 }
 
-type PlatformFilter = 'all' | 'windows' | 'macos' | 'linux' | 'android';
+type PlatformFilter = 'all' | 'windows' | 'macos' | 'android';
 
 export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClose }) => {
   const [manifest, setManifest] = useState<ReleasesManifest>(FALLBACK_MANIFEST);
@@ -171,11 +161,10 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
       });
   }, []);
 
-  const detectPlatform = (asset: ReleaseAsset): 'windows' | 'macos' | 'linux' | 'android' => {
+  const detectPlatform = (asset: ReleaseAsset): 'windows' | 'macos' | 'android' => {
     if (asset.platform) return asset.platform;
     const n = asset.name.toLowerCase();
     if (n.includes('macos') || n.includes('darwin') || n.endsWith('.dmg')) return 'macos';
-    if (n.includes('linux') || n.endsWith('.tar.gz') || n.endsWith('.appimage')) return 'linux';
     if (n.includes('android') || n.endsWith('.apk')) return 'android';
     return 'windows';
   };
@@ -197,9 +186,8 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
     }
   };
 
-  const renderPlatformIcon = (plat: 'windows' | 'macos' | 'linux' | 'android', isExe: boolean) => {
+  const renderPlatformIcon = (plat: 'windows' | 'macos' | 'android', isExe: boolean) => {
     if (plat === 'macos') return <Laptop className="w-4 h-4 text-purple-400 shrink-0" />;
-    if (plat === 'linux') return <Terminal className="w-4 h-4 text-amber-400 shrink-0" />;
     if (plat === 'android') return <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />;
     return isExe ? (
       <Monitor className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -217,10 +205,10 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
             <Monitor className="w-5 h-5 text-sky-400" />
             <div>
               <h2 className="text-sm font-bold text-white">
-                Cub Spiele.Com — Multi-Platform Releases (Windows, macOS, Linux & Android)
+                Cub Spiele.Com — Multi-Platform Releases (Windows, macOS & Android)
               </h2>
               <p className="text-[11px] text-zinc-400">
-                Download standalone native & portable builds for Windows x64, macOS Universal (.app), Linux x86_64, and Android (.apk)
+                Download standalone native & portable builds for Windows x64, macOS Universal (.app), and Android (.apk)
               </p>
             </div>
           </div>
@@ -239,7 +227,6 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
               { id: 'all', label: 'All Platforms' },
               { id: 'windows', label: 'Windows x64' },
               { id: 'macos', label: 'macOS Universal' },
-              { id: 'linux', label: 'Linux / SteamOS' },
               { id: 'android', label: 'Android APK' }
             ] as { id: PlatformFilter; label: string }[]
           ).map((tab) => (
@@ -363,7 +350,7 @@ export const WindowsReleaseModal: React.FC<WindowsReleaseModalProps> = ({ onClos
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>
-              Available for Windows 10/11 x64, macOS Universal (Apple Silicon & Intel), Linux x86_64 / SteamOS, and Android.
+              Available for Windows 10/11 x64, macOS Universal (Apple Silicon & Intel), and Android.
             </span>
           </div>
           <button

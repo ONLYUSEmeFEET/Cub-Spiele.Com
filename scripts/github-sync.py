@@ -55,9 +55,7 @@ REPO_TOPICS = [
     "electron",
     "windows-x64",
     "macos",
-    "linux",
     "android",
-    "cross-platform",
 ]
 
 
@@ -138,7 +136,7 @@ def format_release_notes(rel_entry: dict) -> str:
 
     lines.extend([
         "",
-        f"**Release Tag**: `{tag}` · **Supported Platforms**: Windows 10/11 x64 (`PE32+`), macOS 11+ Universal (`arm64` + `x86_64`), Linux x86_64 / SteamOS (`ELF64`), Android 8.0+ (`APK` & Touch PWA)",
+        f"**Release Tag**: `{tag}` · **Supported Platforms**: Windows 10/11 x64 (`PE32+`), macOS 11+ Universal (`arm64` + `x86_64`), Android 8.0+ (`APK` & Touch PWA)",
     ])
     return "\n".join(lines)
 
@@ -199,7 +197,7 @@ def main():
 
     if os.path.exists(GH_EXE):
         # 1. Update repository description and topics
-        topic_args = []
+        topic_args = ["--remove-topic", "linux"]
         for t in REPO_TOPICS:
             topic_args.extend(["--add-topic", t])
         run([

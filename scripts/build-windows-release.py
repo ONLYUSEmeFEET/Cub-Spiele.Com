@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """
 Cub Spiele.Com — Multi-Platform Standalone Emulator Release Builder (v1.5.0)
-Generates native & portable release artifacts for Windows, macOS, Linux, and Android:
+Generates native & portable release artifacts for Windows, macOS, and Android:
   1. public/assets/icon.ico, icon-192.png, icon-512.png, icon.icns
   2. public/releases/CubSpieleCom.exe (Native Windows x64 PE32+ GUI Executable)
   3. public/releases/CubSpieleCom-v1.5.0-win64.zip (Windows 10/11 x64 Portable Build)
   4. public/releases/CubSpieleCom-v1.5.0-macos-universal.zip (macOS Universal .app Bundle — Apple Silicon ARM64 & Intel x64)
-  5. public/releases/CubSpieleCom-v1.5.0-linux-x86_64.tar.gz (Linux x86_64 / SteamOS Native ELF64 + Desktop Bundle)
-  6. public/releases/CubSpieleCom-v1.5.0-android.apk (Android Universal Package & Offline Touch Bundle)
-  7. Historical Windows x64 builds (v1.4.0 .. v1.0.0) and public/releases/releases-manifest.json
+  5. public/releases/CubSpieleCom-v1.5.0-android.apk (Android Universal Package & Offline Touch Bundle)
+  6. Historical Windows x64 builds (v1.4.0 .. v1.0.0) and public/releases/releases-manifest.json
 """
 
-import io
 import os
 import json
 import zlib
 import struct
-import tarfile
 import hashlib
 import base64
 import zipfile
@@ -359,96 +356,6 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
     return bytes(headers + text_padded + rdata + rsrc_padded)
 
 
-def build_linux_elf64_executable() -> bytes:
-    """
-    Builds a static 64-bit Linux ELF (x86_64) binary that executes:
-      execve("/bin/sh", ["/bin/sh", "./CubSpieleCom-Launch.sh", NULL], envp)
-    and exits cleanly via sys_exit(0) if execve returns.
-    """
-    base_vaddr = 0x400000
-    ehdr_size = 64
-    phdr_size = 56
-    code_offset = ehdr_size + phdr_size  # 0x78 (120)
-    entry_vaddr = base_vaddr + code_offset
-
-    # Strings placed at offset 0x100 (vaddr 0x400100)
-    str_offset = 0x100
-    str_bin_sh = b'/bin/sh\x00'
-    str_script = b'./CubSpieleCom-Launch.sh\x00'
-    vaddr_bin_sh = base_vaddr + str_offset
-    vaddr_script = vaddr_bin_sh + len(str_bin_sh)
-
-    # x86_64 machine code:
-    # pop rdi (argc)
-    # mov rdx, rsp (argv)
-    # lea rdx, [rdx + rdi*8 + 8] (envp)
-    # xor eax, eax
-    # push rax (NULL)
-    # mov rsi, vaddr_script; push rsi
-    # mov rdi, vaddr_bin_sh; push rdi
-    # mov rsi, rsp (argv = ["/bin/sh", "./CubSpieleCom-Launch.sh", NULL])
-    # mov eax, 59 (sys_execve)
-    # syscall
-    # mov eax, 60 (sys_exit)
-    # xor edi, edi
-    # syscall
-    code = bytearray()
-    code.extend(b'\x5F')                                      # pop rdi
-    code.extend(b'\x48\x89\xE2')                              # mov rdx, rsp
-    code.extend(b'\x48\x8D\x54\xFA\x08')                      # lea rdx, [rdx + rdi*8 + 8]
-    code.extend(b'\x31\xC0')                                  # xor eax, eax
-    code.extend(b'\x50')                                      # push rax
-    code.extend(b'\x48\xBE' + struct.pack('<Q', vaddr_script))# movabs rsi, vaddr_script
-    code.extend(b'\x56')                                      # push rsi
-    code.extend(b'\x48\xBF' + struct.pack('<Q', vaddr_bin_sh))# movabs rdi, vaddr_bin_sh
-    code.extend(b'\x57')                                      # push rdi
-    code.extend(b'\x48\x89\xE6')                              # mov rsi, rsp
-    code.extend(b'\xB8\x3B\x00\x00\x00')                      # mov eax, 59 (sys_execve)
-    code.extend(b'\x0F\x05')                                  # syscall
-    code.extend(b'\xB8\x3C\x00\x00\x00')                      # mov eax, 60 (sys_exit)
-    code.extend(b'\x31\xFF')                                  # xor edi, edi
-    code.extend(b'\x0F\x05')                                  # syscall
-
-    total_size = str_offset + len(str_bin_sh) + len(str_script)
-    e_ident = b'\x7fELF\x02\x01\x01\x00' + b'\x00' * 8
-    ehdr = struct.pack(
-        '<16sHHIQQQIHHHHHH',
-        e_ident,
-        2,              # ET_EXEC
-        62,             # EM_X86_64
-        1,              # EV_CURRENT
-        entry_vaddr,
-        ehdr_size,
-        0,
-        0,
-        ehdr_size,
-        phdr_size,
-        1,
-        64,
-        0,
-        0
-    )
-    phdr = struct.pack(
-        '<IIQQQQQQ',
-        1,              # PT_LOAD
-        5,              # PF_R | PF_X
-        0,
-        base_vaddr,
-        base_vaddr,
-        total_size,
-        total_size,
-        0x1000
-    )
-
-    image = bytearray(total_size)
-    image[0:ehdr_size] = ehdr
-    image[ehdr_size:ehdr_size + phdr_size] = phdr
-    image[code_offset:code_offset + len(code)] = code
-    image[str_offset:str_offset + len(str_bin_sh)] = str_bin_sh
-    image[str_offset + len(str_bin_sh):total_size] = str_script
-    return bytes(image)
-
-
 def build_macos_universal_macho_binary() -> bytes:
     """
     Builds a Universal Mach-O Fat Binary (0xCAFEBABE) containing both
@@ -560,7 +467,6 @@ def create_offline_desktop_index_html(version: str = '1.5.0', platform: str = 'w
     nvram_paths = {
         'win32': '%LOCALAPPDATA%\\\\CubSpieleCom\\\\cub_spiele_nvram_8kb.sav',
         'darwin': '~/Library/Application Support/CubSpieleCom/cub_spiele_nvram_8kb.sav',
-        'linux': '~/.config/CubSpieleCom/cub_spiele_nvram_8kb.sav',
         'android': '/data/data/com.cubspiele.emulator/files/cub_spiele_nvram_8kb.sav'
     }
     nvram_path = nvram_paths.get(platform, nvram_paths['win32'])
@@ -571,7 +477,6 @@ def create_offline_desktop_index_html(version: str = '1.5.0', platform: str = 'w
 window.gamecomDesktop = window.gamecomDesktop || {{
   isWindowsApp: {str(platform == 'win32').lower()},
   isMacApp: {str(platform == 'darwin').lower()},
-  isLinuxApp: {str(platform == 'linux').lower()},
   isAndroidApp: {str(platform == 'android').lower()},
   defaultScreenOnly: {default_screen_only},
   platform: '{platform}',
@@ -797,93 +702,6 @@ NVRAM & HIGH SCORE VAULT LOCATION:
             zf.write(full_p, f'{app_root}/Resources/app/{rel_p}')
 
 
-def build_linux_bundle(tar_gz_path: str, version: str):
-    """Builds a Linux x86_64 & SteamOS tar.gz bundle with a native ELF64 binary, shell host, and .desktop entry."""
-    ver_clean = version.lstrip('v')
-    elf_bytes = build_linux_elf64_executable()
-    offline_html = create_offline_desktop_index_html(ver_clean, 'linux', 'x64')
-
-    launch_sh = """#!/bin/sh
-# Cub Spiele.Com — Linux x86_64 / SteamOS Standalone Host
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_HTML="$SCRIPT_DIR/app/index.html"
-CONFIG_BASE="${XDG_CONFIG_HOME:-$HOME/.config}/CubSpieleCom"
-mkdir -p "$CONFIG_BASE/Profile"
-
-for BIN in google-chrome google-chrome-stable chromium chromium-browser microsoft-edge brave-browser; do
-  if command -v "$BIN" >/dev/null 2>&1; then
-    exec "$BIN" \\
-      --app="file://$APP_HTML" \\
-      --window-size=920,760 \\
-      --allow-file-access-from-files \\
-      --autoplay-policy=no-user-gesture-required \\
-      --user-data-dir="$CONFIG_BASE/Profile" >/dev/null 2>&1 &
-    exit 0
-  fi
-done
-
-exec xdg-open "$APP_HTML" >/dev/null 2>&1 &
-"""
-
-    desktop_entry = f"""[Desktop Entry]
-Type=Application
-Version=1.0
-Name=Cub Spiele.Com
-GenericName=Sharp SM8521 Handheld Emulator
-Comment=Cycle-Accurate Tiger Game.Com Handheld Emulator ({version})
-Exec=./CubSpieleCom
-Icon=cub-spiele-com
-Terminal=false
-Categories=Game;Emulator;
-Keywords=gamecom;sm8521;emulator;retroachievements;
-"""
-
-    readme_linux = f"""================================================================================
-CUB SPIELE.COM — LINUX x86_64 & STEAMOS STANDALONE BUILD ({version})
-================================================================================
-
-QUICK START (Ubuntu / Debian / Fedora / Arch / Steam Deck):
-1. Extract this archive:
-   tar -xzf CubSpieleCom-{version}-linux-x86_64.tar.gz
-   cd CubSpieleCom-{version}-linux-x86_64
-2. Run the native ELF64 executable or launcher script:
-   ./CubSpieleCom
-   (or ./CubSpieleCom-Launch.sh)
-
-NVRAM & HIGH SCORE VAULT LOCATION:
-~/.config/CubSpieleCom/
-================================================================================
-"""
-
-    root_prefix = f'CubSpieleCom-{version}-linux-x86_64'
-
-    def add_bytes_to_tar(tf: tarfile.TarFile, arcname: str, data: bytes, mode: int = 0o644):
-        ti = tarfile.TarInfo(name=arcname)
-        ti.size = len(data)
-        ti.mtime = 1794592800
-        ti.mode = mode
-        ti.uid = 1000
-        ti.gid = 1000
-        ti.uname = 'cubspiele'
-        ti.gname = 'cubspiele'
-        tf.addfile(ti, io.BytesIO(data))
-
-    with tarfile.open(tar_gz_path, 'w:gz', compresslevel=6) as tf:
-        add_bytes_to_tar(tf, f'{root_prefix}/CubSpieleCom', elf_bytes, mode=0o755)
-        add_bytes_to_tar(tf, f'{root_prefix}/CubSpieleCom-Launch.sh', launch_sh.encode('utf-8'), mode=0o755)
-        add_bytes_to_tar(tf, f'{root_prefix}/CubSpieleCom.desktop', desktop_entry.encode('utf-8'), mode=0o755)
-        add_bytes_to_tar(tf, f'{root_prefix}/README-LINUX.txt', readme_linux.encode('utf-8'), mode=0o644)
-        credits_path = os.path.join(ROOT_DIR, 'credits.txt')
-        if os.path.exists(credits_path):
-            with open(credits_path, 'rb') as cf:
-                add_bytes_to_tar(tf, f'{root_prefix}/credits.txt', cf.read(), mode=0o644)
-        add_bytes_to_tar(tf, f'{root_prefix}/app/index.html', offline_html.encode('utf-8'), mode=0o644)
-
-        for full_p, rel_p in iter_dist_app_files():
-            with open(full_p, 'rb') as df:
-                add_bytes_to_tar(tf, f'{root_prefix}/app/{rel_p}', df.read(), mode=0o644)
-
-
 def build_valid_dex_bytes() -> bytes:
     """Builds a minimal byte-valid Dalvik Executable (classes.dex, dex\\n035\\0) with valid SHA-1 & Adler32."""
     dex = bytearray(112)
@@ -997,6 +815,8 @@ def main():
             old_f.startswith('GameCom-')
             or 'Antigravity' in old_f
             or old_f.endswith('-dist.zip')
+            or old_f.endswith('.gz')
+            or 'linux' in old_f.lower()
         ):
             try:
                 os.remove(os.path.join(RELEASES_DIR, old_f))
@@ -1047,14 +867,10 @@ def main():
         build_zip_bundle(zpath, exe_bytes, ver)
         zip_paths[ver] = (zname, zpath)
 
-    # 4. Build v1.5.0 macOS Universal (.app), Linux x86_64 (.tar.gz), and Android (.apk)
+    # 4. Build v1.5.0 macOS Universal (.app) and Android (.apk)
     mac_name = 'CubSpieleCom-v1.5.0-macos-universal.zip'
     mac_path = os.path.join(RELEASES_DIR, mac_name)
     build_macos_universal_bundle(mac_path, icns_bytes, 'v1.5.0')
-
-    linux_name = 'CubSpieleCom-v1.5.0-linux-x86_64.tar.gz'
-    linux_path = os.path.join(RELEASES_DIR, linux_name)
-    build_linux_bundle(linux_path, 'v1.5.0')
 
     android_name = 'CubSpieleCom-v1.5.0-android.apk'
     android_path = os.path.join(RELEASES_DIR, android_name)
@@ -1064,13 +880,18 @@ def main():
         dist_rel = os.path.join(DIST_DIR, 'releases')
         os.makedirs(dist_rel, exist_ok=True)
         for old_df in os.listdir(dist_rel):
-            if 'Antigravity' in old_df or old_df.endswith('-dist.zip'):
+            if (
+                'Antigravity' in old_df
+                or old_df.endswith('-dist.zip')
+                or old_df.endswith('.gz')
+                or 'linux' in old_df.lower()
+            ):
                 try:
                     os.remove(os.path.join(dist_rel, old_df))
                 except OSError:
                     pass
         copy_files = (
-            ['CubSpieleCom.exe', mac_name, linux_name, android_name]
+            ['CubSpieleCom.exe', mac_name, android_name]
             + [zip_paths[v][0] for v in versions]
         )
         for fname in copy_files:
@@ -1091,13 +912,13 @@ def main():
         "releases": [
             {
                 "tag": "v1.5.0",
-                "title": "Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal, Linux x86_64 & Android APK), Castlevania SotN & Streamlined UI",
+                "title": "Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
                 "publishedAt": "2026-11-13T23:45:00Z",
                 "isLatest": True,
                 "Prerelease": False,
                 "commitRef": "HEAD (tag: v1.5.0)",
                 "highlights": [
-                    "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), Linux x86_64 / SteamOS (native ELF64 binary & .desktop bundle), and Android (.apk & installable offline touch PWA)",
+                    "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
                     "Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection",
                     "Fixed bezel/BIOS status flickering during cartridge gameplay and streamlined the default UI with an optional Advanced Mode (View -> Advanced Mode)",
                     "Defaults to Softcore Mode initially (persisting user preference afterward) while providing full RetroAchievements-compatible Competitive Hardcore Mode, Multi-Player High Score Profiles, and Online Leaderboards"
@@ -1129,15 +950,6 @@ def main():
                         "sha256": sha256_file(mac_path),
                         "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
                         "platform": "macos"
-                    },
-                    {
-                        "name": linux_name,
-                        "label": "Linux x86_64 & SteamOS Bundle (v1.5.0 .tar.gz)",
-                        "url": f"./releases/{linux_name}",
-                        "sizeBytes": os.path.getsize(linux_path),
-                        "sha256": sha256_file(linux_path),
-                        "architecture": "Linux x86_64 / SteamOS (ELF64 + FreeDesktop)",
-                        "platform": "linux"
                     },
                     {
                         "name": android_name,
@@ -1334,7 +1146,6 @@ def main():
 
     print(f"Built Windows x64 EXE: {exe_path} ({exe_size} bytes)")
     print(f"Built macOS Universal App ZIP: {mac_path} ({os.path.getsize(mac_path)} bytes)")
-    print(f"Built Linux x86_64 TAR.GZ: {linux_path} ({os.path.getsize(linux_path)} bytes)")
     print(f"Built Android APK: {android_path} ({os.path.getsize(android_path)} bytes)")
     for ver in versions:
         print(f"Built {ver} Win64 ZIP: {zip_paths[ver][1]} ({os.path.getsize(zip_paths[ver][1])} bytes)")

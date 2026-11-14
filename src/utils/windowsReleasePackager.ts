@@ -469,7 +469,7 @@ FEATURES:
 }
 
 /**
- * Downloads any multi-platform release artifact (Windows, macOS Universal, Linux x86_64, Android APK)
+ * Downloads any multi-platform release artifact (Windows, macOS Universal, Android APK)
  */
 export async function downloadReleaseArtifact(
   fileName: string,
@@ -486,9 +486,7 @@ export async function downloadReleaseArtifact(
       if (buf.length > 512) {
         const mime = lower.endsWith('.apk')
           ? 'application/vnd.android.package-archive'
-          : lower.endsWith('.tar.gz')
-            ? 'application/gzip'
-            : 'application/zip';
+          : 'application/zip';
         triggerBinaryDownload(buf, fileName, mime);
         return buf.length;
       }

@@ -937,7 +937,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center gap-2.5 text-left cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Downloads (Win / macOS / Linux / Android)...</span>
+                  <span>Downloads (Windows / macOS / Android)...</span>
                 </button>
 
                 {system.settings.advancedMode && (

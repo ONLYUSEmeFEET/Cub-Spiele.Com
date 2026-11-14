@@ -1,7 +1,7 @@
 /**
- * Cub Spiele.Com — Sharp SM8521 Hardware Emulator (Cross-Platform Electron Main Process)
- * Supports Windows 10/11 (x64 & ARM64), macOS 11+ (Universal Apple Silicon & Intel),
- * and Linux (x86_64 & ARM64 / SteamOS), with native OS file dialogs, .bin/.tgc file associations,
+ * Cub Spiele.Com — Sharp SM8521 Hardware Emulator (Desktop Electron Main Process)
+ * Supports Windows 10/11 (x64 & ARM64) and macOS 11+ (Universal Apple Silicon & Intel),
+ * with native OS file dialogs, .bin/.tgc file associations,
  * hardware-accelerated WebAudio/Canvas2D, and persistent OS userData NVRAM storage.
  */
 
@@ -16,19 +16,12 @@ const os = require('os');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
-}
 
 function getPlatformIconPath() {
   const assetsDir = path.join(__dirname, '../public/assets');
   if (process.platform === 'darwin') {
     const icns = path.join(assetsDir, 'icon.icns');
     if (fs.existsSync(icns)) return icns;
-  }
-  if (process.platform === 'linux') {
-    const png = path.join(assetsDir, 'icon-512.png');
-    if (fs.existsSync(png)) return png;
   }
   return path.join(assetsDir, 'icon.ico');
 }

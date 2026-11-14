@@ -1,4 +1,4 @@
-name: Multi-Platform Release Build (Windows, macOS, Linux, Android)
+name: Multi-Platform Release Build (Windows, macOS, Android)
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -35,7 +35,7 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npm run lint
 
-      - name: Build Web & Multi-Platform Bundles (Win64, macOS Universal, Linux x86_64, Android APK)
+      - name: Build Web & Multi-Platform Bundles (Win64, macOS Universal, Android APK)
         run: npm run release:all
 
       - name: Upload Multi-Platform Artifacts
@@ -46,5 +46,4 @@ jobs:
             public/releases/CubSpieleCom.exe
             public/releases/CubSpieleCom-v*-win64.zip
             public/releases/CubSpieleCom-v*-macos-universal.zip
-            public/releases/CubSpieleCom-v*-linux-x86_64.tar.gz
             public/releases/CubSpieleCom-v*-android.apk

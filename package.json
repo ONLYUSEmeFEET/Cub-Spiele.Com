@@ -2,7 +2,7 @@
   "name": "cub-spiele-com-emulator",
   "private": true,
   "version": "1.5.0",
-  "description": "Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator for Windows, macOS, Linux, Android & Web with Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
+  "description": "Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator for Windows, macOS, Android & Web with Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
   "keywords": [
     "emulator",
     "gamecom",
@@ -22,7 +22,6 @@
     "electron",
     "windows-x64",
     "macos",
-    "linux",
     "android",
     "cross-platform",
     "cub-spiele-com"
@@ -43,8 +42,7 @@
     "release:all": "vite build && python scripts/build-windows-release.py",
     "github:sync": "python scripts/github-sync.py",
     "dist:win": "vite build && electron-builder --win --x64",
-    "dist:mac": "vite build && electron-builder --mac --universal",
-    "dist:linux": "vite build && electron-builder --linux --x64"
+    "dist:mac": "vite build && electron-builder --mac --universal"
   },
   "build": {
     "appId": "com.cubspiele.emulator",
@@ -62,11 +60,6 @@
       "target": ["dmg", "zip"],
       "icon": "public/assets/icon.icns",
       "category": "public.app-category.games"
-    },
-    "linux": {
-      "target": ["AppImage", "tar.gz", "deb"],
-      "icon": "public/assets/icon-512.png",
-      "category": "Game;Emulator;"
     }
   },
   "dependencies": {

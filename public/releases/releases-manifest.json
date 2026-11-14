@@ -2,17 +2,17 @@
   "project": "cub-spiele-com-emulator",
   "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
   "latestVersion": "v1.5.0",
-  "generatedAt": "2026-11-13T23:49:33.492672+00:00",
+  "generatedAt": "2026-11-14T00:07:39.092642+00:00",
   "releases": [
     {
       "tag": "v1.5.0",
-      "title": "Cub Spiele.Com v1.5.0 \u2014 Multi-Platform Support (Windows, macOS Universal, Linux x86_64 & Android APK), Castlevania SotN & Streamlined UI",
+      "title": "Cub Spiele.Com v1.5.0 \u2014 Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
       "publishedAt": "2026-11-13T23:45:00Z",
       "isLatest": true,
       "Prerelease": false,
       "commitRef": "HEAD (tag: v1.5.0)",
       "highlights": [
-        "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), Linux x86_64 / SteamOS (native ELF64 binary & .desktop bundle), and Android (.apk & installable offline touch PWA)",
+        "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
         "Added full support for prototype Castlevania: Symphony of the Night ($0448) and all official Game.Com titles including Sonic Jam ($0432) with double-buffered VRAM page-flip synchronization and stable MMU1..MMU4 cartridge detection",
         "Fixed bezel/BIOS status flickering during cartridge gameplay and streamlined the default UI with an optional Advanced Mode (View -> Advanced Mode)",
         "Defaults to Softcore Mode initially (persisting user preference afterward) while providing full RetroAchievements-compatible Competitive Hardcore Mode, Multi-Player High Score Profiles, and Online Leaderboards"
@@ -22,8 +22,8 @@
           "name": "CubSpieleCom-v1.5.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.5.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.5.0-win64.zip",
-          "sizeBytes": 700037,
-          "sha256": "9434847b62dbe7bac815349c48ff87f0689a410e6aaab0ee3f64957aad34fa36",
+          "sizeBytes": 699817,
+          "sha256": "7eb816d07574181d28f9f8d0a1aef939ae64775692f5aaf48862bf7a182b02fe",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -40,26 +40,17 @@
           "name": "CubSpieleCom-v1.5.0-macos-universal.zip",
           "label": "macOS Universal App Bundle (v1.5.0 .app.zip)",
           "url": "./releases/CubSpieleCom-v1.5.0-macos-universal.zip",
-          "sizeBytes": 702925,
-          "sha256": "72ae550eda1233ff5820fc9324e66b2e1e6341bef59cf1f04c5fbb1273602e53",
+          "sizeBytes": 702705,
+          "sha256": "b9d5cd2af9025aa8ad52bfd0a53c6c83cd5bd717b713b2306bb3dcc0a15eb0db",
           "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
           "platform": "macos"
-        },
-        {
-          "name": "CubSpieleCom-v1.5.0-linux-x86_64.tar.gz",
-          "label": "Linux x86_64 & SteamOS Bundle (v1.5.0 .tar.gz)",
-          "url": "./releases/CubSpieleCom-v1.5.0-linux-x86_64.tar.gz",
-          "sizeBytes": 698290,
-          "sha256": "c1c4bacca8d53fe3f499e729aa7b0f2cb2df0cb01b285728fa9d0ab442c9b743",
-          "architecture": "Linux x86_64 / SteamOS (ELF64 + FreeDesktop)",
-          "platform": "linux"
         },
         {
           "name": "CubSpieleCom-v1.5.0-android.apk",
           "label": "Android Universal Package (v1.5.0 .apk)",
           "url": "./releases/CubSpieleCom-v1.5.0-android.apk",
-          "sizeBytes": 699408,
-          "sha256": "09f286f47bb607015753fc7a5006885682882749223511ab3c6d2920a6cb3b7f",
+          "sizeBytes": 699187,
+          "sha256": "dd21c59f43b2fba8080feeaea59bc5586551fe497dd7dc5868555bf8d7d0e9b3",
           "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
           "platform": "android"
         }
@@ -83,8 +74,8 @@
           "name": "CubSpieleCom-v1.4.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.4.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.4.0-win64.zip",
-          "sizeBytes": 700035,
-          "sha256": "9e5592018c630c8c723761f3c326ad38a0958a43700969cf9cbcc87b0053d2d4",
+          "sizeBytes": 699816,
+          "sha256": "992be2a27c7c1a52fdda8f9aa33b2cc9900d3e8d0ff5748ea69af0a2092bfaec",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -118,8 +109,8 @@
           "name": "CubSpieleCom-v1.3.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.3.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.3.0-win64.zip",
-          "sizeBytes": 700036,
-          "sha256": "cf57f2af3beba3023fa652d1625bd9b70bf021744ab3d9e02e9ff5b4b7bcc8e0",
+          "sizeBytes": 699816,
+          "sha256": "161367b3671f0d3ec76c118b7831206b8e94455ab8d5f340c45c8bfd24062b2b",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -152,8 +143,8 @@
           "name": "CubSpieleCom-v1.2.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.2.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
-          "sizeBytes": 700036,
-          "sha256": "4d9d3ba5769081656a6dc84370d9251e512a24ce935492267cea269e27e2a1a4",
+          "sizeBytes": 699816,
+          "sha256": "1bd407f6173bbe3e73f20da66503378d7f91d60c89ebd0ab15d6f7721a9da45c",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -186,8 +177,8 @@
           "name": "CubSpieleCom-v1.1.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.1.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
-          "sizeBytes": 700035,
-          "sha256": "16a7f9643a993252abc55f2b78580d75754e0ca4bc0d9a3b34d9ea6cefb1affa",
+          "sizeBytes": 699816,
+          "sha256": "31ea81ef375a4dce562861bf7638078da77dda62546dbb5b55c143be94e9a0f3",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -220,8 +211,8 @@
           "name": "CubSpieleCom-v1.0.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.0.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.0.0-win64.zip",
-          "sizeBytes": 700036,
-          "sha256": "437b6916066fe45abe410574b47f6ceb57486258f1172819b5885be32507f824",
+          "sizeBytes": 699816,
+          "sha256": "1c87e4d3338dbd8346e019a0b4c6eab5c10ac3a19b5e063fcc6d977bfcdd0468",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
