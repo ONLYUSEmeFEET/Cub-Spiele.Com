@@ -3,9 +3,9 @@
 Cub Spiele.Com — GitHub Repository Sync, Topic Tagger & Release Publisher
 Maintains https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com:
   1. Syncs workspace files with local git staging directory (since Google Drive blocks .git dirs)
-  2. Commits any modified/new tracked files and pushes main + release tags (v1.0.0 .. v1.5.1)
+  2. Commits any modified/new tracked files and pushes main + release tags (v0.0.1 .. v0.0.8+)
   3. Sets GitHub Repository Topics and Description via GitHub CLI (gh repo edit)
-  4. Ensures all GitHub Releases (v1.0.0 .. v1.5.1) are properly titled,
+  4. Ensures all GitHub Releases (v0.0.1 .. v0.0.8+) are properly titled,
      labeled, and contain clean Windows x64, macOS Universal, and Android release assets.
 """
 
@@ -98,7 +98,7 @@ def sync_workspace_to_stage():
         if rel == ".":
             dirs[:] = [d for d in dirs if d not in exclude_root]
         else:
-            dirs[:] = [d for d in dirs if d not in {".git", "node_modules"}]
+            dirs[:] = [d for d in dirs if d not in {".git", "node_modules", "aistudio"}]
         target_dir = LOCAL_GIT_STAGE if rel == "." else os.path.join(LOCAL_GIT_STAGE, rel)
         os.makedirs(target_dir, exist_ok=True)
         for f in files:
@@ -142,7 +142,7 @@ def format_release_notes(rel_entry: dict) -> str:
 def main():
     with open(os.path.join(ROOT_DIR, "package.json"), "r", encoding="utf-8") as f:
         pkg = json.load(f)
-    version_tag = f"v{pkg.get('version', '1.4.0')}"
+    version_tag = f"v{pkg.get('version', '0.0.8').lstrip('v')}"
 
     manifest_path = os.path.join(ROOT_DIR, "public", "releases", "releases-manifest.json")
     with open(manifest_path, "r", encoding="utf-8") as mf:

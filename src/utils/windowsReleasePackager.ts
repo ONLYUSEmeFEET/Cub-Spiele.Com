@@ -7,6 +7,7 @@
  */
 
 import { zipSync, strToU8 } from 'fflate';
+import { APP_VERSION_TAG } from '../version';
 
 function align(val: number, alignment: number): number {
   return (val + alignment - 1) & ~(alignment - 1);
@@ -366,8 +367,8 @@ export async function downloadStandaloneWindowsExe(fileName: string = 'CubSpiele
  * Downloads or packages a byte-verified CubSpieleCom-<tag>-win64.zip portable archive
  */
 export async function downloadWindowsPortableZip(
-  zipFileName: string = 'CubSpieleCom-v1.5.1-win64.zip',
-  staticUrl: string = './releases/CubSpieleCom-v1.5.1-win64.zip'
+  zipFileName: string = `CubSpieleCom-${APP_VERSION_TAG}-win64.zip`,
+  staticUrl: string = `./releases/CubSpieleCom-${APP_VERSION_TAG}-win64.zip`
 ): Promise<number> {
   try {
     const res = await fetch(staticUrl);
@@ -435,10 +436,11 @@ QUICK START (WINDOWS 10 / WINDOWS 11 x64):
 FEATURES:
 - Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
 - Recently Played ROMs submenu with TigerDMGC cartridge header verification
-- Screen-Only Mode (2x / 3x / 4x integer scale) & Handheld Console Bezel Mode
+- Screen-Only Mode (Default, 2x / 3x / 4x integer scale) & Touch View (Button-Only Controls)
+- Light / Dark Mode appearance toggle with authentic Tiger Game.Com accents
 - STN Passive-Matrix LCD Ghosting Intensity & Persistence controls
 - 2-Shade LCD Color Blender
-- Internal Real-Time Clock & Date synced to your device
+- Internal Real-Time Clock & Date synced to your device on boot
 ================================================================================
 `;
 

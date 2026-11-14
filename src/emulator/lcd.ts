@@ -140,8 +140,8 @@ export class LCDSubsystem {
     [76, 89, 49],
     [25, 35, 16]
   ];
-  public ghosting: number = 0.40; // 0.0 = no ghosting, 0.90 = max trail intensity
-  public ghostingPersistence: number = 0.65; // 0.0 = instant decay, 0.95 = long liquid-crystal persistence
+  public ghosting: number = 0.40; // 0.0 = no ghosting, 1.0 = max trail intensity
+  public ghostingPersistence: number = 0.65; // 0.0 = instant decay, 1.0 = max liquid-crystal persistence
   public contrast: number = 1.0;
   public pixelGrid: boolean = true;
 
@@ -320,8 +320,8 @@ export class LCDSubsystem {
     const rgb = this.paletteId === 'custom' ? this.customRgbColors : palette.rgbColors;
     const pixels = this.imageData.data;
 
-    const intensity = Math.min(0.90, Math.max(0, this.ghosting));
-    const persistence = Math.min(0.95, Math.max(0, this.ghostingPersistence));
+    const intensity = Math.min(1.0, Math.max(0, this.ghosting));
+    const persistence = Math.min(1.0, Math.max(0, this.ghostingPersistence));
 
     // Compute per-column average load for subtle passive-matrix STN vertical column crosstalk
     // (on passive-matrix STN panels, heavily dark columns slightly bias the column driver voltage)

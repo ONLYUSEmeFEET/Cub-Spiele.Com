@@ -35,6 +35,49 @@ const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v2';
 const TWO_SHADE_STORAGE_KEY = 'cub_spiele_two_shade_v2';
 const GHOSTING_SETTINGS_STORAGE_KEY = 'cub_spiele_ghosting_v2';
 const INPUT_SETTINGS_STORAGE_KEY = 'cub_spiele_input_settings_v1';
+const VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v1';
+
+export function getDefaultViewModeForPlatform(): 'screen-only' | 'touch' {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return 'screen-only';
+  }
+
+  const desktopBridge = (window as any).gamecomDesktop;
+  if (desktopBridge?.platform === 'android') {
+    return 'touch';
+  }
+  if (desktopBridge?.platform === 'win32' || desktopBridge?.platform === 'darwin') {
+    return 'screen-only';
+  }
+
+  const ua = navigator.userAgent || '';
+  const uaData = (navigator as any).userAgentData;
+  const uaMobile = uaData?.mobile === true;
+  const uaPlatform = String(uaData?.platform || '');
+
+  if (
+    uaMobile ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua) ||
+    /Android|iOS/i.test(uaPlatform)
+  ) {
+    return 'touch';
+  }
+
+  // iPadOS 13+ may report Macintosh UA while exposing multi-touch points
+  if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) {
+    return 'touch';
+  }
+
+  if (/Win|Mac|Macintosh|Windows/i.test(ua) || /Windows|macOS/i.test(uaPlatform)) {
+    return 'screen-only';
+  }
+
+  if (window.matchMedia?.('(pointer: coarse)').matches && window.innerWidth < 1024) {
+    return 'touch';
+  }
+
+  return 'screen-only';
+}
 
 export interface EmulationAccuracyFixes {
   correctClockSpeed: boolean;      // Calibrated 4.9152 MHz SM8521 scanline cycle timing
@@ -77,7 +120,7 @@ export class GameComSystem {
   private loadedCartridgeCache: Map<string, CartridgeInfo> = new Map();
 
   // System states
-  public isPoweredOn: boolean = true;
+  public isPoweredOn: boolean = false;
   public isPaused: boolean = false;
   public activeApp: 'OS' | 'CARTRIDGE' = 'OS';
   public bootFrameCounter: number = 0;
@@ -163,10 +206,8 @@ export class GameComSystem {
     pixelGrid: true,
     showTouchGrid: false,
     touchGridOpacity: 0.0,
-    viewMode:
-      typeof window !== 'undefined' && (window as any).gamecomDesktop?.defaultScreenOnly
-        ? 'screen-only'
-        : 'console',
+    viewMode: getDefaultViewModeForPlatform(),
+    theme: 'dark',
     screenScale: 3,
     contrast: 1.0,
     volume: 0.2,
@@ -476,10 +517,14 @@ export class GameComSystem {
       if (rawGhosting) {
         const parsedG = JSON.parse(rawGhosting);
         if (typeof parsedG.ghosting === 'number') {
-          this.settings.ghosting = Math.max(0, Math.min(0.9, parsedG.ghosting));
+          this.settings.ghosting = Math.max(0, Math.min(1, parsedG.ghosting));
         }
         if (typeof parsedG.ghostingPersistence === 'number') {
-          this.settings.ghostingPersistence = Math.max(0, Math.min(0.95, parsedG.ghostingPersistence));
+          this.settings.ghostingPersistence = Math.max(0, Math.min(1, parsedG.ghostingPersistence));
+        }
+        if (typeof parsedG.contrast === 'number') {
+          this.settings.contrast = Math.max(0, Math.min(1, parsedG.contrast));
+          this.lcd.contrast = this.settings.contrast;
         }
         if (typeof parsedG.stnGhostingAccurate === 'boolean') {
           this.accuracyFixes.stnGhostingAccurate = parsedG.stnGhostingAccurate;
@@ -513,9 +558,29 @@ export class GameComSystem {
         if (typeof parsedI.enableRetroAchievements === 'boolean') {
           this.settings.enableRetroAchievements = parsedI.enableRetroAchievements;
         }
+        if (parsedI.theme === 'light' || parsedI.theme === 'dark') {
+          this.settings.theme = parsedI.theme;
+        }
+      }
+      const rawView = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (rawView) {
+        const parsedV = JSON.parse(rawView);
+        if (parsedV?.viewMode === 'screen-only' || parsedV?.viewMode === 'touch') {
+          this.settings.viewMode = parsedV.viewMode;
+        } else {
+          this.settings.viewMode = getDefaultViewModeForPlatform();
+        }
+        if (typeof parsedV?.screenScale === 'number' && parsedV.screenScale >= 2 && parsedV.screenScale <= 4) {
+          this.settings.screenScale = Math.round(parsedV.screenScale);
+        }
+      } else {
+        // First boot: set platform default (Screen-Only on Windows/macOS, Touch on Android/mobile) and persist it
+        this.settings.viewMode = getDefaultViewModeForPlatform();
+        this.saveViewSettingsToStorage();
       }
       this.retroAchievements.config.leaderboardPopups = this.settings.showScoreOverlay;
       this.retroAchievements.config.enabled = this.settings.enableRetroAchievements;
+      this.applyThemeToDom();
     } catch {
       // Ignore storage errors
     }
@@ -533,12 +598,65 @@ export class GameComSystem {
           snapToGrid: this.virtualStylus.snapToGrid,
           advancedMode: this.settings.advancedMode,
           showScoreOverlay: this.settings.showScoreOverlay,
-          enableRetroAchievements: this.settings.enableRetroAchievements
+          enableRetroAchievements: this.settings.enableRetroAchievements,
+          theme: this.settings.theme
         })
       );
     } catch {
       // Ignore storage errors
     }
+  }
+
+  public applyThemeToDom() {
+    if (typeof document !== 'undefined') {
+      const isDark = this.settings.theme === 'dark';
+      document.documentElement.classList.toggle('dark', isDark);
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) {
+        themeMeta.setAttribute('content', isDark ? '#121418' : '#f2f3ef');
+      }
+    }
+  }
+
+  public setTheme(theme: 'light' | 'dark'): 'light' | 'dark' {
+    this.settings.theme = theme;
+    this.applyThemeToDom();
+    this.saveInputSettingsToStorage();
+    return theme;
+  }
+
+  public toggleTheme(): 'light' | 'dark' {
+    return this.setTheme(this.settings.theme === 'dark' ? 'light' : 'dark');
+  }
+
+  public saveViewSettingsToStorage() {
+    try {
+      localStorage.setItem(
+        VIEW_MODE_STORAGE_KEY,
+        JSON.stringify({
+          viewMode: this.settings.viewMode,
+          screenScale: this.settings.screenScale
+        })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  public setViewMode(mode: 'screen-only' | 'touch'): 'screen-only' | 'touch' {
+    this.settings.viewMode = mode;
+    this.saveViewSettingsToStorage();
+    return mode;
+  }
+
+  public toggleViewMode(): 'screen-only' | 'touch' {
+    return this.setViewMode(this.settings.viewMode === 'screen-only' ? 'touch' : 'screen-only');
+  }
+
+  public setScreenScale(scale: number) {
+    this.settings.screenScale = Math.max(2, Math.min(4, Math.round(scale)));
+    this.settings.viewMode = 'screen-only';
+    this.saveViewSettingsToStorage();
   }
 
   /**
@@ -614,6 +732,7 @@ export class GameComSystem {
         JSON.stringify({
           ghosting: this.settings.ghosting,
           ghostingPersistence: this.settings.ghostingPersistence,
+          contrast: this.settings.contrast,
           stnGhostingAccurate: this.accuracyFixes.stnGhostingAccurate
         })
       );
@@ -673,12 +792,19 @@ export class GameComSystem {
   }
 
   public setGhostingParameters(intensity: number, persistence: number) {
-    this.settings.ghosting = Math.max(0, Math.min(0.9, intensity));
-    this.settings.ghostingPersistence = Math.max(0, Math.min(0.95, persistence));
+    this.settings.ghosting = Math.max(0, Math.min(1, intensity));
+    this.settings.ghostingPersistence = Math.max(0, Math.min(1, persistence));
     this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0;
     this.lcd.ghostingPersistence = this.accuracyFixes.stnGhostingAccurate
       ? this.settings.ghostingPersistence
       : 0;
+    this.saveDisplaySettingsToStorage();
+  }
+
+  public setContrast(contrast: number) {
+    const clamped = Math.max(0, Math.min(1, Math.round(contrast * 100) / 100));
+    this.settings.contrast = clamped;
+    this.lcd.contrast = clamped;
     this.saveDisplaySettingsToStorage();
   }
 
@@ -846,6 +972,7 @@ export class GameComSystem {
   }
 
   public openBiosHighScoreScreen() {
+    this.isPoweredOn = true;
     this.highScores.syncBankToNvram(this.cpu.nvram, this.highScores.activeBank);
     if (this.bootFrameCounter >= 480 && this.cpu.mmu[1] === 2 && this.cpu.m_p_ram[0x168] === 0) {
       this.triggerSingleStylusTap(100, 120, 12);
@@ -855,6 +982,7 @@ export class GameComSystem {
   }
 
   public openBiosPhoneBookScreen() {
+    this.isPoweredOn = true;
     this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
     this.highScores.saveRawNvram(this.cpu.nvram);
     if (this.bootFrameCounter >= 480 && this.cpu.mmu[1] === 2 && this.cpu.m_p_ram[0x168] === 0) {
@@ -957,6 +1085,7 @@ export class GameComSystem {
       this.highScores.ensureBankForCartridge(cart.romData, this.cpu.nvram);
     }
 
+    this.isPoweredOn = true;
     this.activeApp = 'CARTRIDGE';
     this.resetSystem(slot === 1 ? 'CART_1' : 'CART_2');
   }
@@ -1136,12 +1265,7 @@ export class GameComSystem {
    * Main Frame Tick (called at 60Hz by LCDScreen requestAnimationFrame)
    */
   public tick() {
-    if (!this.isPoweredOn) {
-      this.lcd.clear(0);
-      return;
-    }
-
-    // Sync LCD & CPU accuracy settings (even when paused so palette/color/ghosting edits reflect live)
+    // Sync LCD & CPU accuracy settings (even when off/paused so palette/color/ghosting/contrast edits reflect live)
     this.lcd.paletteId = this.settings.palette;
     this.lcd.setCustomColors(this.settings.customPaletteColors);
     this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0.0;
@@ -1152,6 +1276,11 @@ export class GameComSystem {
     this.lcd.pixelGrid = this.settings.pixelGrid;
     this.cpu.correctClockSpeed = this.accuracyFixes.correctClockSpeed;
     this.cpu.dualCartridgeSlotFix = this.accuracyFixes.dualCartridgeSlotFix;
+
+    if (!this.isPoweredOn) {
+      this.lcd.clear(0);
+      return;
+    }
 
     if (this.isPaused) {
       return;
@@ -1198,9 +1327,7 @@ export class GameComSystem {
 
   public renderToCanvas(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     if (!this.isPoweredOn) {
-      ctx.fillStyle = '#1c1f18';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      return;
+      this.lcd.clear(0);
     }
 
     this.lcd.renderToCanvas(canvas, ctx);

@@ -119,24 +119,24 @@ export const AccuracyFixesModal: React.FC<AccuracyFixesModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 bg-zinc-950">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-[#f6f7f3] dark:bg-zinc-950">
           <div className="flex items-center gap-2.5">
-            <Cpu className="w-5 h-5 text-emerald-400" />
+            <Cpu className="w-5 h-5 text-[#4c5931] dark:text-[#b9c48a]" />
             <div>
-              <h2 className="text-sm font-bold text-white tracking-wide">
-                Hardware Accuracy & STN LCD Ghosting Configuration
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-white tracking-wide">
+                Hardware Accuracy &amp; STN LCD Ghosting Configuration
               </h2>
-              <p className="text-[11px] text-zinc-400">
-                Sharp SM8521 CPU Timing, STN Passive-Matrix LCD Response & Bus Settings
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Sharp SM8521 CPU Timing, STN Passive-Matrix LCD Response &amp; Bus Settings
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white transition"
+            className="p-1.5 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/80 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -145,24 +145,24 @@ export const AccuracyFixesModal: React.FC<AccuracyFixesModalProps> = ({
         {/* Content */}
         <div className="p-5 overflow-y-auto space-y-4">
           {/* STN Passive-Matrix LCD Ghosting & Persistence Menu */}
-          <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-950/15 space-y-4">
+          <div className="p-4 rounded-xl border border-amber-400/50 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/15 space-y-4">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-500/30">
-                  <Sliders className="w-4 h-4 text-amber-400" />
+                  <Sliders className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                    STN Passive-Matrix LCD Ghosting & Persistence Menu
+                  <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+                    STN Passive-Matrix LCD Ghosting &amp; Persistence Menu
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
                     Adjust both the trail blend intensity and frame-to-frame liquid-crystal decay persistence
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => applyGhostingPreset(0.40, 0.65, true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-medium border border-zinc-700 transition"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-300 dark:border-zinc-700 transition cursor-pointer"
                 title="Reset to calibrated 1997 STN hardware defaults (40% Intensity / 65% Persistence)"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -172,95 +172,95 @@ export const AccuracyFixesModal: React.FC<AccuracyFixesModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               {/* Intensity Slider */}
-              <div className="p-3 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-2">
+              <div className="p-3 rounded-lg bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-zinc-200">Ghosting Intensity</span>
-                  <span className="font-mono font-bold text-amber-400">{ghostingIntensityPct}%</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">Ghosting Intensity</span>
+                  <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{ghostingIntensityPct}%</span>
                 </div>
                 <input
                   type="range"
                   min={0}
-                  max={0.9}
+                  max={1}
                   step={0.01}
                   value={system.accuracyFixes.stnGhostingAccurate ? system.settings.ghosting : 0}
                   onChange={(e) => handleIntensityChange(parseFloat(e.target.value))}
-                  className="w-full accent-amber-400 cursor-pointer h-1.5 bg-zinc-800 rounded-lg"
+                  className="w-full accent-[#7a1f5c] cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg"
                 />
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Controls how strongly the passive-matrix afterimage blends into active pixels (`0%` = crisp modern edges, `90%` = heavy trail).
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  Controls how strongly the passive-matrix afterimage blends into active pixels (`0%` = crisp modern edges, `100%` = maximum trail blend).
                 </p>
               </div>
 
               {/* Persistence / Decay Slider */}
-              <div className="p-3 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-2">
+              <div className="p-3 rounded-lg bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-zinc-200">Ghosting Persistence (Decay)</span>
-                  <span className="font-mono font-bold text-amber-400">
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">Ghosting Persistence (Decay)</span>
+                  <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
                     {ghostingPersistencePct}% (~{Math.round(ghostingPersistencePct * 3.2)} ms)
                   </span>
                 </div>
                 <input
                   type="range"
                   min={0}
-                  max={0.95}
+                  max={1}
                   step={0.01}
                   value={system.accuracyFixes.stnGhostingAccurate ? system.settings.ghostingPersistence : 0}
                   onChange={(e) => handlePersistenceChange(parseFloat(e.target.value))}
-                  className="w-full accent-amber-400 cursor-pointer h-1.5 bg-zinc-800 rounded-lg"
+                  className="w-full accent-[#7a1f5c] cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg"
                 />
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Controls how many VBLANK frames previous pixel states linger before relaxing (`0%` = 1-frame decay, `95%` = slow nematic tail).
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  Controls how many VBLANK frames previous pixel states linger before relaxing (`0%` = 1-frame decay, `100%` = maximum nematic persistence).
                 </p>
               </div>
             </div>
 
             {/* Quick Response Presets */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mr-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-500 mr-1">
                 Response Profiles:
               </span>
               <button
                 onClick={() => applyGhostingPreset(0.0, 0.0, false)}
-                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition ${
+                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
                   !system.accuracyFixes.stnGhostingAccurate || system.settings.ghosting === 0
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-800 dark:text-amber-300'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
                 Off (0% / 0%)
               </button>
               <button
                 onClick={() => applyGhostingPreset(0.25, 0.45, true)}
-                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition ${
+                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
                   system.accuracyFixes.stnGhostingAccurate &&
                   Math.abs(system.settings.ghosting - 0.25) < 0.02 &&
                   Math.abs(system.settings.ghostingPersistence - 0.45) < 0.02
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-800 dark:text-amber-300'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
                 Subtle STN (25% / 45%)
               </button>
               <button
                 onClick={() => applyGhostingPreset(0.40, 0.65, true)}
-                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition ${
+                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
                   system.accuracyFixes.stnGhostingAccurate &&
                   Math.abs(system.settings.ghosting - 0.40) < 0.02 &&
                   Math.abs(system.settings.ghostingPersistence - 0.65) < 0.02
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-800 dark:text-amber-300'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
                 1997 Hardware Matrix (40% / 65%)
               </button>
               <button
                 onClick={() => applyGhostingPreset(0.75, 0.85, true)}
-                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition ${
+                className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
                   system.accuracyFixes.stnGhostingAccurate &&
                   Math.abs(system.settings.ghosting - 0.75) < 0.02 &&
                   Math.abs(system.settings.ghostingPersistence - 0.85) < 0.02
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-800 dark:text-amber-300'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
                 Heavy Passive Blur (75% / 85%)
@@ -277,52 +277,52 @@ export const AccuracyFixesModal: React.FC<AccuracyFixesModalProps> = ({
                   key={item.key}
                   className={`p-3.5 rounded-xl border transition ${
                     isEnabled
-                      ? 'bg-zinc-900/90 border-zinc-700/80'
-                      : 'bg-zinc-950/60 border-zinc-800/60 opacity-75'
+                      ? 'bg-[#f8f9f5] dark:bg-zinc-900/90 border-zinc-300 dark:border-zinc-700/80'
+                      : 'bg-zinc-100/70 dark:bg-zinc-950/60 border-zinc-200 dark:border-zinc-800/60 opacity-75'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 mt-0.5">
+                      <div className="p-2 rounded-lg bg-zinc-900 dark:bg-zinc-800 border border-zinc-700 mt-0.5">
                         {item.icon}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-xs font-bold text-white">{item.title}</h3>
+                          <h3 className="text-xs font-bold text-zinc-900 dark:text-white">{item.title}</h3>
                           <span
                             className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-semibold ${
                               isEnabled
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-zinc-800 text-zinc-400'
+                                ? 'bg-[#4c5931]/15 text-[#4c5931] dark:text-[#b9c48a] border border-[#4c5931]/30'
+                                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
                             }`}
                           >
                             {isEnabled ? 'ACTIVE' : 'BYPASSED'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-zinc-400 font-mono mt-0.5">{item.subtitle}</p>
+                        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono mt-0.5">{item.subtitle}</p>
                       </div>
                     </div>
 
                     <button
                       onClick={() => toggleFix(item.key)}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition shrink-0 ${
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition shrink-0 cursor-pointer ${
                         isEnabled
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                          ? 'bg-[#7a1f5c] hover:bg-[#8e256b] text-white'
+                          : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-300'
                       }`}
                     >
                       {isEnabled ? 'Enabled' : 'Enable'}
                     </button>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px] border-t border-zinc-800/80 pt-2.5">
-                    <div className="bg-zinc-950/60 p-2 rounded border border-zinc-800/60">
-                      <span className="text-zinc-400 font-semibold block mb-0.5">Hardware Behavior:</span>
-                      <span className="text-zinc-300 leading-relaxed">{item.technicalProblem}</span>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px] border-t border-zinc-200 dark:border-zinc-800/80 pt-2.5">
+                    <div className="bg-white dark:bg-zinc-950/60 p-2 rounded border border-zinc-200 dark:border-zinc-800/60">
+                      <span className="text-zinc-600 dark:text-zinc-400 font-semibold block mb-0.5">Hardware Behavior:</span>
+                      <span className="text-zinc-800 dark:text-zinc-300 leading-relaxed">{item.technicalProblem}</span>
                     </div>
-                    <div className="bg-zinc-950/60 p-2 rounded border border-zinc-800/60">
-                      <span className="text-emerald-400 font-semibold block mb-0.5">Implementation:</span>
-                      <span className="text-zinc-300 leading-relaxed">{item.ourFix}</span>
+                    <div className="bg-white dark:bg-zinc-950/60 p-2 rounded border border-zinc-200 dark:border-zinc-800/60">
+                      <span className="text-[#4c5931] dark:text-[#b9c48a] font-semibold block mb-0.5">Implementation:</span>
+                      <span className="text-zinc-800 dark:text-zinc-300 leading-relaxed">{item.ourFix}</span>
                     </div>
                   </div>
                 </div>
@@ -332,14 +332,14 @@ export const AccuracyFixesModal: React.FC<AccuracyFixesModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-emerald-400">
+        <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-[#f6f7f3] dark:bg-zinc-950 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-[#4c5931] dark:text-[#b9c48a]">
             <CheckCircle2 className="w-4 h-4" />
             <span>Changes apply immediately to the live display and CPU core.</span>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition"
+            className="px-4 py-1.5 rounded-lg bg-[#7a1f5c] hover:bg-[#8e256b] text-white text-xs font-semibold transition cursor-pointer"
           >
             Done
           </button>

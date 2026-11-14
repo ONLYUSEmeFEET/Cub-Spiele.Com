@@ -1,35 +1,35 @@
 {
   "project": "cub-spiele-com-emulator",
   "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-  "latestVersion": "v1.5.1",
-  "generatedAt": "2026-11-14T18:58:30.840529+00:00",
+  "latestVersion": "v0.0.8",
+  "generatedAt": "2026-11-14T20:20:40.301094+00:00",
   "releases": [
     {
-      "tag": "v1.5.1",
-      "title": "Cub Spiele.Com v1.5.1 \u2014 Authentic STN Hardware Screen Presets, BIOS Calendar Fix & MIT License",
-      "publishedAt": "2026-11-14T18:58:30Z",
+      "tag": "v0.0.8",
+      "title": "Cub Spiele.Com v0.0.8 \u2014 Platform View Defaults, Touch Layout Overhaul, 0-100% Sliders & 0.0.x Versioning",
+      "publishedAt": "2026-11-14T20:20:38Z",
       "isLatest": true,
       "Prerelease": false,
-      "commitRef": "HEAD (tag: v1.5.1)",
+      "commitRef": "HEAD (tag: v0.0.8)",
       "highlights": [
-        "Added calibrated Game.Com hardware screen presets (Original 1997 Olive Green #71-500, Pocket Pro Backlit Green #71-520, Silver Grey #71-530, Warm Amber #71-510, Crisp High Contrast, and Custom 2-Shade Color Blender) with authentic STN passive-matrix column crosstalk",
-        "Fixed BIOS Calendar month and year header disappearing when switching months and restricted RTC host clock sync strictly to initial boot",
-        "Preserved the NVRAM High Score Vault while removing manual custom score injection to protect score integrity",
-        "Added MIT License (LICENSE) across the repository and release packages, and moved optional achievement components behind a user toggle (off by default)"
+        "Added platform-aware first-boot View defaults (Screen-Only on Windows/macOS, Touch on Android/mobile) with localStorage persistence for user layout changes",
+        "Redesigned Touch View horizontally after the original Game.Com (D-Pad left, 2x2 A/B/C/D right, spaced Menu/Sound/Pause bottom-right) and vertically after an Analogue Pocket style layout (Screen top, D-Pad + diamond A/B/C/D middle, centered bottom Menu/Sound/Pause) with an isolated Power button and Power starting OFF at launch",
+        "Added interactive LCD Contrast slider (0% - 100%) to the TopBar menu and toolbar, standardized all sliders across settings to 0% - 100% ranges, promoted Phone Book Manager and LCD Ghosting to Basic settings, and gated optional diagnostic/achievement components behind Advanced Mode",
+        "Overhauled emulator versioning into a single-source-of-truth sequential 0.0.x progression (v0.0.1 through v0.0.8) driven by package.json across builds, Service Worker cache, Electron, Android APK, and release manifests"
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.5.1-win64.zip",
-          "label": "Windows x64 Portable Build (v1.5.1 .zip)",
-          "url": "./releases/CubSpieleCom-v1.5.1-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "96f512fa9d337dc7215f77f772557041e22a1fade942c5331ac3b39c5b6c69cb",
+          "name": "CubSpieleCom-v0.0.8-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.8 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.8-win64.zip",
+          "sizeBytes": 790133,
+          "sha256": "cdebb5383beda392e22408e2d1316fd68c500676f27ca4118769cab5be078cf6",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
           "name": "CubSpieleCom.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.5.1 .exe)",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.8 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -37,20 +37,20 @@
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.5.1-macos-universal.zip",
-          "label": "macOS Universal App Bundle (v1.5.1 .app.zip)",
-          "url": "./releases/CubSpieleCom-v1.5.1-macos-universal.zip",
-          "sizeBytes": 790002,
-          "sha256": "d66e56c2a18879dd4084355c7e3a6da72b376d119fc52718b67be64601ec6909",
+          "name": "CubSpieleCom-v0.0.8-macos-universal.zip",
+          "label": "macOS Universal App Bundle (v0.0.8 .app.zip)",
+          "url": "./releases/CubSpieleCom-v0.0.8-macos-universal.zip",
+          "sizeBytes": 790795,
+          "sha256": "e472fb256ebfd268f1ad28ddc305758b909251ba57685098ccf2551c448746a1",
           "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
           "platform": "macos"
         },
         {
-          "name": "CubSpieleCom-v1.5.1-android.apk",
-          "label": "Android Universal Package (v1.5.1 .apk)",
-          "url": "./releases/CubSpieleCom-v1.5.1-android.apk",
-          "sizeBytes": 785383,
-          "sha256": "dda59b4d4224224f86c22372ea2da7ba10b21ff8cc2b004349069bbc11f91e55",
+          "name": "CubSpieleCom-v0.0.8-android.apk",
+          "label": "Android Universal Package (v0.0.8 .apk)",
+          "url": "./releases/CubSpieleCom-v0.0.8-android.apk",
+          "sizeBytes": 786173,
+          "sha256": "c5bee9b022d1792a0acd1c0d4954c8418307fe043c2f250d09ac19b67f52c060",
           "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
           "platform": "android"
         },
@@ -66,12 +66,46 @@
       ]
     },
     {
-      "tag": "v1.5.0",
-      "title": "Cub Spiele.Com v1.5.0 \u2014 Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
+      "tag": "v0.0.7",
+      "title": "Cub Spiele.Com v0.0.7 \u2014 Screen-Only Default, Touch View, Tiger Game.Com Palette, Hardware Screen Presets & MIT License",
+      "publishedAt": "2026-11-14T18:55:00Z",
+      "isLatest": false,
+      "Prerelease": false,
+      "commitRef": "tag: v0.0.7",
+      "highlights": [
+        "Defaulted View to Screen-Only Mode, simplified secondary controls into a mobile-inspired Touch View (button-only border), styled with Tiger Game.Com colors, and added Light/Dark Mode",
+        "Added calibrated Game.Com hardware screen presets (Original 1997 Olive Green #71-500, Pocket Pro Backlit Green #71-520, Silver Grey #71-530, Warm Amber #71-510, Crisp High Contrast, and Custom 2-Shade Color Blender) with authentic STN passive-matrix column crosstalk",
+        "Fixed BIOS Calendar month and year header disappearing when switching months and restricted RTC host clock sync strictly to initial boot",
+        "Preserved the NVRAM High Score Vault while removing manual custom score injection, and added MIT License (LICENSE) across the repository"
+      ],
+      "assets": [
+        {
+          "name": "CubSpieleCom-v0.0.7-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.7 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.7-win64.zip",
+          "sizeBytes": 790133,
+          "sha256": "e66796612415290de8deba18735f150e23e3f9acbb491b74e1d07ee34bb19610",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+          "platform": "windows"
+        },
+        {
+          "name": "CubSpieleCom-v0.0.7.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.7 .exe)",
+          "url": "./releases/CubSpieleCom.exe",
+          "sizeBytes": 7168,
+          "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+          "platform": "windows"
+        }
+      ]
+    },
+    {
+      "tag": "v0.0.6",
+      "title": "Cub Spiele.Com v0.0.6 \u2014 Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
       "publishedAt": "2026-11-13T23:45:00Z",
       "isLatest": false,
       "Prerelease": false,
-      "commitRef": "tag: v1.5.0",
+      "commitRef": "tag: v0.0.6",
       "highlights": [
         "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
         "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
@@ -80,17 +114,17 @@
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.5.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.5.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.5.0-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "8e625b561fc1e3218304e638c2a61adc045e7cf4a7f7afd29bf2f49ea9b09f3c",
+          "name": "CubSpieleCom-v0.0.6-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.6 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.6-win64.zip",
+          "sizeBytes": 790133,
+          "sha256": "77af3eeee3032ef0136a7c8586d102a0fac72ad5eb194660aee0c8fad9f1c02c",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.5.0.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.5.0 .exe)",
+          "name": "CubSpieleCom-v0.0.6.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.6 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -100,12 +134,12 @@
       ]
     },
     {
-      "tag": "v1.4.0",
-      "title": "Cub Spiele.Com v1.4.0 \u2014 Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
+      "tag": "v0.0.5",
+      "title": "Cub Spiele.Com v0.0.5 \u2014 Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
       "publishedAt": "2026-11-13T18:00:00Z",
       "isLatest": false,
       "Prerelease": false,
-      "commitRef": "tag: v1.4.0",
+      "commitRef": "tag: v0.0.5",
       "highlights": [
         "Added Competitive Hardcore Mode (defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
         "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
@@ -114,17 +148,17 @@
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.4.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.4.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.4.0-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "456e6cc8a3a413b19f822ae6cca968ab3ddb00e63f5f3c65ecb411fefd8fa3c8",
+          "name": "CubSpieleCom-v0.0.5-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.5 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.5-win64.zip",
+          "sizeBytes": 790133,
+          "sha256": "72cf54c759638a991c3a6ec6db45eb5a9a86a9ba857f0908b5ae61c08aa41145",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.4.0.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.4.0 .exe)",
+          "name": "CubSpieleCom-v0.0.5.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.5 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -134,14 +168,14 @@
       ]
     },
     {
-      "tag": "v1.3.0",
-      "title": "Cub Spiele.Com v1.3.0 \u2014 STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus",
+      "tag": "v0.0.4",
+      "title": "Cub Spiele.Com v0.0.4 \u2014 STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus",
       "publishedAt": "2026-11-12T22:30:00Z",
       "isLatest": false,
       "Prerelease": false,
-      "commitRef": "tag: v1.3.0",
+      "commitRef": "tag: v0.0.4",
       "highlights": [
-        "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings",
+        "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence controls",
         "Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors",
         "Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and Virtual Stylus",
         "Synchronized internal Game.Com Real-Time Clock ($0120-$0129) and NVRAM Calendar ($FEE2-$FEE7) to the user device date and time",
@@ -149,17 +183,17 @@
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.3.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.3.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.3.0-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "72d406993623b065022e88ba97e6288c27e92171560768d9a5aab3b712c62b8c",
+          "name": "CubSpieleCom-v0.0.4-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.4 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.4-win64.zip",
+          "sizeBytes": 790132,
+          "sha256": "9e848fb809ed840567d0c558f490653af8bfe40d92d512b8a36a05a33729479b",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.3.0.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.3.0 .exe)",
+          "name": "CubSpieleCom-v0.0.4.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.4 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -169,31 +203,31 @@
       ]
     },
     {
-      "tag": "v1.2.0",
-      "title": "Cub Spiele.Com v1.2.0 \u2014 Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs",
+      "tag": "v0.0.3",
+      "title": "Cub Spiele.Com v0.0.3 \u2014 Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs",
       "publishedAt": "2026-11-12T17:00:00Z",
       "isLatest": false,
       "Prerelease": false,
-      "commitRef": "tag: v1.2.0",
+      "commitRef": "tag: v0.0.3",
       "highlights": [
         "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
         "Added native desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)",
-        "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Handheld Console Bezel Mode",
+        "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling)",
         "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)"
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.2.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.2.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "b112e91be7486b807e4b488984a891b94554e767c078da8ad8459dadfce1a47a",
+          "name": "CubSpieleCom-v0.0.3-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.3 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.3-win64.zip",
+          "sizeBytes": 790133,
+          "sha256": "4f3aca51613072e41ae4c02e06d025bc746886a82e11c25332c84c32ce62891a",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.2.0.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.2.0 .exe)",
+          "name": "CubSpieleCom-v0.0.3.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.3 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -203,12 +237,12 @@
       ]
     },
     {
-      "tag": "v1.1.0",
-      "title": "Cub Spiele.Com v1.1.0 \u2014 SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix",
+      "tag": "v0.0.2",
+      "title": "Cub Spiele.Com v0.0.2 \u2014 SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix",
       "publishedAt": "2026-11-12T06:00:00Z",
       "isLatest": false,
       "Prerelease": false,
-      "commitRef": "tag: v1.1.0",
+      "commitRef": "tag: v0.0.2",
       "highlights": [
         "Added Dual Cartridge Bay support with hardware P3 chip-select isolation",
         "Fixed Lights Out '1?5' starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM",
@@ -217,17 +251,17 @@
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.1.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.1.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "4c14620b013b6d156200627f49280ac4e64c775ea257ffe85cf81d8828089570",
+          "name": "CubSpieleCom-v0.0.2-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.2 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.2-win64.zip",
+          "sizeBytes": 790132,
+          "sha256": "d578a388d73304831f07907aaac8b807b4d0df5218fa868c99b3992fc780ec3b",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.1.0.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.1.0 .exe)",
+          "name": "CubSpieleCom-v0.0.2.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.2 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -237,12 +271,12 @@
       ]
     },
     {
-      "tag": "v1.0.0",
-      "title": "Cub Spiele.Com v1.0.0 \u2014 Initial Cycle-Accurate SM8521 Handheld Emulator Release",
+      "tag": "v0.0.1",
+      "title": "Cub Spiele.Com v0.0.1 \u2014 Initial Cycle-Accurate SM8521 Handheld Emulator Release",
       "publishedAt": "2026-11-11T18:00:00Z",
       "isLatest": false,
       "Prerelease": false,
-      "commitRef": "tag: v1.0.0",
+      "commitRef": "tag: v0.0.1",
       "highlights": [
         "Initial cycle-accurate Sharp SM8521 CPU (4.9152 MHz), MMU bank switching, and hardware DMA blitter",
         "200x160 4-shade passive-matrix STN LCD renderer and 13x10 resistive touchscreen matrix",
@@ -251,17 +285,17 @@
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.0.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.0.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.0.0-win64.zip",
-          "sizeBytes": 789335,
-          "sha256": "093d43962fbd9183b2ac60f693004b88e4030d2cce55e559982a8c59c5acc7b4",
+          "name": "CubSpieleCom-v0.0.1-win64.zip",
+          "label": "Windows x64 Portable Build (v0.0.1 .zip)",
+          "url": "./releases/CubSpieleCom-v0.0.1-win64.zip",
+          "sizeBytes": 790133,
+          "sha256": "1335524b1f32c89d4ae2a0c7e5bc1d8b8c780ec31e14e180cf45a697f047879f",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.0.0.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.0.0 .exe)",
+          "name": "CubSpieleCom-v0.0.1.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v0.0.1 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",

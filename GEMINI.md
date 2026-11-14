@@ -5,7 +5,7 @@
 
 The interface follows standalone handheld emulators such as **mGBA**, offering:
 - **Native Desktop Menu Bar** (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`)
-- **Screen-Only Mode** (`2×`, `3×`, `4×` integer scaling of the 200×160 2-bpp STN LCD) & **Full Handheld Console Bezel Mode**
+- **Screen-Only Mode (Default)** (`2×`, `3×`, `4×` integer scaling of the 200×160 2-bpp STN LCD) & **Touch View** (mobile-inspired button-only border controls) with **Light / Dark Mode**
 - **Recently Played ROMs** tracking with 1-click boot into **Cartridge Slot 1** or **Cartridge Slot 2**
 - **Touch Grid Visibility Slider (`0%–100%`)** for the 13×10 resistive touchscreen matrix
 - **Expanded Battery-Backed NVRAM High Score Vault (`$FC60–$FEDF`)** supporting unlimited 10-slot banks via automatic bank paging
@@ -25,9 +25,9 @@ The interface follows standalone handheld emulators such as **mGBA**, offering:
 | `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (unloaded by default, user-loadable), Hardcore/Softcore Mode enforcement, and Recently Played ROM persistence. |
 | `src/components/TopBar.tsx` | Standalone desktop menu bar (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`) and quick toolbar with streamlined Standard Mode and optional Advanced Mode. |
 | `src/components/ScreenOnlyView.tsx` | Standalone Screen-Only viewport with `2×`/`3×`/`4×` integer scaling and hardware status bar. |
-| `src/components/GameComConsole.tsx` | Full physical handheld console shell with sculpted D-Pad, A/B/C/D buttons, and dual cartridge bay ridges. |
+| `src/components/GameComConsole.tsx` | Mobile-inspired **Touch View** (`TouchView` / `GameComConsole`) with button-only D-Pad, A/B/C/D, and system strip controls styled with Tiger Game.Com accents. |
 | `electron/main.cjs` & `preload.cjs` | Electron Native Windows desktop main process and IPC preload bridge (`window.gamecomDesktop`). |
-| `scripts/build-windows-release.py` | Compiles `CubSpieleCom.exe` (64-bit Windows PE32+ GUI executable) and packages `CubSpieleCom-v1.5.1-win64.zip`. |
+| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.0.8-win64.zip` + macOS/Android builds. |
 
 ---
 
@@ -43,10 +43,13 @@ npm run dev
 # 3. Typecheck codebase
 npm run lint
 
-# 4. Build production web & desktop bundle + CubSpieleCom.exe + Win64 ZIP
+# 4. Bump incremental 0.0.x version cleanly across package.json, sw.js & docs
+npm run version:bump
+
+# 5. Build production web & desktop bundle + CubSpieleCom.exe + Win64 ZIP + manifest
 npm run release:win
 
-# 5. Build Electron Windows x64 NSIS Setup & Portable EXE
+# 6. Build Electron Windows x64 NSIS Setup & Portable EXE
 npm run dist:win
 ```
 

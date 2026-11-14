@@ -17,6 +17,7 @@
  */
 
 import { SM8521CPU } from './sm8521';
+import { APP_VERSION, APP_VERSION_TAG } from '../version';
 
 export const IDM_RA_MENUSTART = 1700;
 export const IDM_RA_MENUEND = 1739;
@@ -142,8 +143,8 @@ export class RAIntegrationDllBridge {
   public initialized: boolean = false;
   public dllVersion: string = '1.4.2';
   public clientName: string = 'CubSpieleCom';
-  public clientVersion: string = '1.5.0';
-  public userAgentDetail: string = 'sm8521_core/v1.5.0';
+  public clientVersion: string = APP_VERSION;
+  public userAgentDetail: string = `sm8521_core/${APP_VERSION_TAG}`;
   public consoleId: number = 89; // Tiger Game.Com (Sharp SM8521)
   public hostName: string = 'retroachievements.org';
   public hostUrl: string = 'https://retroachievements.org';
@@ -188,7 +189,7 @@ export class RAIntegrationDllBridge {
    */
   public RA_InitClient(clientName: string, clientVersion: string): boolean {
     this.clientName = clientName || 'CubSpieleCom';
-    this.clientVersion = clientVersion || '1.5.0';
+    this.clientVersion = clientVersion || APP_VERSION;
     this.initialized = true;
     return true;
   }
@@ -198,7 +199,7 @@ export class RAIntegrationDllBridge {
    */
   public RA_InitI(consoleId: number, clientVersion: string): boolean {
     this.consoleId = consoleId;
-    this.clientVersion = clientVersion || '1.5.0';
+    this.clientVersion = clientVersion || APP_VERSION;
     this.initialized = true;
     return true;
   }

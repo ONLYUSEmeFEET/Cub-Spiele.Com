@@ -125,26 +125,26 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-zinc-900 dark:text-zinc-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-[#eceee7] dark:bg-zinc-950/60">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+            <div className="p-2 bg-[#7a1f5c]/15 rounded-lg text-[#7a1f5c] dark:text-[#eab5d8]">
               <Gamepad2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
                 Controls, Virtual Stylus &amp; Gamepad Mapping
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
                 Move &amp; tap the stylus with Keyboard or Controller, plus Background Input for 2-Player Multiplayer
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -156,9 +156,9 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
           {system && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Virtual Stylus Configuration */}
-              <div className="p-4 bg-slate-950/90 border border-slate-800 rounded-xl space-y-3">
+              <div className="p-4 bg-[#f5f6f1] dark:bg-zinc-950/90 border border-zinc-300 dark:border-zinc-800 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-[#be123c] dark:text-rose-400 font-bold text-xs uppercase tracking-wider">
                     <Crosshair className="w-4 h-4" />
                     <span>Virtual Stylus</span>
                   </div>
@@ -168,10 +168,10 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
                       setTick((t) => t + 1);
                       onUpdate?.();
                     }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono border transition-colors ${
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono border transition-colors cursor-pointer ${
                       system.virtualStylus.visible
-                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
-                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                        ? 'bg-[#be123c]/15 border-[#be123c]/50 text-[#9f1239] dark:text-rose-300'
+                        : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
                     }`}
                   >
                     {system.virtualStylus.visible ? 'Reticle Visible' : 'Show Reticle'}
@@ -180,24 +180,25 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-300">Keyboard / Stick Stylus Speed</span>
-                    <span className="font-mono text-rose-300 font-bold">
-                      {system.settings.stylusSpeed.toFixed(1)} px/frame
+                    <span className="text-zinc-700 dark:text-zinc-300">Keyboard / Stick Stylus Speed</span>
+                    <span className="font-mono text-[#be123c] dark:text-rose-300 font-bold">
+                      {Math.round(Math.max(0, Math.min(100, ((system.settings.stylusSpeed - 0.5) / 5.5) * 100)))}% ({system.settings.stylusSpeed.toFixed(1)} px/frame)
                     </span>
                   </div>
                   <input
                     type="range"
-                    min={1.0}
-                    max={6.0}
-                    step={0.5}
-                    value={system.settings.stylusSpeed}
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={Math.round(Math.max(0, Math.min(100, ((system.settings.stylusSpeed - 0.5) / 5.5) * 100)))}
                     onChange={(e) => {
-                      system.settings.stylusSpeed = parseFloat(e.target.value);
+                      const pct = parseFloat(e.target.value);
+                      system.settings.stylusSpeed = Math.round((0.5 + (pct / 100) * 5.5) * 10) / 10;
                       system.saveInputSettingsToStorage();
                       setTick((t) => t + 1);
                       onUpdate?.();
                     }}
-                    className="w-full accent-rose-500 cursor-pointer"
+                    className="w-full accent-[#be123c] cursor-pointer"
                   />
                 </div>
 
@@ -208,10 +209,10 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
                       setTick((t) => t + 1);
                       onUpdate?.();
                     }}
-                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                       system.virtualStylus.dpadStylusMode
-                        ? 'bg-rose-600/25 border-rose-500/60 text-rose-200'
-                        : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                        ? 'bg-[#7a1f5c] border-[#561340] text-white'
+                        : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                     }`}
                   >
                     D-Pad Stylus Mode (Tab): {system.virtualStylus.dpadStylusMode ? 'ON' : 'OFF'}
@@ -225,10 +226,10 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
                       setTick((t) => t + 1);
                       onUpdate?.();
                     }}
-                    className={`py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                       system.virtualStylus.snapToGrid
-                        ? 'bg-amber-600/25 border-amber-500/60 text-amber-200'
-                        : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                        ? 'bg-amber-600 border-amber-700 text-white'
+                        : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                     }`}
                     title="Snap stylus movement to the 13x10 resistive touch matrix cells"
                   >
@@ -238,19 +239,19 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
               </div>
 
               {/* Background Input & Multi-Instance Gamepad Assignment */}
-              <div className="p-4 bg-slate-950/90 border border-slate-800 rounded-xl space-y-3">
+              <div className="p-4 bg-[#f5f6f1] dark:bg-zinc-950/90 border border-zinc-300 dark:border-zinc-800 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-[#4c5931] dark:text-[#b9c48a] font-bold text-xs uppercase tracking-wider">
                     <Monitor className="w-4 h-4" />
                     <span>Background Input &amp; Controller</span>
                   </div>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800">
                     Instance #{system.linkCable.instanceNumber}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-slate-300">Accept Input When Unfocused</span>
+                  <span className="text-xs text-zinc-700 dark:text-zinc-300">Accept Input When Unfocused</span>
                   <button
                     onClick={() => {
                       system.settings.backgroundInput = !system.settings.backgroundInput;
@@ -258,10 +259,10 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
                       setTick((t) => t + 1);
                       onUpdate?.();
                     }}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
                       system.settings.backgroundInput
-                        ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-300'
-                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                        ? 'bg-[#4c5931] border-[#3a4424] text-white'
+                        : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
                     }`}
                   >
                     {system.settings.backgroundInput ? 'Enabled (60Hz)' : 'Focused Only'}
@@ -269,7 +270,7 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">
+                  <label className="block text-[11px] text-zinc-600 dark:text-zinc-400 mb-1">
                     Assigned Gamepad (for Dual-Instance Same-PC Play)
                   </label>
                   <select
@@ -280,7 +281,7 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
                       setTick((t) => t + 1);
                       onUpdate?.();
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white font-mono"
                   >
                     <option value={-1}>
                       Auto (Instance #{system.linkCable.instanceNumber} Default)
@@ -296,54 +297,58 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
           )}
 
           {/* Gamepad Connection Banner */}
-          <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+          <div className="p-3.5 bg-[#f5f6f1] dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <Gamepad2 className={`w-5 h-5 ${gamepads.length > 0 ? 'text-emerald-400' : 'text-slate-500'}`} />
+              <Gamepad2
+                className={`w-5 h-5 ${
+                  gamepads.length > 0 ? 'text-[#4c5931] dark:text-[#b9c48a]' : 'text-zinc-400 dark:text-zinc-500'
+                }`}
+              />
               <div>
-                <span className="text-xs font-bold text-white block">
+                <span className="text-xs font-bold text-zinc-900 dark:text-white block">
                   Connected Controllers ({gamepads.length})
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-zinc-600 dark:text-zinc-400">
                   {gamepads.length > 0
-                    ? gamepads.map((g) => `Pad #${g.index + 1}: ${g.id}`).join(' • ')
+                    ? gamepads.map((g) => `Pad #${g.index + 1}: ${g.id}`).join(' · ')
                     : 'Plug in any Xbox, PlayStation, or USB/Bluetooth controller and press any button'}
                 </span>
               </div>
             </div>
             {gamepads.length > 0 && (
-              <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 text-[11px] font-mono rounded border border-emerald-800 flex items-center gap-1 shrink-0">
+              <span className="px-2 py-0.5 bg-[#4c5931]/15 text-[#4c5931] dark:text-[#b9c48a] text-[11px] font-mono rounded border border-[#4c5931]/40 flex items-center gap-1 shrink-0">
                 <CheckCircle2 className="w-3 h-3" /> Active
               </span>
             )}
           </div>
 
           {/* Key Map Table */}
-          <div className="border border-slate-800 rounded-xl overflow-hidden">
+          <div className="border border-zinc-300 dark:border-zinc-800 rounded-xl overflow-hidden">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 text-slate-400 font-mono border-b border-slate-800 uppercase">
+              <thead className="bg-[#eceee7] dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 font-mono border-b border-zinc-300 dark:border-zinc-800 uppercase">
                 <tr>
                   <th className="py-2.5 px-4">Game.Com / Stylus Action</th>
                   <th className="py-2.5 px-4">Keyboard Shortcuts</th>
                   <th className="py-2.5 px-4">Controller / Gamepad</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80">
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/80">
                 {keyMap.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2.5 px-4 font-semibold text-white">{row.action}</td>
+                  <tr key={idx} className="hover:bg-zinc-100 dark:hover:bg-zinc-800/40 transition-colors">
+                    <td className="py-2.5 px-4 font-semibold text-zinc-900 dark:text-white">{row.action}</td>
                     <td className="py-2.5 px-4">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {row.keys.map((k, kIdx) => (
                           <kbd
                             key={kIdx}
-                            className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-200 font-mono text-[11px] shadow-xs"
+                            className="px-2 py-0.5 bg-[#eceee7] dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-800 dark:text-zinc-200 font-mono text-[11px] shadow-xs"
                           >
                             {k}
                           </kbd>
                         ))}
                       </div>
                     </td>
-                    <td className="py-2.5 px-4 font-mono text-slate-300 text-[11px]">
+                    <td className="py-2.5 px-4 font-mono text-zinc-700 dark:text-zinc-300 text-[11px]">
                       {row.gamepad}
                     </td>
                   </tr>
@@ -354,13 +359,13 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-800 bg-slate-950/70 text-xs text-slate-400">
+        <div className="flex items-center justify-between px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-[#eceee7] dark:bg-zinc-950/70 text-xs text-zinc-600 dark:text-zinc-400">
           <span>
-            Tip: Use <strong className="text-slate-200">I/J/K/L</strong> or <strong className="text-slate-200">Right Stick</strong> to move the stylus anytime without switching modes!
+            Tip: Use <strong className="text-zinc-900 dark:text-zinc-200">I/J/K/L</strong> or <strong className="text-zinc-900 dark:text-zinc-200">Right Stick</strong> to move the stylus anytime without switching modes!
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-medium rounded-lg transition-colors cursor-pointer"
           >
             Close
           </button>

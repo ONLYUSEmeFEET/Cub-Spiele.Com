@@ -38,6 +38,7 @@ import { SM8521CPU } from './sm8521';
 import { CartridgeInfo } from './types';
 import { calculateMd5Hex, calculateChecksum, resolveKnownGameByGameIdOrTitle } from './cartridge';
 import { RAIntegrationDllBridge } from './raIntegrationDll';
+import { APP_VERSION_TAG } from '../version';
 
 const RA_CONFIG_STORAGE_KEY = 'cub_spiele_ra_config_v2';
 const RA_UNLOCKS_STORAGE_KEY = 'cub_spiele_ra_unlocks_v1';
@@ -48,8 +49,8 @@ const RA_CUSTOM_USER_TXT_KEY = 'cub_spiele_ra_custom_user_txt_v1';
 export const RC_CONSOLE_GAMECOM = 89;
 
 export const EMULATOR_CLIENT_NAME = 'CubSpieleCom';
-export const EMULATOR_CLIENT_VERSION = 'v1.5.0';
-export const EMULATOR_CORE_ID = 'sm8521_core/v1.5.0';
+export const EMULATOR_CLIENT_VERSION = APP_VERSION_TAG;
+export const EMULATOR_CORE_ID = `sm8521_core/${APP_VERSION_TAG}`;
 
 export interface RetroAchievementsConfig {
   enabled: boolean;

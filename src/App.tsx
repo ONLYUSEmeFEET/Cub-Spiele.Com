@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameComSystem } from './emulator/gamecomSystem';
 import { TopBar } from './components/TopBar';
-import { GameComConsole } from './components/GameComConsole';
+import { TouchView } from './components/GameComConsole';
 import { ScreenOnlyView } from './components/ScreenOnlyView';
 import { AccuracyFixesModal } from './components/AccuracyFixesModal';
 import { RomLibraryModal } from './components/RomLibraryModal';
@@ -61,6 +61,7 @@ export function App() {
 
   // Periodic UI refresh for FPS and status bar + Electron menu bridge + Competitive callbacks
   useEffect(() => {
+    system.applyThemeToDom();
     const interval = setInterval(() => {
       forceUpdate();
     }, 500);
@@ -79,7 +80,7 @@ export function App() {
     };
 
     system.retroAchievements.setNotificationHandler((title, subtitle) => {
-      if (!system.settings.enableRetroAchievements) return;
+      if (!system.settings.advancedMode || !system.settings.enableRetroAchievements) return;
       showToast(`${title} — ${subtitle}`);
       forceUpdate();
     });
@@ -106,7 +107,9 @@ export function App() {
           setIsHighScoresOpen(true);
         } else if (action === 'open-achievements') {
           setHighScoresInitialTab(
-            system.settings.enableRetroAchievements ? 'retroachievements' : 'leaderboard'
+            system.settings.advancedMode && system.settings.enableRetroAchievements
+              ? 'retroachievements'
+              : 'leaderboard'
           );
           setIsHighScoresOpen(true);
         } else if (action === 'open-debugger') {
@@ -555,22 +558,22 @@ export function App() {
 
   return (
     <div
-      className="h-screen w-screen bg-[#111317] text-zinc-100 flex flex-col overflow-hidden select-none"
+      className="h-screen w-screen bg-[#f2f3ef] text-zinc-900 dark:bg-[#121418] dark:text-zinc-100 flex flex-col overflow-hidden select-none transition-colors"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Drag & Drop ROM Overlay */}
       {isDraggingOver && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm border-2 border-dashed border-emerald-500 m-3 rounded-xl flex flex-col items-center justify-center pointer-events-none">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm border-2 border-dashed border-[#7a1f5c] m-3 rounded-xl flex flex-col items-center justify-center pointer-events-none">
           <p className="text-lg font-bold text-white">Drop Game ROM (.bin, .tgc, .zip) to Play</p>
         </div>
       )}
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-9 right-4 z-50 bg-zinc-900/95 border border-zinc-700 text-zinc-100 px-3.5 py-2 rounded-lg shadow-xl flex items-center gap-2 text-xs font-medium">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+        <div className="fixed bottom-9 right-4 z-50 bg-white/95 dark:bg-zinc-900/95 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 px-3.5 py-2 rounded-lg shadow-xl flex items-center gap-2 text-xs font-medium">
+          <span className="w-2 h-2 rounded-full bg-[#7a1f5c] dark:bg-[#b9c48a]" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -588,7 +591,9 @@ export function App() {
         }}
         onOpenAchievements={() => {
           setHighScoresInitialTab(
-            system.settings.enableRetroAchievements ? 'retroachievements' : 'leaderboard'
+            system.settings.advancedMode && system.settings.enableRetroAchievements
+              ? 'retroachievements'
+              : 'leaderboard'
           );
           setIsHighScoresOpen(true);
         }}
@@ -602,11 +607,11 @@ export function App() {
       />
 
       {/* Clean Central Emulator Viewport */}
-      <main className="flex-1 flex items-center justify-center overflow-auto p-3">
+      <main className="flex-1 flex items-center justify-center overflow-auto p-2 sm:p-3">
         {system.settings.viewMode === 'screen-only' ? (
           <ScreenOnlyView system={system} />
         ) : (
-          <GameComConsole
+          <TouchView
             system={system}
             onOpenLibrary={() => setIsLibraryOpen(true)}
             onStateChange={forceUpdate}
@@ -615,26 +620,26 @@ export function App() {
       </main>
 
       {/* Minimal Standalone Emulator Status Bar */}
-      <footer className="h-6 bg-[#16181e] border-t border-zinc-800/90 px-3 flex items-center justify-between text-[11px] text-zinc-400 font-mono shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <footer className="h-6 bg-[#e8eae3] dark:bg-[#16181e] border-t border-zinc-300 dark:border-zinc-800/90 px-3 flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400 font-mono tabular-nums shrink-0 transition-colors">
+        <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex items-center gap-1.5">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
                 !system.isPoweredOn
-                  ? 'bg-zinc-600'
+                  ? 'bg-zinc-400 dark:bg-zinc-600'
                   : system.isPaused
-                  ? 'bg-amber-400'
-                  : 'bg-emerald-400'
+                  ? 'bg-amber-600 dark:bg-amber-400'
+                  : 'bg-[#4c5931] dark:bg-[#b9c48a]'
               }`}
             />
-            <span className="text-zinc-300">
+            <span className="text-zinc-800 dark:text-zinc-300">
               {!system.isPoweredOn ? 'Off' : system.isPaused ? 'Paused' : 'Ready'}
             </span>
           </span>
 
-          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
 
-          <span className="truncate text-zinc-300">
+          <span className="truncate text-zinc-800 dark:text-zinc-300">
             {system.activeApp === 'CARTRIDGE' && activeCart
               ? system.settings.advancedMode
                 ? `Slot ${system.activeSlot}: ${activeCart.title}${
@@ -645,12 +650,14 @@ export function App() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           {system.linkCable.mode !== 'off' && (
             <>
               <span
                 className={
-                  system.linkCable.status === 'connected' ? 'text-emerald-400' : 'text-amber-400'
+                  system.linkCable.status === 'connected'
+                    ? 'text-[#4c5931] dark:text-[#b9c48a]'
+                    : 'text-amber-700 dark:text-amber-400'
                 }
               >
                 Link: {system.linkCable.status === 'connected' ? 'Connected' : 'Waiting'}
@@ -658,13 +665,13 @@ export function App() {
                   ? ` (TX:${system.linkCable.txBytes}/RX:${system.linkCable.rxBytes})`
                   : ''}
               </span>
-              <span className="text-zinc-700">|</span>
+              <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
             </>
           )}
           {touchGridPercent > 0 && (
             <>
-              <span className="text-emerald-400">Grid: {touchGridPercent}%</span>
-              <span className="text-zinc-700">|</span>
+              <span className="text-[#7a1f5c] dark:text-[#d974b8]">Grid: {touchGridPercent}%</span>
+              <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
             </>
           )}
           {system.settings.advancedMode && (
@@ -672,14 +679,14 @@ export function App() {
               <span className="hidden sm:inline">
                 Ghosting: {Math.round(system.settings.ghosting * 100)}%
               </span>
-              <span className="hidden sm:inline text-zinc-700">|</span>
+              <span className="hidden sm:inline text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
               <span>
                 Vol: {system.settings.muted ? 'Mute' : `${Math.round(system.settings.volume * 100)}%`}
               </span>
-              <span className="text-zinc-700">|</span>
+              <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
             </>
           )}
-          <span className="text-emerald-400">{system.fps} FPS</span>
+          <span className="text-[#4c5931] dark:text-[#b9c48a] font-semibold">{system.fps} FPS</span>
         </div>
       </footer>
 

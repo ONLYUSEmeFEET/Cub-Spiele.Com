@@ -606,7 +606,8 @@ ipcMain.handle('desktop:ra-do-request', async (_event, paramsObj) => {
   return new Promise((resolve) => {
     try {
       const formBody = new URLSearchParams(paramsObj || {}).toString();
-      const userAgent = `CubSpieleCom/${app.getVersion() || '1.5.0'} (${process.platform} ${os.release()}; ${process.arch}) sm8521_core/v1.5.0`;
+      const pkgVer = app.getVersion() || require('../package.json').version || '0.0.8';
+      const userAgent = `CubSpieleCom/${pkgVer} (${process.platform} ${os.release()}; ${process.arch}) sm8521_core/v${pkgVer}`;
       const req = https.request(
         'https://retroachievements.org/dorequest.php',
         {

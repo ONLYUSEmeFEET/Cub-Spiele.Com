@@ -157,9 +157,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
   const activePalette = PALETTES[system.settings.palette] || PALETTES.original;
   const isBacklitModel = Boolean(activePalette.isBacklit && system.isPoweredOn);
   const inactiveGlassBg =
-    !system.isPoweredOn
-      ? '#4b5239'
-      : system.settings.palette === 'custom'
+    system.settings.palette === 'custom'
       ? system.settings.customPaletteColors[0]
       : activePalette.bezelTint || activePalette.colors[0];
 
@@ -339,8 +337,9 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         </div>
       )}
 
-      {/* RetroAchievements Overlays (hidden by default behind enableRetroAchievements toggle) */}
+      {/* RetroAchievements Overlays (hidden behind Advanced Mode + opt-in toggle) */}
       {system.isPoweredOn &&
+        system.settings.advancedMode &&
         system.settings.enableRetroAchievements &&
         system.retroAchievements.config.enabled && (
         <>
@@ -426,17 +425,6 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         </>
       )}
 
-      {/* Powered Off STN Reflective State */}
-      {!system.isPoweredOn && (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-[#51593e]/90">
-          <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#1e2612]/60 font-bold">
-            SYSTEM POWER OFF
-          </div>
-          <div className="text-[9px] font-mono text-[#1e2612]/45 mt-1">
-            PRESS RED ON/OFF KEY TO BOOT
-          </div>
-        </div>
-      )}
     </div>
   );
 };

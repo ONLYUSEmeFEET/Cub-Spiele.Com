@@ -279,14 +279,15 @@ export interface EmulatorSettings {
   twoShadeColors: [string, string];
   /** Computed 4-shade interpolation [Shade 0, Shade 1, Shade 2, Shade 3] */
   customPaletteColors: [string, string, string, string];
-  /** STN LCD ghosting intensity (0.0 to 0.90) */
+  /** STN LCD ghosting intensity (0.0 to 1.0) */
   ghosting: number;
-  /** STN LCD ghosting persistence / decay time constant (0.0 to 0.95) */
+  /** STN LCD ghosting persistence / decay time constant (0.0 to 1.0) */
   ghostingPersistence: number;
   pixelGrid: boolean;
   showTouchGrid: boolean;
   touchGridOpacity: number;
-  viewMode: 'screen-only' | 'console';
+  viewMode: 'screen-only' | 'touch';
+  theme: 'light' | 'dark';
   screenScale: number;
   contrast: number;
   volume: number;

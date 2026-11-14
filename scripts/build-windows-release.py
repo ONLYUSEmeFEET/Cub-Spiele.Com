@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Cub Spiele.Com — Multi-Platform Standalone Emulator Release Builder (v1.5.1)
-Generates native & portable release artifacts for Windows, macOS, and Android:
+Cub Spiele.Com — Multi-Platform Standalone Emulator Release Builder
+Reads project version dynamically from package.json (single source of truth):
   1. public/assets/icon.ico, icon-192.png, icon-512.png, icon.icns
   2. public/releases/CubSpieleCom.exe (Native Windows x64 PE32+ GUI Executable)
-  3. public/releases/CubSpieleCom-v1.5.1-win64.zip (Windows 10/11 x64 Portable Build)
-  4. public/releases/CubSpieleCom-v1.5.1-macos-universal.zip (macOS Universal .app Bundle — Apple Silicon ARM64 & Intel x64)
-  5. public/releases/CubSpieleCom-v1.5.1-android.apk (Android Universal Package & Offline Touch Bundle)
-  6. Historical Windows x64 builds (v1.5.0 .. v1.0.0) and public/releases/releases-manifest.json
+  3. public/releases/CubSpieleCom-v<version>-win64.zip (Windows 10/11 x64 Portable Build)
+  4. public/releases/CubSpieleCom-v<version>-macos-universal.zip (macOS Universal .app Bundle)
+  5. public/releases/CubSpieleCom-v<version>-android.apk (Android Universal Package & Offline Touch Bundle)
+  6. Sequential historical builds (v0.0.1 .. v<version>) and public/releases/releases-manifest.json
 """
 
 import os
+import re
 import json
 import zlib
 import struct
@@ -24,6 +25,41 @@ DIST_DIR = os.path.join(ROOT_DIR, 'dist')
 PUBLIC_DIR = os.path.join(ROOT_DIR, 'public')
 RELEASES_DIR = os.path.join(PUBLIC_DIR, 'releases')
 ASSETS_DIR = os.path.join(PUBLIC_DIR, 'assets')
+
+
+def read_package_version() -> str:
+    pkg_path = os.path.join(ROOT_DIR, 'package.json')
+    with open(pkg_path, 'r', encoding='utf-8') as f:
+        pkg = json.load(f)
+    ver = str(pkg.get('version', '0.0.8')).lstrip('v').strip()
+    if not re.match(r'^\d+\.\d+\.\d+$', ver):
+        raise ValueError(f"Invalid package.json version: {ver!r}")
+    return ver
+
+
+def compute_android_version_code(ver: str) -> int:
+    parts = [int(p) for p in ver.lstrip('v').split('.')]
+    major = parts[0] if len(parts) > 0 else 0
+    minor = parts[1] if len(parts) > 1 else 0
+    patch = parts[2] if len(parts) > 2 else 0
+    return major * 10000 + minor * 100 + patch
+
+
+def sync_service_worker_version(ver: str):
+    """Keeps public/sw.js and dist/sw.js CACHE_NAME synchronized with package.json."""
+    pattern = re.compile(r"const CACHE_NAME = ['\"]cub-spiele-com-v[^'\"]+['\"];")
+    replacement = f"const CACHE_NAME = 'cub-spiele-com-v{ver}';"
+    for sw_path in (
+        os.path.join(PUBLIC_DIR, 'sw.js'),
+        os.path.join(DIST_DIR, 'sw.js'),
+    ):
+        if os.path.exists(sw_path):
+            with open(sw_path, 'r', encoding='utf-8') as sf:
+                content = sf.read()
+            updated = pattern.sub(replacement, content)
+            if updated != content:
+                with open(sw_path, 'w', encoding='utf-8') as sf:
+                    sf.write(updated)
 
 
 def align(val: int, alignment: int) -> int:
@@ -667,7 +703,7 @@ End If
 '''
 
 
-def create_offline_desktop_index_html(version: str = '1.5.0', platform: str = 'win32', arch: str = 'x64') -> str:
+def create_offline_desktop_index_html(version: str = '0.0.8', platform: str = 'win32', arch: str = 'x64') -> str:
     dist_index = os.path.join(DIST_DIR, 'index.html')
     with open(dist_index, 'r', encoding='utf-8') as f:
         html = f.read()
@@ -753,7 +789,7 @@ def iter_dist_app_files():
     """Yields (full_disk_path, relative_path_inside_app_dir) for all clean web build files."""
     for root, dirs, files in os.walk(DIST_DIR):
         rel_root = os.path.relpath(root, DIST_DIR)
-        if rel_root.startswith('releases') or rel_root.startswith('roms'):
+        if rel_root.startswith('releases') or rel_root.startswith('roms') or 'aistudio' in rel_root.split(os.sep):
             continue
         for file in files:
             if file.lower() == 'desktop.ini':
@@ -781,8 +817,8 @@ STANDALONE HANDHELD EMULATOR FEATURES:
 - Full Retail & Prototype Compatibility (including Castlevania: SotN & Sonic Jam)
 - Competitive Hardcore Mode, Multi-Player High Score Vault & Online Leaderboards
 - Frame Advance (F), Rewind ([), Save States (F5/F8) & Hardware Calendar RTC
-- Screen-Only Mode (2x / 3x / 4x integer scale) & Handheld Console Bezel Mode
-- Authentic STN Hardware Screen Presets & Passive-Matrix Ghosting controls
+- Screen-Only Mode (Default, 2x / 3x / 4x integer scale) & Touch View (Button-Only Controls)
+- Authentic STN Hardware Screen Presets, Ghosting controls & Light/Dark Mode
 - Streamlined UI by default with optional Advanced Mode (View -> Advanced Mode)
 ================================================================================
 """
@@ -946,18 +982,19 @@ def build_valid_dex_bytes() -> bytes:
 
 def build_android_apk(apk_path: str, icon_192_png: bytes, version: str):
     """
-    Builds a self-contained Android APK package (CubSpieleCom-v1.5.0-android.apk)
+    Builds a self-contained Android APK package (CubSpieleCom-<version>-android.apk)
     containing AndroidManifest.xml, classes.dex, resources.arsc, launcher icons,
     META-INF JAR signature manifest, and the full offline touch-enabled emulator in assets/public/.
     """
     ver_clean = version.lstrip('v')
+    ver_code = compute_android_version_code(ver_clean)
     offline_html = create_offline_desktop_index_html(ver_clean, 'android', 'arm64-v8a')
     dex_bytes = build_valid_dex_bytes()
 
     android_manifest = f"""<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.cubspiele.emulator"
-    android:versionCode="150"
+    android:versionCode="{ver_code}"
     android:versionName="{ver_clean}"
     android:installLocation="auto">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
@@ -990,7 +1027,7 @@ def build_android_apk(apk_path: str, icon_192_png: bytes, version: str):
 
     def add_apk_entry(zf: zipfile.ZipFile, arcname: str, data: bytes, compress: bool = True):
         zi = zipfile.ZipInfo(arcname)
-        zi.date_time = (2026, 11, 13, 18, 0, 0)
+        zi.date_time = (2026, 11, 14, 19, 45, 0)
         zi.compress_type = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
         zf.writestr(zi, data)
         b64_sha = base64.b64encode(hashlib.sha256(data).digest()).decode('ascii')
@@ -1014,7 +1051,7 @@ def build_android_apk(apk_path: str, icon_192_png: bytes, version: str):
 
         mf_lines = [
             'Manifest-Version: 1.0',
-            'Created-By: Cub Spiele.Com Android Release Builder 1.5.0',
+            f'Created-By: Cub Spiele.Com Android Release Builder {ver_clean}',
             ''
         ]
         for name, sha in manifest_entries:
@@ -1034,22 +1071,115 @@ def build_android_apk(apk_path: str, icon_192_png: bytes, version: str):
 
 
 def main():
+    current_ver = read_package_version()
+    current_tag = f'v{current_ver}'
+    sync_service_worker_version(current_ver)
+
     os.makedirs(RELEASES_DIR, exist_ok=True)
     os.makedirs(ASSETS_DIR, exist_ok=True)
 
-    # Remove any non-emulator / old clutter archives from RELEASES_DIR
-    for old_f in os.listdir(RELEASES_DIR):
-        if (
-            old_f.startswith('GameCom-')
-            or 'Antigravity' in old_f
-            or old_f.endswith('-dist.zip')
-            or old_f.endswith('.gz')
-            or 'linux' in old_f.lower()
-        ):
-            try:
-                os.remove(os.path.join(RELEASES_DIR, old_f))
-            except OSError:
-                pass
+    # Sequential 0.0.x release history starting from v0.0.1 up to current package.json version
+    release_specs = [
+        {
+            "tag": "v0.0.8",
+            "title": "Cub Spiele.Com v0.0.8 — Platform View Defaults, Touch Layout Overhaul, 0-100% Sliders & 0.0.x Versioning",
+            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "highlights": [
+                "Added platform-aware first-boot View defaults (Screen-Only on Windows/macOS, Touch on Android/mobile) with localStorage persistence for user layout changes",
+                "Redesigned Touch View horizontally after the original Game.Com (D-Pad left, 2x2 A/B/C/D right, spaced Menu/Sound/Pause bottom-right) and vertically after an Analogue Pocket style layout (Screen top, D-Pad + diamond A/B/C/D middle, centered bottom Menu/Sound/Pause) with an isolated Power button and Power starting OFF at launch",
+                "Added interactive LCD Contrast slider (0% - 100%) to the TopBar menu and toolbar, standardized all sliders across settings to 0% - 100% ranges, promoted Phone Book Manager and LCD Ghosting to Basic settings, and gated optional diagnostic/achievement components behind Advanced Mode",
+                "Overhauled emulator versioning into a single-source-of-truth sequential 0.0.x progression (v0.0.1 through v0.0.8) driven by package.json across builds, Service Worker cache, Electron, Android APK, and release manifests"
+            ],
+        },
+        {
+            "tag": "v0.0.7",
+            "title": "Cub Spiele.Com v0.0.7 — Screen-Only Default, Touch View, Tiger Game.Com Palette, Hardware Screen Presets & MIT License",
+            "publishedAt": "2026-11-14T18:55:00Z",
+            "highlights": [
+                "Defaulted View to Screen-Only Mode, simplified secondary controls into a mobile-inspired Touch View (button-only border), styled with Tiger Game.Com colors, and added Light/Dark Mode",
+                "Added calibrated Game.Com hardware screen presets (Original 1997 Olive Green #71-500, Pocket Pro Backlit Green #71-520, Silver Grey #71-530, Warm Amber #71-510, Crisp High Contrast, and Custom 2-Shade Color Blender) with authentic STN passive-matrix column crosstalk",
+                "Fixed BIOS Calendar month and year header disappearing when switching months and restricted RTC host clock sync strictly to initial boot",
+                "Preserved the NVRAM High Score Vault while removing manual custom score injection, and added MIT License (LICENSE) across the repository"
+            ],
+        },
+        {
+            "tag": "v0.0.6",
+            "title": "Cub Spiele.Com v0.0.6 — Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
+            "publishedAt": "2026-11-13T23:45:00Z",
+            "highlights": [
+                "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
+                "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
+                "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
+                "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF"
+            ],
+        },
+        {
+            "tag": "v0.0.5",
+            "title": "Cub Spiele.Com v0.0.5 — Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
+            "publishedAt": "2026-11-13T18:00:00Z",
+            "highlights": [
+                "Added Competitive Hardcore Mode (defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
+                "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
+                "Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)",
+                "Added flat 32KB SM8521 memory map exposure and deterministic RFC 1321 MD5 ROM hashing"
+            ],
+        },
+        {
+            "tag": "v0.0.4",
+            "title": "Cub Spiele.Com v0.0.4 — STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus",
+            "publishedAt": "2026-11-12T22:30:00Z",
+            "highlights": [
+                "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence controls",
+                "Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors",
+                "Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and Virtual Stylus",
+                "Synchronized internal Game.Com Real-Time Clock ($0120-$0129) and NVRAM Calendar ($FEE2-$FEE7) to the user device date and time",
+                "Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)"
+            ],
+        },
+        {
+            "tag": "v0.0.3",
+            "title": "Cub Spiele.Com v0.0.3 — Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs",
+            "publishedAt": "2026-11-12T17:00:00Z",
+            "highlights": [
+                "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
+                "Added native desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)",
+                "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling)",
+                "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)"
+            ],
+        },
+        {
+            "tag": "v0.0.2",
+            "title": "Cub Spiele.Com v0.0.2 — SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix",
+            "publishedAt": "2026-11-12T06:00:00Z",
+            "highlights": [
+                "Added Dual Cartridge Bay support with hardware P3 chip-select isolation",
+                "Fixed Lights Out '1?5' starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM",
+                "Verified Sharp SM8521 CPU ALU against official datasheet (8-bit ADC & 16-bit ADDW/ADCW signed overflow V flag, 16-bit ANDW/ORW/XORW S/V flags, PS0 $001E mirror)",
+                "Calibrated default audio volume to 20% with internal speaker band-pass filter"
+            ],
+        },
+        {
+            "tag": "v0.0.1",
+            "title": "Cub Spiele.Com v0.0.1 — Initial Cycle-Accurate SM8521 Handheld Emulator Release",
+            "publishedAt": "2026-11-11T18:00:00Z",
+            "highlights": [
+                "Initial cycle-accurate Sharp SM8521 CPU (4.9152 MHz), MMU bank switching, and hardware DMA blitter",
+                "200x160 4-shade passive-matrix STN LCD renderer and 13x10 resistive touchscreen matrix",
+                "Hardware SGDA 8-bit DAC audio streamer and programmable tone channels",
+                "8KB battery-backed NVRAM ($E000-$FFFF) persistence"
+            ],
+        },
+    ]
+
+    if all(r["tag"] != current_tag for r in release_specs):
+        release_specs.insert(0, {
+            "tag": current_tag,
+            "title": f"Cub Spiele.Com {current_tag} — Standalone Handheld Emulator Release",
+            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "highlights": [
+                f"Standalone multi-platform build synced from package.json ({current_tag})"
+            ],
+        })
 
     # 1. Generate Multi-Platform Icons (ICO, PNG 128/192/512, macOS ICNS)
     ico_bytes, dib_bytes = generate_cub_spiele_ico()
@@ -1067,7 +1197,6 @@ def main():
     with open(os.path.join(ASSETS_DIR, 'icon.icns'), 'wb') as f:
         f.write(icns_bytes)
 
-    # Also copy generated icons into dist/assets if dist exists
     if os.path.exists(DIST_DIR):
         dist_assets = os.path.join(DIST_DIR, 'assets')
         os.makedirs(dist_assets, exist_ok=True)
@@ -1086,22 +1215,14 @@ def main():
     with open(exe_path, 'wb') as f:
         f.write(exe_bytes)
 
-    for ra_artifact in ('RA_Integration-x64.dll', 'RA_Integration.dll'):
-        ra_p = os.path.join(RELEASES_DIR, ra_artifact)
-        if os.path.exists(ra_p):
-            try:
-                os.remove(ra_p)
-            except OSError:
-                pass
-
     compete_rom_src = os.path.join(ROOT_DIR, 'compete_test.bin')
     compete_rom_rel_path = os.path.join(RELEASES_DIR, 'compete_test.bin')
     if os.path.exists(compete_rom_src):
         with open(compete_rom_src, 'rb') as rf, open(compete_rom_rel_path, 'wb') as wf:
             wf.write(rf.read())
 
-    # 3. Build Windows Portable ZIPs across versions
-    versions = ['v1.5.1', 'v1.5.0', 'v1.4.0', 'v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
+    # 3. Build Windows Portable ZIPs across sequential 0.0.x versions
+    versions = [spec["tag"] for spec in release_specs]
     zip_paths = {}
     for ver in versions:
         zname = f'CubSpieleCom-{ver}-win64.zip'
@@ -1109,35 +1230,43 @@ def main():
         build_zip_bundle(zpath, exe_bytes, ver)
         zip_paths[ver] = (zname, zpath)
 
-    # 4. Build v1.5.1 macOS Universal (.app) and Android (.apk)
-    mac_name = 'CubSpieleCom-v1.5.1-macos-universal.zip'
+    # 4. Build latest macOS Universal (.app) and Android (.apk) matching package.json version
+    mac_name = f'CubSpieleCom-{current_tag}-macos-universal.zip'
     mac_path = os.path.join(RELEASES_DIR, mac_name)
-    build_macos_universal_bundle(mac_path, icns_bytes, 'v1.5.1')
+    build_macos_universal_bundle(mac_path, icns_bytes, current_tag)
 
-    android_name = 'CubSpieleCom-v1.5.1-android.apk'
+    android_name = f'CubSpieleCom-{current_tag}-android.apk'
     android_path = os.path.join(RELEASES_DIR, android_name)
-    build_android_apk(android_path, png_192, 'v1.5.1')
+    build_android_apk(android_path, png_192, current_tag)
+
+    # Purge stale / superseded archives (such as old v1.x.x files)
+    expected_release_files = {
+        'CubSpieleCom.exe',
+        'compete_test.bin',
+        'releases-manifest.json',
+        mac_name,
+        android_name,
+        *[zip_paths[v][0] for v in versions],
+    }
+    for existing_f in os.listdir(RELEASES_DIR):
+        if existing_f not in expected_release_files:
+            try:
+                os.remove(os.path.join(RELEASES_DIR, existing_f))
+            except OSError:
+                pass
 
     if os.path.exists(DIST_DIR):
         dist_rel = os.path.join(DIST_DIR, 'releases')
         os.makedirs(dist_rel, exist_ok=True)
-        for old_df in os.listdir(dist_rel):
-            if (
-                'Antigravity' in old_df
-                or 'RA_Integration' in old_df
-                or old_df.endswith('-dist.zip')
-                or old_df.endswith('.gz')
-                or 'linux' in old_df.lower()
-            ):
+        for existing_df in os.listdir(dist_rel):
+            if existing_df not in expected_release_files:
                 try:
-                    os.remove(os.path.join(dist_rel, old_df))
+                    os.remove(os.path.join(dist_rel, existing_df))
                 except OSError:
                     pass
-        copy_files = (
-            ['CubSpieleCom.exe', 'compete_test.bin', mac_name, android_name]
-            + [zip_paths[v][0] for v in versions]
-        )
-        for fname in copy_files:
+        for fname in expected_release_files:
+            if fname == 'releases-manifest.json':
+                continue
             src = os.path.join(RELEASES_DIR, fname)
             if os.path.exists(src):
                 dst = os.path.join(dist_rel, fname)
@@ -1149,279 +1278,79 @@ def main():
     compete_rom_size = os.path.getsize(compete_rom_rel_path) if os.path.exists(compete_rom_rel_path) else 32768
     compete_rom_sha = sha256_file(compete_rom_rel_path) if os.path.exists(compete_rom_rel_path) else ''
 
+    releases_entries = []
+    for spec in release_specs:
+        r_tag = spec["tag"]
+        is_latest = (r_tag == current_tag)
+        zname, zpath = zip_paths[r_tag]
+        assets = [
+            {
+                "name": zname,
+                "label": f"Windows x64 Portable Build ({r_tag} .zip)",
+                "url": f"./releases/{zname}",
+                "sizeBytes": os.path.getsize(zpath),
+                "sha256": sha256_file(zpath),
+                "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+                "platform": "windows"
+            },
+            {
+                "name": f"CubSpieleCom-{r_tag}.exe" if not is_latest else "CubSpieleCom.exe",
+                "label": f"Standalone Windows x64 Emulator Executable ({r_tag} .exe)",
+                "url": "./releases/CubSpieleCom.exe",
+                "sizeBytes": exe_size,
+                "sha256": exe_sha,
+                "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+                "platform": "windows"
+            }
+        ]
+        if is_latest:
+            assets.extend([
+                {
+                    "name": mac_name,
+                    "label": f"macOS Universal App Bundle ({r_tag} .app.zip)",
+                    "url": f"./releases/{mac_name}",
+                    "sizeBytes": os.path.getsize(mac_path),
+                    "sha256": sha256_file(mac_path),
+                    "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
+                    "platform": "macos"
+                },
+                {
+                    "name": android_name,
+                    "label": f"Android Universal Package ({r_tag} .apk)",
+                    "url": f"./releases/{android_name}",
+                    "sizeBytes": os.path.getsize(android_path),
+                    "sha256": sha256_file(android_path),
+                    "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
+                    "platform": "android"
+                },
+                {
+                    "name": "compete_test.bin",
+                    "label": "Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin)",
+                    "url": "./releases/compete_test.bin",
+                    "sizeBytes": compete_rom_size,
+                    "sha256": compete_rom_sha,
+                    "architecture": "Game.Com SM8521 Cartridge ROM (32 KB — All Platforms)",
+                    "platform": "windows"
+                }
+            ])
+
+        releases_entries.append({
+            "tag": r_tag,
+            "title": spec["title"],
+            "publishedAt": spec["publishedAt"],
+            "isLatest": is_latest,
+            "Prerelease": False,
+            "commitRef": f"HEAD (tag: {r_tag})" if is_latest else f"tag: {r_tag}",
+            "highlights": spec["highlights"],
+            "assets": assets
+        })
+
     manifest = {
         "project": "cub-spiele-com-emulator",
         "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-        "latestVersion": "v1.5.1",
+        "latestVersion": current_tag,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "releases": [
-            {
-                "tag": "v1.5.1",
-                "title": "Cub Spiele.Com v1.5.1 — Authentic STN Hardware Screen Presets, BIOS Calendar Fix & MIT License",
-                "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "isLatest": True,
-                "Prerelease": False,
-                "commitRef": "HEAD (tag: v1.5.1)",
-                "highlights": [
-                    "Added calibrated Game.Com hardware screen presets (Original 1997 Olive Green #71-500, Pocket Pro Backlit Green #71-520, Silver Grey #71-530, Warm Amber #71-510, Crisp High Contrast, and Custom 2-Shade Color Blender) with authentic STN passive-matrix column crosstalk",
-                    "Fixed BIOS Calendar month and year header disappearing when switching months and restricted RTC host clock sync strictly to initial boot",
-                    "Preserved the NVRAM High Score Vault while removing manual custom score injection to protect score integrity",
-                    "Added MIT License (LICENSE) across the repository and release packages, and moved optional achievement components behind a user toggle (off by default)"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.5.1'][0],
-                        "label": "Windows x64 Portable Build (v1.5.1 .zip)",
-                        "url": f"./releases/{zip_paths['v1.5.1'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.5.1'][1]),
-                        "sha256": sha256_file(zip_paths['v1.5.1'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.5.1 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": mac_name,
-                        "label": "macOS Universal App Bundle (v1.5.1 .app.zip)",
-                        "url": f"./releases/{mac_name}",
-                        "sizeBytes": os.path.getsize(mac_path),
-                        "sha256": sha256_file(mac_path),
-                        "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
-                        "platform": "macos"
-                    },
-                    {
-                        "name": android_name,
-                        "label": "Android Universal Package (v1.5.1 .apk)",
-                        "url": f"./releases/{android_name}",
-                        "sizeBytes": os.path.getsize(android_path),
-                        "sha256": sha256_file(android_path),
-                        "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
-                        "platform": "android"
-                    },
-                    {
-                        "name": "compete_test.bin",
-                        "label": "Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin)",
-                        "url": "./releases/compete_test.bin",
-                        "sizeBytes": compete_rom_size,
-                        "sha256": compete_rom_sha,
-                        "architecture": "Game.Com SM8521 Cartridge ROM (32 KB — All Platforms)",
-                        "platform": "windows"
-                    }
-                ]
-            },
-            {
-                "tag": "v1.5.0",
-                "title": "Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
-                "publishedAt": "2026-11-13T23:45:00Z",
-                "isLatest": False,
-                "Prerelease": False,
-                "commitRef": "tag: v1.5.0",
-                "highlights": [
-                    "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
-                    "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
-                    "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
-                    "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.5.0'][0],
-                        "label": "Windows x64 Portable Build (v1.5.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.5.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.5.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.5.0'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom-v1.5.0.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.5.0 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    }
-                ]
-            },
-            {
-                "tag": "v1.4.0",
-                "title": "Cub Spiele.Com v1.4.0 — Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
-                "publishedAt": "2026-11-13T18:00:00Z",
-                "isLatest": False,
-                "Prerelease": False,
-                "commitRef": "tag: v1.4.0",
-                "highlights": [
-                    "Added Competitive Hardcore Mode (defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
-                    "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
-                    "Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)",
-                    "Added flat 32KB SM8521 memory map exposure and deterministic RFC 1321 MD5 ROM hashing"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.4.0'][0],
-                        "label": "Windows x64 Portable Build (v1.4.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.4.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.4.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.4.0'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom-v1.4.0.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.4.0 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    }
-                ]
-            },
-            {
-                "tag": "v1.3.0",
-                "title": "Cub Spiele.Com v1.3.0 — STN Ghosting Persistence, 2-Shade Color Blender, Compete.Com Link & Virtual Stylus",
-                "publishedAt": "2026-11-12T22:30:00Z",
-                "isLatest": False,
-                "Prerelease": False,
-                "commitRef": "tag: v1.3.0",
-                "highlights": [
-                    "Added STN Passive-Matrix LCD Ghosting Intensity & Persistence menu in Hardware Accuracy settings",
-                    "Added 2-Shade LCD Color Blender that interpolates all 4 hardware 2-bpp shades between two user-chosen colors",
-                    "Added Compete.Com 2-Player Serial Link Cable (Same-PC Dual Instance & LAN WebSocket Relay) and Virtual Stylus",
-                    "Synchronized internal Game.Com Real-Time Clock ($0120-$0129) and NVRAM Calendar ($FEE2-$FEE7) to the user device date and time",
-                    "Fixed cartridge identification and fast-boot slot isolation to read official TigerDMGC ROM headers (+0x11 title & +0x1A Game ID)"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.3.0'][0],
-                        "label": "Windows x64 Portable Build (v1.3.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.3.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.3.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.3.0'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom-v1.3.0.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.3.0 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    }
-                ]
-            },
-            {
-                "tag": "v1.2.0",
-                "title": "Cub Spiele.Com v1.2.0 — Standalone Desktop Menu Bar, Screen-Only Mode & Recent ROMs",
-                "publishedAt": "2026-11-12T17:00:00Z",
-                "isLatest": False,
-                "Prerelease": False,
-                "commitRef": "tag: v1.2.0",
-                "highlights": [
-                    "Renamed standalone emulator to Cub Spiele.Com (CubSpieleCom.exe PE32+ x86-64 GUI executable)",
-                    "Added native desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)",
-                    "Added Screen-Only Mode (2x / 3x / 4x integer LCD scaling) alongside Handheld Console Bezel Mode",
-                    "Added Recently Played ROMs submenu & Touch Grid Visibility Slider (0% - 100%)"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.2.0'][0],
-                        "label": "Windows x64 Portable Build (v1.2.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.2.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.2.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.2.0'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom-v1.2.0.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.2.0 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    }
-                ]
-            },
-            {
-                "tag": "v1.1.0",
-                "title": "Cub Spiele.Com v1.1.0 — SM8521 ALU Datasheet Verification & Lights Out NVRAM Fix",
-                "publishedAt": "2026-11-12T06:00:00Z",
-                "isLatest": False,
-                "Prerelease": False,
-                "commitRef": "tag: v1.1.0",
-                "highlights": [
-                    "Added Dual Cartridge Bay support with hardware P3 chip-select isolation",
-                    "Fixed Lights Out '1?5' starting level bug by preserving 64-byte rawSlot binary level progress bytes (+0x12..+0x17) in NVRAM",
-                    "Verified Sharp SM8521 CPU ALU against official datasheet (8-bit ADC & 16-bit ADDW/ADCW signed overflow V flag, 16-bit ANDW/ORW/XORW S/V flags, PS0 $001E mirror)",
-                    "Calibrated default audio volume to 20% with internal speaker band-pass filter"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.1.0'][0],
-                        "label": "Windows x64 Portable Build (v1.1.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.1.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.1.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.1.0'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom-v1.1.0.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.1.0 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    }
-                ]
-            },
-            {
-                "tag": "v1.0.0",
-                "title": "Cub Spiele.Com v1.0.0 — Initial Cycle-Accurate SM8521 Handheld Emulator Release",
-                "publishedAt": "2026-11-11T18:00:00Z",
-                "isLatest": False,
-                "Prerelease": False,
-                "commitRef": "tag: v1.0.0",
-                "highlights": [
-                    "Initial cycle-accurate Sharp SM8521 CPU (4.9152 MHz), MMU bank switching, and hardware DMA blitter",
-                    "200x160 4-shade passive-matrix STN LCD renderer and 13x10 resistive touchscreen matrix",
-                    "Hardware SGDA 8-bit DAC audio streamer and programmable tone channels",
-                    "8KB battery-backed NVRAM ($E000-$FFFF) persistence"
-                ],
-                "assets": [
-                    {
-                        "name": zip_paths['v1.0.0'][0],
-                        "label": "Windows x64 Portable Build (v1.0.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.0.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.0.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.0.0'][1]),
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    },
-                    {
-                        "name": "CubSpieleCom-v1.0.0.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.0.0 .exe)",
-                        "url": "./releases/CubSpieleCom.exe",
-                        "sizeBytes": exe_size,
-                        "sha256": exe_sha,
-                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
-                        "platform": "windows"
-                    }
-                ]
-            }
-        ]
+        "releases": releases_entries,
     }
 
     manifest_path = os.path.join(RELEASES_DIR, 'releases-manifest.json')
@@ -1432,6 +1361,7 @@ def main():
         with open(os.path.join(DIST_DIR, 'releases', 'releases-manifest.json'), 'w', encoding='utf-8') as f:
             json.dump(manifest, f, indent=2)
 
+    print(f"Built Release Version: {current_tag} (Android versionCode={compute_android_version_code(current_ver)})")
     print(f"Built Windows x64 EXE: {exe_path} ({exe_size} bytes)")
     print(f"Built macOS Universal App ZIP: {mac_path} ({os.path.getsize(mac_path)} bytes)")
     print(f"Built Android APK: {android_path} ({os.path.getsize(android_path)} bytes)")
