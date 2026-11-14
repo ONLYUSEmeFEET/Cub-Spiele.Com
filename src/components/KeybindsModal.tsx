@@ -118,9 +118,19 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
       gamepad: 'Menu Bar -> Emulation'
     },
     {
+      action: 'Power On / Power Off',
+      keys: ['F10'],
+      gamepad: 'File -> Power / Bottom Bar'
+    },
+    {
+      action: 'Show / Hide Bottom Status Bar',
+      keys: ['Ctrl + B'],
+      gamepad: 'View -> Status Bar'
+    },
+    {
       action: 'Take Emulator Screenshot (PNG)',
       keys: ['F9', 'F12'],
-      gamepad: 'Top Bar Camera Button / View Menu'
+      gamepad: 'Top Bar Camera Button / File Menu'
     }
   ];
 

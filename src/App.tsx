@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Power } from 'lucide-react';
 import { GameComSystem } from './emulator/gamecomSystem';
 import { TopBar } from './components/TopBar';
 import { TouchView } from './components/GameComConsole';
@@ -198,6 +199,14 @@ export function App() {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyB') {
+        e.preventDefault();
+        const visible = system.toggleBottomBar();
+        showToast(visible ? 'Status Bar Shown' : 'Status Bar Hidden (Ctrl+B to show)');
+        forceUpdate();
+        return;
+      }
+
       if (e.code === 'Tab') {
         e.preventDefault();
         const active = system.toggleDpadStylusMode();
@@ -234,6 +243,14 @@ export function App() {
       if (e.code === 'F9' || e.code === 'F12') {
         e.preventDefault();
         handleTakeScreenshot();
+        return;
+      }
+
+      if (e.code === 'F10') {
+        e.preventDefault();
+        system.powerToggle();
+        showToast(system.isPoweredOn ? 'Power On' : 'Power Off');
+        forceUpdate();
         return;
       }
 
@@ -558,7 +575,7 @@ export function App() {
 
   return (
     <div
-      className="h-screen w-screen bg-[#f2f3ef] text-zinc-900 dark:bg-[#121418] dark:text-zinc-100 flex flex-col overflow-hidden select-none transition-colors"
+      className="h-screen w-screen bg-[#f2f3ef] text-zinc-900 dark:bg-black dark:text-zinc-100 flex flex-col overflow-hidden select-none transition-colors"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -607,7 +624,11 @@ export function App() {
       />
 
       {/* Clean Central Emulator Viewport */}
-      <main className="flex-1 flex items-center justify-center overflow-auto p-2 sm:p-3">
+      <main
+        className={`flex-1 flex items-center justify-center p-2 ${
+          system.settings.viewMode === 'screen-only' ? 'overflow-hidden' : 'overflow-auto sm:p-3'
+        }`}
+      >
         {system.settings.viewMode === 'screen-only' ? (
           <ScreenOnlyView system={system} />
         ) : (
@@ -619,9 +640,29 @@ export function App() {
         )}
       </main>
 
-      {/* Minimal Standalone Emulator Status Bar */}
-      <footer className="h-6 bg-[#e8eae3] dark:bg-[#16181e] border-t border-zinc-300 dark:border-zinc-800/90 px-3 flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400 font-mono tabular-nums shrink-0 transition-colors">
+      {/* Minimal Standalone Emulator Status Bar (Toggleable via Ctrl+B or View -> Status Bar) */}
+      {system.settings.showBottomBar && (
+      <footer className="h-6 bg-[#e8eae3] dark:bg-black border-t border-zinc-300 dark:border-zinc-900 px-3 flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400 font-mono tabular-nums shrink-0 transition-colors">
         <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              system.powerToggle();
+              forceUpdate();
+            }}
+            className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded transition cursor-pointer ${
+              system.isPoweredOn
+                ? 'hover:bg-zinc-300/70 dark:hover:bg-zinc-900 text-zinc-800 dark:text-zinc-200'
+                : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-400'
+            }`}
+            title={system.isPoweredOn ? 'Power Off (F10)' : 'Power On (F10)'}
+          >
+            <Power className="w-3 h-3 shrink-0" />
+            <span>{system.isPoweredOn ? 'Power' : 'Off'}</span>
+          </button>
+
+          <span className="text-zinc-400 dark:text-zinc-800" aria-hidden="true">·</span>
+
           <span className="flex items-center gap-1.5">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
@@ -637,7 +678,7 @@ export function App() {
             </span>
           </span>
 
-          <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
+          <span className="text-zinc-400 dark:text-zinc-800" aria-hidden="true">·</span>
 
           <span className="truncate text-zinc-800 dark:text-zinc-300">
             {system.activeApp === 'CARTRIDGE' && activeCart
@@ -665,13 +706,13 @@ export function App() {
                   ? ` (TX:${system.linkCable.txBytes}/RX:${system.linkCable.rxBytes})`
                   : ''}
               </span>
-              <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
+              <span className="text-zinc-400 dark:text-zinc-800" aria-hidden="true">·</span>
             </>
           )}
           {touchGridPercent > 0 && (
             <>
               <span className="text-[#7a1f5c] dark:text-[#d974b8]">Grid: {touchGridPercent}%</span>
-              <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
+              <span className="text-zinc-400 dark:text-zinc-800" aria-hidden="true">·</span>
             </>
           )}
           {system.settings.advancedMode && (
@@ -679,16 +720,17 @@ export function App() {
               <span className="hidden sm:inline">
                 Ghosting: {Math.round(system.settings.ghosting * 100)}%
               </span>
-              <span className="hidden sm:inline text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
+              <span className="hidden sm:inline text-zinc-400 dark:text-zinc-800" aria-hidden="true">·</span>
               <span>
                 Vol: {system.settings.muted ? 'Mute' : `${Math.round(system.settings.volume * 100)}%`}
               </span>
-              <span className="text-zinc-400 dark:text-zinc-700" aria-hidden="true">·</span>
+              <span className="text-zinc-400 dark:text-zinc-800" aria-hidden="true">·</span>
             </>
           )}
           <span className="text-[#4c5931] dark:text-[#b9c48a] font-semibold">{system.fps} FPS</span>
         </div>
       </footer>
+      )}
 
       {/* Modals */}
       <RomLibraryModal

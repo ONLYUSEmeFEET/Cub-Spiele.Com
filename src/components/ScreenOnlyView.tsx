@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../emulator/lcd';
 import { LCDScreen } from './LCDScreen';
@@ -8,27 +8,56 @@ interface ScreenOnlyViewProps {
 }
 
 export const ScreenOnlyView: React.FC<ScreenOnlyViewProps> = ({ system }) => {
-  const requestedScale = system.settings.screenScale || 3;
-  const [viewport, setViewport] = useState<{ w: number; h: number }>({
-    w: typeof window !== 'undefined' ? window.innerWidth : 1280,
-    h: typeof window !== 'undefined' ? window.innerHeight : 800
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({
+    w: typeof window !== 'undefined' ? window.innerWidth - 16 : 1280,
+    h: typeof window !== 'undefined' ? window.innerHeight - 72 : 720
   });
 
   useEffect(() => {
-    const handleResize = () => {
-      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setContainerSize({ w: rect.width, h: rect.height });
+      }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    updateSize();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateSize);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  const maxScaleByWidth = Math.max(1.2, (viewport.w - 40) / SCREEN_WIDTH);
-  const maxScaleByHeight = Math.max(1.2, (viewport.h - 110) / SCREEN_HEIGHT);
-  const effectiveScale = Math.min(requestedScale, maxScaleByWidth, maxScaleByHeight);
+  // Reserve ~24px for the minimal outer frame + 7px LCD glass perimeter
+  const availW = Math.max(SCREEN_WIDTH, containerSize.w - 24);
+  const availH = Math.max(SCREEN_HEIGHT, containerSize.h - 24);
+  const maxFitScale = Math.min(availW / SCREEN_WIDTH, availH / SCREEN_HEIGHT);
+
+  const requestedScale =
+    system.settings.screenFitMode === 'full'
+      ? maxFitScale
+      : Math.max(1, Math.min(8, system.settings.screenScale || 3));
+
+  const clampedScale = Math.min(requestedScale, maxFitScale);
+  const effectiveScale = system.settings.integerScaling
+    ? Math.max(1, Math.floor(clampedScale))
+    : Math.max(0.5, clampedScale);
 
   return (
-    <div className="flex items-center justify-center select-none">
-      <div className="bg-[#e4e6dd] dark:bg-[#0d0f13] p-1.5 sm:p-2 rounded-xl border border-zinc-300 dark:border-zinc-800 shadow-lg dark:shadow-2xl transition-colors">
+    <div
+      ref={containerRef}
+      className="w-full h-full flex items-center justify-center overflow-hidden select-none"
+    >
+      <div className="bg-[#e4e6dd] dark:bg-black p-1.5 sm:p-2 rounded-xl border border-zinc-300 dark:border-zinc-900 shadow-lg dark:shadow-none transition-colors">
         <LCDScreen system={system} scale={effectiveScale} />
       </div>
     </div>

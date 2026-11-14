@@ -1,7 +1,7 @@
 {
   "name": "cub-spiele-com-emulator",
   "private": true,
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator for Windows, macOS, Android & Web with Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
   "keywords": [
     "emulator",
@@ -56,11 +56,17 @@
       "package.json"
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/assets/icon.ico"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "public/assets/icon.icns",
       "category": "public.app-category.games"
     }

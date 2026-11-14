@@ -27,7 +27,7 @@ The interface follows standalone handheld emulators such as **mGBA**, offering:
 | `src/components/ScreenOnlyView.tsx` | Standalone Screen-Only viewport with `2×`/`3×`/`4×` integer scaling and hardware status bar. |
 | `src/components/GameComConsole.tsx` | Mobile-inspired **Touch View** (`TouchView` / `GameComConsole`) with button-only D-Pad, A/B/C/D, and system strip controls styled with Tiger Game.Com accents. |
 | `electron/main.cjs` & `preload.cjs` | Electron Native Windows desktop main process and IPC preload bridge (`window.gamecomDesktop`). |
-| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.0.8-win64.zip` + macOS/Android builds. |
+| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.0.9-win64.zip` + macOS/Android builds. |
 
 ---
 

@@ -399,7 +399,7 @@ export const TouchView: React.FC<TouchViewProps> = ({
       {/* Minimal Button-Only Border Frame (No Fake Console Casing) */}
       {isHorizontal ? (
         /* Horizontal Layout: Original Tiger Game.Com (Isolated Top-Left Power + D-Pad Left | Screen Center | 2x2 A/B/C/D + Spaced Bottom-Right Menu/Sound/Pause) */
-        <div className="flex flex-row items-center gap-6 px-5 py-4 rounded-2xl bg-[#e6e8df] dark:bg-[#191c22] border border-zinc-300 dark:border-zinc-800 shadow-lg dark:shadow-2xl transition-colors">
+        <div className="flex flex-row items-center gap-6 px-5 py-4 rounded-2xl bg-[#e6e8df] dark:bg-black border border-zinc-300 dark:border-zinc-900 shadow-lg dark:shadow-2xl transition-colors">
           {/* Left Wing: Isolated Power in top-left corner, separated from D-Pad */}
           <div className="flex flex-col items-center justify-between self-stretch w-40 py-1">
             <div className="w-full flex justify-start pb-6">
@@ -411,7 +411,7 @@ export const TouchView: React.FC<TouchViewProps> = ({
           </div>
 
           {/* Center Minimal Screen Border */}
-          <div className="bg-[#dce0d5] dark:bg-[#0d0f13] p-1.5 rounded-xl border border-zinc-300 dark:border-zinc-800 transition-colors">
+          <div className="bg-[#dce0d5] dark:bg-black p-1.5 rounded-xl border border-zinc-300 dark:border-zinc-900 transition-colors">
             <LCDScreen
               system={system}
               scale={effectiveScale}
@@ -431,14 +431,14 @@ export const TouchView: React.FC<TouchViewProps> = ({
         </div>
       ) : (
         /* Vertical Layout: Analogue Pocket / Game Boy Style (Isolated Top Power | Screen Top | D-Pad Left + Diamond Buttons Right | Wide Gap | Centered Bottom System Strip) */
-        <div className="flex flex-col items-center gap-4 px-4 pt-3 pb-5 rounded-2xl bg-[#e6e8df] dark:bg-[#191c22] border border-zinc-300 dark:border-zinc-800 shadow-lg dark:shadow-2xl transition-colors w-full max-w-md">
+        <div className="flex flex-col items-center gap-4 px-4 pt-3 pb-5 rounded-2xl bg-[#e6e8df] dark:bg-black border border-zinc-300 dark:border-zinc-900 shadow-lg dark:shadow-2xl transition-colors w-full max-w-md">
           {/* Isolated Top-Left Power Row above the screen, completely clear of thumb controls */}
           <div className="w-full flex items-center justify-start px-0.5">
             {powerButton}
           </div>
 
           {/* Top Minimal Screen Border */}
-          <div className="bg-[#dce0d5] dark:bg-[#0d0f13] p-1.5 rounded-xl border border-zinc-300 dark:border-zinc-800 transition-colors">
+          <div className="bg-[#dce0d5] dark:bg-black p-1.5 rounded-xl border border-zinc-300 dark:border-zinc-900 transition-colors">
             <LCDScreen
               system={system}
               scale={effectiveScale}

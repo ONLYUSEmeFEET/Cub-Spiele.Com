@@ -289,6 +289,9 @@ export interface EmulatorSettings {
   viewMode: 'screen-only' | 'touch';
   theme: 'light' | 'dark';
   screenScale: number;
+  screenFitMode: 'scale' | 'full';
+  integerScaling: boolean;
+  showBottomBar: boolean;
   contrast: number;
   volume: number;
   muted: boolean;

@@ -209,6 +209,9 @@ export class GameComSystem {
     viewMode: getDefaultViewModeForPlatform(),
     theme: 'dark',
     screenScale: 3,
+    screenFitMode: 'scale',
+    integerScaling: true,
+    showBottomBar: true,
     contrast: 1.0,
     volume: 0.2,
     muted: false,
@@ -570,8 +573,17 @@ export class GameComSystem {
         } else {
           this.settings.viewMode = getDefaultViewModeForPlatform();
         }
-        if (typeof parsedV?.screenScale === 'number' && parsedV.screenScale >= 2 && parsedV.screenScale <= 4) {
+        if (typeof parsedV?.screenScale === 'number' && parsedV.screenScale >= 1 && parsedV.screenScale <= 8) {
           this.settings.screenScale = Math.round(parsedV.screenScale);
+        }
+        if (parsedV?.screenFitMode === 'scale' || parsedV?.screenFitMode === 'full') {
+          this.settings.screenFitMode = parsedV.screenFitMode;
+        }
+        if (typeof parsedV?.integerScaling === 'boolean') {
+          this.settings.integerScaling = parsedV.integerScaling;
+        }
+        if (typeof parsedV?.showBottomBar === 'boolean') {
+          this.settings.showBottomBar = parsedV.showBottomBar;
         }
       } else {
         // First boot: set platform default (Screen-Only on Windows/macOS, Touch on Android/mobile) and persist it
@@ -613,7 +625,7 @@ export class GameComSystem {
       document.documentElement.classList.toggle('dark', isDark);
       const themeMeta = document.querySelector('meta[name="theme-color"]');
       if (themeMeta) {
-        themeMeta.setAttribute('content', isDark ? '#121418' : '#f2f3ef');
+        themeMeta.setAttribute('content', isDark ? '#000000' : '#f2f3ef');
       }
     }
   }
@@ -635,7 +647,10 @@ export class GameComSystem {
         VIEW_MODE_STORAGE_KEY,
         JSON.stringify({
           viewMode: this.settings.viewMode,
-          screenScale: this.settings.screenScale
+          screenScale: this.settings.screenScale,
+          screenFitMode: this.settings.screenFitMode,
+          integerScaling: this.settings.integerScaling,
+          showBottomBar: this.settings.showBottomBar
         })
       );
     } catch {
@@ -654,9 +669,30 @@ export class GameComSystem {
   }
 
   public setScreenScale(scale: number) {
-    this.settings.screenScale = Math.max(2, Math.min(4, Math.round(scale)));
+    this.settings.screenScale = Math.max(1, Math.min(8, Math.round(scale)));
+    this.settings.screenFitMode = 'scale';
     this.settings.viewMode = 'screen-only';
     this.saveViewSettingsToStorage();
+  }
+
+  public setScreenFitMode(mode: 'scale' | 'full') {
+    this.settings.screenFitMode = mode;
+    this.settings.viewMode = 'screen-only';
+    this.saveViewSettingsToStorage();
+  }
+
+  public toggleIntegerScaling(enabled?: boolean): boolean {
+    const next = enabled !== undefined ? enabled : !this.settings.integerScaling;
+    this.settings.integerScaling = next;
+    this.saveViewSettingsToStorage();
+    return next;
+  }
+
+  public toggleBottomBar(enabled?: boolean): boolean {
+    const next = enabled !== undefined ? enabled : !this.settings.showBottomBar;
+    this.settings.showBottomBar = next;
+    this.saveViewSettingsToStorage();
+    return next;
   }
 
   /**
