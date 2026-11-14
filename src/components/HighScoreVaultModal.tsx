@@ -61,9 +61,13 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab);
+      if (initialTab === 'retroachievements' && !system.settings.enableRetroAchievements) {
+        setActiveTab('leaderboard');
+      } else {
+        setActiveTab(initialTab);
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, system.settings.enableRetroAchievements]);
 
   // Leaderboard tab state
   const [selectedGameFilter, setSelectedGameFilter] = useState<number | 'ALL'>('ALL');
@@ -511,17 +515,19 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
             </button>
           )}
 
-          <button
-            onClick={() => setActiveTab('retroachievements')}
-            className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'retroachievements'
-                ? 'bg-slate-900 text-sky-300 border-sky-400'
-                : 'text-slate-400 border-transparent hover:text-white hover:bg-slate-900/40'
-            }`}
-          >
-            <Award className="w-4 h-4 text-sky-400" />
-            <span>Achievements &amp; Hardcore</span>
-          </button>
+          {system.settings.enableRetroAchievements && (
+            <button
+              onClick={() => setActiveTab('retroachievements')}
+              className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'retroachievements'
+                  ? 'bg-slate-900 text-sky-300 border-sky-400'
+                  : 'text-slate-400 border-transparent hover:text-white hover:bg-slate-900/40'
+              }`}
+            >
+              <Award className="w-4 h-4 text-sky-400" />
+              <span>Achievements &amp; Hardcore</span>
+            </button>
+          )}
         </div>
 
         {/* Body */}
@@ -749,7 +755,9 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                               {entry.source === 'imported_user'
                                 ? 'Imported Player'
                                 : entry.source === 'retroachievements'
-                                  ? 'RetroAchievements'
+                                  ? system.settings.enableRetroAchievements
+                                    ? 'RetroAchievements'
+                                    : 'Verified Sync'
                                   : isOwn
                                     ? 'You'
                                     : 'Online Peer'}
@@ -1286,9 +1294,9 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
           )}
 
           {/* ===================================================================== */}
-          {/* TAB 4: HARDCORE MODE & RETROACHIEVEMENTS (RCHEEVOS & RAINTEGRATION)   */}
+          {/* TAB 4: HARDCORE MODE & RETROACHIEVEMENTS (OPT-IN TOGGLE)              */}
           {/* ===================================================================== */}
-          {activeTab === 'retroachievements' && (
+          {activeTab === 'retroachievements' && system.settings.enableRetroAchievements && (
             <div className="space-y-5">
               {/* Competitive Hardcore Mode Status & Telemetry Card */}
               <div

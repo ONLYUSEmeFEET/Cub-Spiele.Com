@@ -3,10 +3,10 @@
 Cub Spiele.Com — GitHub Repository Sync, Topic Tagger & Release Publisher
 Maintains https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com:
   1. Syncs workspace files with local git staging directory (since Google Drive blocks .git dirs)
-  2. Commits any modified/new tracked files and pushes main + release tags (v1.0.0 .. v1.4.0)
+  2. Commits any modified/new tracked files and pushes main + release tags (v1.0.0 .. v1.5.1)
   3. Sets GitHub Repository Topics and Description via GitHub CLI (gh repo edit)
-  4. Ensures all GitHub Releases (v1.0.0, v1.1.0, v1.2.0, v1.3.0, v1.4.0) are properly titled,
-     labeled, and contain clean Windows x64 release assets.
+  4. Ensures all GitHub Releases (v1.0.0 .. v1.5.1) are properly titled,
+     labeled, and contain clean Windows x64, macOS Universal, and Android release assets.
 """
 
 import os
@@ -42,8 +42,6 @@ REPO_TOPICS = [
     "tiger-game-com",
     "sm8521",
     "sharp-sm8521",
-    "retroachievements",
-    "rcheevos",
     "hardcore-mode",
     "online-leaderboards",
     "high-scores",
@@ -163,7 +161,7 @@ def main():
         msg = (
             sys.argv[1]
             if len(sys.argv) > 1
-            else f"feat(release): Cub Spiele.Com {version_tag} — Competitive Hardcore Mode, Online Leaderboards & RetroAchievements"
+            else f"feat(release): Cub Spiele.Com {version_tag} — Handheld Emulator Release"
         )
         run([GIT_EXE, "commit", "-m", msg])
     else:
@@ -205,7 +203,11 @@ def main():
 
     if os.path.exists(GH_EXE):
         # 1. Update repository description and topics
-        topic_args = ["--remove-topic", "linux"]
+        topic_args = [
+            "--remove-topic", "linux",
+            "--remove-topic", "retroachievements",
+            "--remove-topic", "rcheevos",
+        ]
         for t in REPO_TOPICS:
             topic_args.extend(["--add-topic", t])
         run([

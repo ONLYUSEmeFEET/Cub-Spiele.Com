@@ -307,6 +307,8 @@ export interface EmulatorSettings {
   advancedMode: boolean;
   /** Toggle on-screen Score / Leaderboard HUD overlay on the LCD screen (defaults to false / OFF) */
   showScoreOverlay: boolean;
+  /** Opt-in toggle for RetroAchievements components, overlays, and RAIntegration tab (defaults to false / hidden) */
+  enableRetroAchievements: boolean;
 }
 
 export interface CPURegisters {

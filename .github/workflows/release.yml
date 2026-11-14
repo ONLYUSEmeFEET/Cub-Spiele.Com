@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v1.4.0)'
+        description: 'Release Tag (e.g. v1.5.1)'
         required: true
-        default: 'v1.4.0'
+        default: 'v1.5.1'
       release_title:
         description: 'Release Title'
         required: true
-        default: 'Cub Spiele.Com v1.4.0 — Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration'
+        default: 'Cub Spiele.Com v1.5.1 — Authentic STN Screen Presets, MIT License & Streamlined UI'
 
 permissions:
   contents: write
@@ -56,7 +56,7 @@ jobs:
           name: CubSpieleCom-Windows-x64-Package
           path: |
             public/releases/CubSpieleCom.exe
-            public/releases/CubSpieleCom-v1.4.0-win64.zip
+            public/releases/CubSpieleCom-v1.5.1-win64.zip
             public/releases/releases-manifest.json
 
       - name: Publish GitHub Release (Manual Dispatch Only)

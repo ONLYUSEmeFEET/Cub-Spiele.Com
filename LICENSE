@@ -38,8 +38,6 @@ SM8521 8/16-bit microcontroller architecture.
    - Sharp SM8521 8-Bit Single-Chip Microcomputer Data Book (Sharp Corporation)
    - MAME Project (`sm8500` CPU core & `gamecom.cpp` driver documentation by
      Wilbert Pol and contributors — BSD-3-Clause / GPL-2.0+)
-   - RetroAchievements (`rcheevos` specification & Hardcore compliance standard
-     — MIT License)
 
 3. Third-Party Libraries:
    Full open-source dependency attributions and licenses (React, Vite, Electron,

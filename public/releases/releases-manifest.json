@@ -1,36 +1,35 @@
 {
   "project": "cub-spiele-com-emulator",
   "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-  "latestVersion": "v1.5.0",
-  "generatedAt": "2026-11-14T18:30:03.662481+00:00",
+  "latestVersion": "v1.5.1",
+  "generatedAt": "2026-11-14T18:58:30.840529+00:00",
   "releases": [
     {
-      "tag": "v1.5.0",
-      "title": "Cub Spiele.Com v1.5.0 \u2014 Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
-      "publishedAt": "2026-11-13T23:45:00Z",
+      "tag": "v1.5.1",
+      "title": "Cub Spiele.Com v1.5.1 \u2014 Authentic STN Hardware Screen Presets, BIOS Calendar Fix & MIT License",
+      "publishedAt": "2026-11-14T18:58:30Z",
       "isLatest": true,
       "Prerelease": false,
-      "commitRef": "HEAD (tag: v1.5.0)",
+      "commitRef": "HEAD (tag: v1.5.1)",
       "highlights": [
-        "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
-        "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
-        "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
-        "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF",
-        "Full RetroAchievements Hardcore Compliance & bundled RA_Integration-x64.dll support"
+        "Added calibrated Game.Com hardware screen presets (Original 1997 Olive Green #71-500, Pocket Pro Backlit Green #71-520, Silver Grey #71-530, Warm Amber #71-510, Crisp High Contrast, and Custom 2-Shade Color Blender) with authentic STN passive-matrix column crosstalk",
+        "Fixed BIOS Calendar month and year header disappearing when switching months and restricted RTC host clock sync strictly to initial boot",
+        "Preserved the NVRAM High Score Vault while removing manual custom score injection to protect score integrity",
+        "Added MIT License (LICENSE) across the repository and release packages, and moved optional achievement components behind a user toggle (off by default)"
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v1.5.0-win64.zip",
-          "label": "Windows x64 Portable Build (v1.5.0 .zip)",
-          "url": "./releases/CubSpieleCom-v1.5.0-win64.zip",
-          "sizeBytes": 791289,
-          "sha256": "8c33b18830e9dadf2b9a6ff4818a92b2757285cd912513bbab810daea7b7b56d",
+          "name": "CubSpieleCom-v1.5.1-win64.zip",
+          "label": "Windows x64 Portable Build (v1.5.1 .zip)",
+          "url": "./releases/CubSpieleCom-v1.5.1-win64.zip",
+          "sizeBytes": 789335,
+          "sha256": "96f512fa9d337dc7215f77f772557041e22a1fade942c5331ac3b39c5b6c69cb",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
           "name": "CubSpieleCom.exe",
-          "label": "Standalone Windows x64 Emulator Executable (v1.5.0 .exe)",
+          "label": "Standalone Windows x64 Emulator Executable (v1.5.1 .exe)",
           "url": "./releases/CubSpieleCom.exe",
           "sizeBytes": 7168,
           "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
@@ -38,20 +37,20 @@
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v1.5.0-macos-universal.zip",
-          "label": "macOS Universal App Bundle (v1.5.0 .app.zip)",
-          "url": "./releases/CubSpieleCom-v1.5.0-macos-universal.zip",
-          "sizeBytes": 789975,
-          "sha256": "835a078e627c1185d787c06017f330570b1d7b4ec7a57a1137ce78442a9f8c98",
+          "name": "CubSpieleCom-v1.5.1-macos-universal.zip",
+          "label": "macOS Universal App Bundle (v1.5.1 .app.zip)",
+          "url": "./releases/CubSpieleCom-v1.5.1-macos-universal.zip",
+          "sizeBytes": 790002,
+          "sha256": "d66e56c2a18879dd4084355c7e3a6da72b376d119fc52718b67be64601ec6909",
           "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
           "platform": "macos"
         },
         {
-          "name": "CubSpieleCom-v1.5.0-android.apk",
-          "label": "Android Universal Package (v1.5.0 .apk)",
-          "url": "./releases/CubSpieleCom-v1.5.0-android.apk",
-          "sizeBytes": 785077,
-          "sha256": "f389fe41e52829fd545fb6fd254b451107fad29e5e134e5e97bad5a4d5760415",
+          "name": "CubSpieleCom-v1.5.1-android.apk",
+          "label": "Android Universal Package (v1.5.1 .apk)",
+          "url": "./releases/CubSpieleCom-v1.5.1-android.apk",
+          "sizeBytes": 785383,
+          "sha256": "dda59b4d4224224f86c22372ea2da7ba10b21ff8cc2b004349069bbc11f91e55",
           "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
           "platform": "android"
         },
@@ -67,25 +66,59 @@
       ]
     },
     {
+      "tag": "v1.5.0",
+      "title": "Cub Spiele.Com v1.5.0 \u2014 Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
+      "publishedAt": "2026-11-13T23:45:00Z",
+      "isLatest": false,
+      "Prerelease": false,
+      "commitRef": "tag: v1.5.0",
+      "highlights": [
+        "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
+        "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
+        "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
+        "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF"
+      ],
+      "assets": [
+        {
+          "name": "CubSpieleCom-v1.5.0-win64.zip",
+          "label": "Windows x64 Portable Build (v1.5.0 .zip)",
+          "url": "./releases/CubSpieleCom-v1.5.0-win64.zip",
+          "sizeBytes": 789335,
+          "sha256": "8e625b561fc1e3218304e638c2a61adc045e7cf4a7f7afd29bf2f49ea9b09f3c",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+          "platform": "windows"
+        },
+        {
+          "name": "CubSpieleCom-v1.5.0.exe",
+          "label": "Standalone Windows x64 Emulator Executable (v1.5.0 .exe)",
+          "url": "./releases/CubSpieleCom.exe",
+          "sizeBytes": 7168,
+          "sha256": "c39302dd7c416e0a754bb0a87f32d80faf180be4e19452debcf2cca203c2c164",
+          "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+          "platform": "windows"
+        }
+      ]
+    },
+    {
       "tag": "v1.4.0",
-      "title": "Cub Spiele.Com v1.4.0 \u2014 Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
+      "title": "Cub Spiele.Com v1.4.0 \u2014 Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
       "publishedAt": "2026-11-13T18:00:00Z",
       "isLatest": false,
       "Prerelease": false,
       "commitRef": "tag: v1.4.0",
       "highlights": [
-        "Added Competitive Hardcore Mode (RetroAchievements compatible, defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
+        "Added Competitive Hardcore Mode (defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
         "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
         "Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)",
-        "Added RetroAchievements (rcheevos / dorequest.php) ecosystem integration with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, live Rich Presence, and RAIntegration submission export kit"
+        "Added flat 32KB SM8521 memory map exposure and deterministic RFC 1321 MD5 ROM hashing"
       ],
       "assets": [
         {
           "name": "CubSpieleCom-v1.4.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.4.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.4.0-win64.zip",
-          "sizeBytes": 791288,
-          "sha256": "6605e5d0baa3241d1f85b245118daf25b44f672d057ae614656e246462eda753",
+          "sizeBytes": 789335,
+          "sha256": "456e6cc8a3a413b19f822ae6cca968ab3ddb00e63f5f3c65ecb411fefd8fa3c8",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -119,8 +152,8 @@
           "name": "CubSpieleCom-v1.3.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.3.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.3.0-win64.zip",
-          "sizeBytes": 791288,
-          "sha256": "7c44c72a8eefe529d461f27a588d74956a716f95f0560cdd8743e07eac840442",
+          "sizeBytes": 789335,
+          "sha256": "72d406993623b065022e88ba97e6288c27e92171560768d9a5aab3b712c62b8c",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -153,8 +186,8 @@
           "name": "CubSpieleCom-v1.2.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.2.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.2.0-win64.zip",
-          "sizeBytes": 791288,
-          "sha256": "6dc3628bb1a696fc8f042f23e704bb7e8a696575e92dc1e6a3b88b56f212d47f",
+          "sizeBytes": 789335,
+          "sha256": "b112e91be7486b807e4b488984a891b94554e767c078da8ad8459dadfce1a47a",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -187,8 +220,8 @@
           "name": "CubSpieleCom-v1.1.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.1.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.1.0-win64.zip",
-          "sizeBytes": 791288,
-          "sha256": "85e35b9284edaa0ead7f58cb891cc4aa6515f4fe2f23b1eac3322c16ac02a976",
+          "sizeBytes": 789335,
+          "sha256": "4c14620b013b6d156200627f49280ac4e64c775ea257ffe85cf81d8828089570",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -221,8 +254,8 @@
           "name": "CubSpieleCom-v1.0.0-win64.zip",
           "label": "Windows x64 Portable Build (v1.0.0 .zip)",
           "url": "./releases/CubSpieleCom-v1.0.0-win64.zip",
-          "sizeBytes": 791288,
-          "sha256": "c09a7768828bd5ab8c721ed7731957946c9e37e8f9d8d4a78c21a6c3ed5fbe84",
+          "sizeBytes": 789335,
+          "sha256": "093d43962fbd9183b2ac60f693004b88e4030d2cce55e559982a8c59c5acc7b4",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },

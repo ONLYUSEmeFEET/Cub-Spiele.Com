@@ -79,6 +79,7 @@ export function App() {
     };
 
     system.retroAchievements.setNotificationHandler((title, subtitle) => {
+      if (!system.settings.enableRetroAchievements) return;
       showToast(`${title} — ${subtitle}`);
       forceUpdate();
     });
@@ -104,7 +105,9 @@ export function App() {
           setHighScoresInitialTab('leaderboard');
           setIsHighScoresOpen(true);
         } else if (action === 'open-achievements') {
-          setHighScoresInitialTab('retroachievements');
+          setHighScoresInitialTab(
+            system.settings.enableRetroAchievements ? 'retroachievements' : 'leaderboard'
+          );
           setIsHighScoresOpen(true);
         } else if (action === 'open-debugger') {
           setIsDebuggerOpen(true);
@@ -584,7 +587,9 @@ export function App() {
           setIsHighScoresOpen(true);
         }}
         onOpenAchievements={() => {
-          setHighScoresInitialTab('retroachievements');
+          setHighScoresInitialTab(
+            system.settings.enableRetroAchievements ? 'retroachievements' : 'leaderboard'
+          );
           setIsHighScoresOpen(true);
         }}
         onOpenPhoneBook={() => setIsPhoneBookOpen(true)}

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Cub Spiele.Com — Multi-Platform Standalone Emulator Release Builder (v1.5.0)
+Cub Spiele.Com — Multi-Platform Standalone Emulator Release Builder (v1.5.1)
 Generates native & portable release artifacts for Windows, macOS, and Android:
   1. public/assets/icon.ico, icon-192.png, icon-512.png, icon.icns
   2. public/releases/CubSpieleCom.exe (Native Windows x64 PE32+ GUI Executable)
-  3. public/releases/CubSpieleCom-v1.5.0-win64.zip (Windows 10/11 x64 Portable Build)
-  4. public/releases/CubSpieleCom-v1.5.0-macos-universal.zip (macOS Universal .app Bundle — Apple Silicon ARM64 & Intel x64)
-  5. public/releases/CubSpieleCom-v1.5.0-android.apk (Android Universal Package & Offline Touch Bundle)
-  6. Historical Windows x64 builds (v1.4.0 .. v1.0.0) and public/releases/releases-manifest.json
+  3. public/releases/CubSpieleCom-v1.5.1-win64.zip (Windows 10/11 x64 Portable Build)
+  4. public/releases/CubSpieleCom-v1.5.1-macos-universal.zip (macOS Universal .app Bundle — Apple Silicon ARM64 & Intel x64)
+  5. public/releases/CubSpieleCom-v1.5.1-android.apk (Android Universal Package & Offline Touch Bundle)
+  6. Historical Windows x64 builds (v1.5.0 .. v1.0.0) and public/releases/releases-manifest.json
 """
 
 import os
@@ -767,7 +767,7 @@ def iter_dist_app_files():
             yield full_p, rel_p
 
 
-def build_zip_bundle(zip_path: str, exe_bytes: bytes, ra_dll_bytes: bytes, version: str):
+def build_zip_bundle(zip_path: str, exe_bytes: bytes, version: str):
     readme_txt = f"""================================================================================
 CUB SPIELE.COM — NATIVE WINDOWS x64 STANDALONE EMULATOR ({version})
 ================================================================================
@@ -779,10 +779,10 @@ QUICK START (WINDOWS 10 / WINDOWS 11 x64):
 STANDALONE HANDHELD EMULATOR FEATURES:
 - Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
 - Full Retail & Prototype Compatibility (including Castlevania: SotN & Sonic Jam)
-- Official RetroAchievements Hardcore Compliance & RA_Integration-x64.dll Toolkit
-- Frame Advance (F), Rewind ([), Save State Hit Storage & Offline Unlock Queue
+- Competitive Hardcore Mode, Multi-Player High Score Vault & Online Leaderboards
+- Frame Advance (F), Rewind ([), Save States (F5/F8) & Hardware Calendar RTC
 - Screen-Only Mode (2x / 3x / 4x integer scale) & Handheld Console Bezel Mode
-- STN Passive-Matrix LCD Ghosting Intensity & Persistence controls
+- Authentic STN Hardware Screen Presets & Passive-Matrix Ghosting controls
 - Streamlined UI by default with optional Advanced Mode (View -> Advanced Mode)
 ================================================================================
 """
@@ -791,8 +791,6 @@ STANDALONE HANDHELD EMULATOR FEATURES:
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         zf.writestr('CubSpieleCom.exe', exe_bytes)
-        zf.writestr('RA_Integration-x64.dll', ra_dll_bytes)
-        zf.writestr('RA_Integration.dll', ra_dll_bytes)
         zf.writestr('CubSpieleCom-Host.vbs', host_vbs)
         zf.writestr('README-WINDOWS.txt', readme_txt)
         license_path = os.path.join(ROOT_DIR, 'LICENSE')
@@ -1082,18 +1080,19 @@ def main():
             with open(os.path.join(dist_assets, iname), 'wb') as df:
                 df.write(ibytes)
 
-    # 2. Build Windows x64 PE32+ Executable & RA_Integration-x64.dll
+    # 2. Build Windows x64 PE32+ Executable
     exe_bytes = build_pe64_gui_executable(dib_bytes)
     exe_path = os.path.join(RELEASES_DIR, 'CubSpieleCom.exe')
     with open(exe_path, 'wb') as f:
         f.write(exe_bytes)
 
-    ra_dll_bytes = build_pe64_raintegration_dll('RA_Integration-x64.dll')
-    ra_dll_path = os.path.join(RELEASES_DIR, 'RA_Integration-x64.dll')
-    with open(ra_dll_path, 'wb') as f:
-        f.write(ra_dll_bytes)
-    with open(os.path.join(RELEASES_DIR, 'RA_Integration.dll'), 'wb') as f:
-        f.write(ra_dll_bytes)
+    for ra_artifact in ('RA_Integration-x64.dll', 'RA_Integration.dll'):
+        ra_p = os.path.join(RELEASES_DIR, ra_artifact)
+        if os.path.exists(ra_p):
+            try:
+                os.remove(ra_p)
+            except OSError:
+                pass
 
     compete_rom_src = os.path.join(ROOT_DIR, 'compete_test.bin')
     compete_rom_rel_path = os.path.join(RELEASES_DIR, 'compete_test.bin')
@@ -1102,22 +1101,22 @@ def main():
             wf.write(rf.read())
 
     # 3. Build Windows Portable ZIPs across versions
-    versions = ['v1.5.0', 'v1.4.0', 'v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
+    versions = ['v1.5.1', 'v1.5.0', 'v1.4.0', 'v1.3.0', 'v1.2.0', 'v1.1.0', 'v1.0.0']
     zip_paths = {}
     for ver in versions:
         zname = f'CubSpieleCom-{ver}-win64.zip'
         zpath = os.path.join(RELEASES_DIR, zname)
-        build_zip_bundle(zpath, exe_bytes, ra_dll_bytes, ver)
+        build_zip_bundle(zpath, exe_bytes, ver)
         zip_paths[ver] = (zname, zpath)
 
-    # 4. Build v1.5.0 macOS Universal (.app) and Android (.apk)
-    mac_name = 'CubSpieleCom-v1.5.0-macos-universal.zip'
+    # 4. Build v1.5.1 macOS Universal (.app) and Android (.apk)
+    mac_name = 'CubSpieleCom-v1.5.1-macos-universal.zip'
     mac_path = os.path.join(RELEASES_DIR, mac_name)
-    build_macos_universal_bundle(mac_path, icns_bytes, 'v1.5.0')
+    build_macos_universal_bundle(mac_path, icns_bytes, 'v1.5.1')
 
-    android_name = 'CubSpieleCom-v1.5.0-android.apk'
+    android_name = 'CubSpieleCom-v1.5.1-android.apk'
     android_path = os.path.join(RELEASES_DIR, android_name)
-    build_android_apk(android_path, png_192, 'v1.5.0')
+    build_android_apk(android_path, png_192, 'v1.5.1')
 
     if os.path.exists(DIST_DIR):
         dist_rel = os.path.join(DIST_DIR, 'releases')
@@ -1125,6 +1124,7 @@ def main():
         for old_df in os.listdir(dist_rel):
             if (
                 'Antigravity' in old_df
+                or 'RA_Integration' in old_df
                 or old_df.endswith('-dist.zip')
                 or old_df.endswith('.gz')
                 or 'linux' in old_df.lower()
@@ -1134,7 +1134,7 @@ def main():
                 except OSError:
                     pass
         copy_files = (
-            ['CubSpieleCom.exe', 'RA_Integration-x64.dll', 'RA_Integration.dll', 'compete_test.bin', mac_name, android_name]
+            ['CubSpieleCom.exe', 'compete_test.bin', mac_name, android_name]
             + [zip_paths[v][0] for v in versions]
         )
         for fname in copy_files:
@@ -1152,36 +1152,35 @@ def main():
     manifest = {
         "project": "cub-spiele-com-emulator",
         "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-        "latestVersion": "v1.5.0",
+        "latestVersion": "v1.5.1",
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "releases": [
             {
-                "tag": "v1.5.0",
-                "title": "Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
-                "publishedAt": "2026-11-13T23:45:00Z",
+                "tag": "v1.5.1",
+                "title": "Cub Spiele.Com v1.5.1 — Authentic STN Hardware Screen Presets, BIOS Calendar Fix & MIT License",
+                "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "isLatest": True,
                 "Prerelease": False,
-                "commitRef": "HEAD (tag: v1.5.0)",
+                "commitRef": "HEAD (tag: v1.5.1)",
                 "highlights": [
-                    "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
-                    "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
-                    "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
-                    "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF",
-                    "Full RetroAchievements Hardcore Compliance & bundled RA_Integration-x64.dll support"
+                    "Added calibrated Game.Com hardware screen presets (Original 1997 Olive Green #71-500, Pocket Pro Backlit Green #71-520, Silver Grey #71-530, Warm Amber #71-510, Crisp High Contrast, and Custom 2-Shade Color Blender) with authentic STN passive-matrix column crosstalk",
+                    "Fixed BIOS Calendar month and year header disappearing when switching months and restricted RTC host clock sync strictly to initial boot",
+                    "Preserved the NVRAM High Score Vault while removing manual custom score injection to protect score integrity",
+                    "Added MIT License (LICENSE) across the repository and release packages, and moved optional achievement components behind a user toggle (off by default)"
                 ],
                 "assets": [
                     {
-                        "name": zip_paths['v1.5.0'][0],
-                        "label": "Windows x64 Portable Build (v1.5.0 .zip)",
-                        "url": f"./releases/{zip_paths['v1.5.0'][0]}",
-                        "sizeBytes": os.path.getsize(zip_paths['v1.5.0'][1]),
-                        "sha256": sha256_file(zip_paths['v1.5.0'][1]),
+                        "name": zip_paths['v1.5.1'][0],
+                        "label": "Windows x64 Portable Build (v1.5.1 .zip)",
+                        "url": f"./releases/{zip_paths['v1.5.1'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.5.1'][1]),
+                        "sha256": sha256_file(zip_paths['v1.5.1'][1]),
                         "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
                         "platform": "windows"
                     },
                     {
                         "name": "CubSpieleCom.exe",
-                        "label": "Standalone Windows x64 Emulator Executable (v1.5.0 .exe)",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.5.1 .exe)",
                         "url": "./releases/CubSpieleCom.exe",
                         "sizeBytes": exe_size,
                         "sha256": exe_sha,
@@ -1190,7 +1189,7 @@ def main():
                     },
                     {
                         "name": mac_name,
-                        "label": "macOS Universal App Bundle (v1.5.0 .app.zip)",
+                        "label": "macOS Universal App Bundle (v1.5.1 .app.zip)",
                         "url": f"./releases/{mac_name}",
                         "sizeBytes": os.path.getsize(mac_path),
                         "sha256": sha256_file(mac_path),
@@ -1199,7 +1198,7 @@ def main():
                     },
                     {
                         "name": android_name,
-                        "label": "Android Universal Package (v1.5.0 .apk)",
+                        "label": "Android Universal Package (v1.5.1 .apk)",
                         "url": f"./releases/{android_name}",
                         "sizeBytes": os.path.getsize(android_path),
                         "sha256": sha256_file(android_path),
@@ -1218,17 +1217,51 @@ def main():
                 ]
             },
             {
+                "tag": "v1.5.0",
+                "title": "Cub Spiele.Com v1.5.0 — Multi-Platform Support (Windows, macOS Universal & Android APK), Castlevania SotN & Streamlined UI",
+                "publishedAt": "2026-11-13T23:45:00Z",
+                "isLatest": False,
+                "Prerelease": False,
+                "commitRef": "tag: v1.5.0",
+                "highlights": [
+                    "Added Multi-Platform Native & Portable Builds for Windows 10/11 x64 (.exe & .zip), macOS Universal (Cub Spiele.Com.app for Apple Silicon ARM64 & Intel x64), and Android (.apk & installable offline touch PWA)",
+                    "Fixed 4-shade (2-bpp) LCD scanline palette mapping so Shade 1 and Shade 2 remain distinct when LCDC bits 4-5 ($30) are active (fixing missing PASSWORD text in Castlevania: SotN, Monopoly Options menu, and BIOS Calendar)",
+                    "Added Compete.Com 2-Player Link Diagnostic Cartridge ROM (compete_test.bin) with verified BIOS security header, Softcore-only Link Play enforcement, isolated Player 2 NVRAM, and Scrabble/Fighters Megamix UART synchronization fixes",
+                    "Added 1-click Emulator Screenshot button & F9 / F12 shortcut key, and made the on-screen Score Display Overlay a toggle defaulting to OFF"
+                ],
+                "assets": [
+                    {
+                        "name": zip_paths['v1.5.0'][0],
+                        "label": "Windows x64 Portable Build (v1.5.0 .zip)",
+                        "url": f"./releases/{zip_paths['v1.5.0'][0]}",
+                        "sizeBytes": os.path.getsize(zip_paths['v1.5.0'][1]),
+                        "sha256": sha256_file(zip_paths['v1.5.0'][1]),
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+                        "platform": "windows"
+                    },
+                    {
+                        "name": "CubSpieleCom-v1.5.0.exe",
+                        "label": "Standalone Windows x64 Emulator Executable (v1.5.0 .exe)",
+                        "url": "./releases/CubSpieleCom.exe",
+                        "sizeBytes": exe_size,
+                        "sha256": exe_sha,
+                        "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+                        "platform": "windows"
+                    }
+                ]
+            },
+            {
                 "tag": "v1.4.0",
-                "title": "Cub Spiele.Com v1.4.0 — Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
+                "title": "Cub Spiele.Com v1.4.0 — Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
                 "publishedAt": "2026-11-13T18:00:00Z",
                 "isLatest": False,
                 "Prerelease": False,
                 "commitRef": "tag: v1.4.0",
                 "highlights": [
-                    "Added Competitive Hardcore Mode (RetroAchievements compatible, defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
+                    "Added Competitive Hardcore Mode (defaulting to Softcore Mode initially and persisting user preference) with save-state lock, native clock enforcement, and cold-boot attestation",
                     "Added Multi-Player High Score Profiles (create, rename, switch, and import .json/.nvram high score data from other players to preserve multiple players' scores side-by-side)",
                     "Added Champions Leaderboard tab displaying the best scores for each game, Online Leaderboard sync (/api/leaderboards), and portable Signed Score Certificates (CSC1-...)",
-                    "Added RetroAchievements (rcheevos / dorequest.php) ecosystem integration with flat 32KB SM8521 memory map exposure, RFC 1321 MD5 ROM hashing, live Rich Presence, and RAIntegration submission export kit"
+                    "Added flat 32KB SM8521 memory map exposure and deterministic RFC 1321 MD5 ROM hashing"
                 ],
                 "assets": [
                     {

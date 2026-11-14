@@ -919,6 +919,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
 
                 <button
+                  onClick={() => {
+                    system.toggleRetroAchievements();
+                    onUpdate();
+                  }}
+                  className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Trophy className="w-3.5 h-3.5 text-purple-400" />
+                    <span>RetroAchievements Components</span>
+                  </span>
+                  {system.settings.enableRetroAchievements && (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                </button>
+
+                <button
                   onClick={handleToggleFullscreen}
                   className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
                 >
@@ -959,26 +975,28 @@ export const TopBar: React.FC<TopBarProps> = ({
                       <Trophy className="w-3.5 h-3.5 text-amber-400" />
                       <span>High Scores & Leaderboards...</span>
                     </button>
-                    <button
-                      onClick={() => {
-                        if (onOpenAchievements) {
-                          onOpenAchievements();
-                        } else {
-                          onOpenHighScores();
-                        }
-                        closeMenu();
-                      }}
-                      className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                        <span>RetroAchievements & RAIntegration...</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-amber-400">
-                        {system.retroAchievements.unlocks.length}/
-                        {system.retroAchievements.getAllAchievements().length}
-                      </span>
-                    </button>
+                    {system.settings.enableRetroAchievements && (
+                      <button
+                        onClick={() => {
+                          if (onOpenAchievements) {
+                            onOpenAchievements();
+                          } else {
+                            onOpenHighScores();
+                          }
+                          closeMenu();
+                        }}
+                        className="w-full px-3 py-1.5 hover:bg-emerald-600 hover:text-white flex items-center justify-between text-left cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                          <span>RetroAchievements & RAIntegration...</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-amber-400">
+                          {system.retroAchievements.unlocks.length}/
+                          {system.retroAchievements.getAllAchievements().length}
+                        </span>
+                      </button>
+                    )}
                   </>
                 )}
                 <button
@@ -1124,7 +1142,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   system.linkCable.mode !== 'off'
                     ? 'Compete.Com Link Multiplayer is locked to Softcore (Casual) Mode'
                     : system.retroAchievements.config.hardcoreMode
-                      ? 'Hardcore Mode Active (Save states, rewind, frame advance & slow motion disabled per RetroAchievements compliance)'
+                      ? 'Hardcore Mode Active (Save states, rewind, frame advance & slow motion disabled)'
                       : 'Casual Mode Active (Click to cold-boot into Hardcore Mode)'
                 }
               >
@@ -1138,28 +1156,30 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </span>
               </button>
 
-              <button
-                onClick={() => {
-                  if (onOpenAchievements) {
-                    onOpenAchievements();
-                  } else {
-                    onOpenHighScores();
-                  }
-                }}
-                className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-200 font-mono text-[10px] transition cursor-pointer"
-                title="Open RetroAchievements & RAIntegration DLL Manager"
-              >
-                <Trophy className="w-3 h-3 text-purple-400" />
-                <span>
-                  RA {system.retroAchievements.unlocks.length}/
-                  {system.retroAchievements.getAllAchievements().length}
-                </span>
-              </button>
+              {system.settings.enableRetroAchievements && (
+                <button
+                  onClick={() => {
+                    if (onOpenAchievements) {
+                      onOpenAchievements();
+                    } else {
+                      onOpenHighScores();
+                    }
+                  }}
+                  className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-200 font-mono text-[10px] transition cursor-pointer"
+                  title="Open RetroAchievements & RAIntegration DLL Manager"
+                >
+                  <Trophy className="w-3 h-3 text-purple-400" />
+                  <span>
+                    RA {system.retroAchievements.unlocks.length}/
+                    {system.retroAchievements.getAllAchievements().length}
+                  </span>
+                </button>
+              )}
 
               <button
                 onClick={onOpenHighScores}
                 className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 transition cursor-pointer"
-                title="High Scores, Leaderboards & Achievements"
+                title="High Scores & Leaderboards"
               >
                 <Trophy className="w-3 h-3 text-amber-400" />
                 <span className="font-medium">High Scores</span>

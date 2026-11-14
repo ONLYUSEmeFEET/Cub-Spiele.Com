@@ -1,7 +1,7 @@
 {
   "name": "Cub Spiele.Com — SM8521 Handheld Emulator",
   "short_name": "Cub Spiele.Com",
-  "description": "Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator with Competitive Hardcore Mode, Online Leaderboards, Multi-Player High Score Vault & RetroAchievements Integration",
+  "description": "Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator with Competitive Hardcore Mode, Online Leaderboards & Multi-Player High Score Vault",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -161,10 +161,6 @@ function createApplicationMenu() {
           click: () => mainWindow?.webContents.send('desktop:menu-action', 'open-vault')
         },
         {
-          label: 'RetroAchievements & RAIntegration DLL...',
-          click: () => mainWindow?.webContents.send('desktop:menu-action', 'open-achievements')
-        },
-        {
           label: 'SM8521 Chip Accuracy Audit',
           click: () => mainWindow?.webContents.send('desktop:menu-action', 'open-accuracy')
         },

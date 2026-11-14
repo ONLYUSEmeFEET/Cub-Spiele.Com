@@ -34,17 +34,8 @@ HARDWARE, ARCHITECTURE & EMULATION REFERENCES
     scaling (`2x`/`3x`/`4x`), and multi-window link cable ergonomics.
 
 
-COMPETITIVE ECOSYSTEM & LEADERBOARD INTEGRATIONS
-------------------------------------------------
-- RetroAchievements (`rcheevos` & `dorequest.php` Connect API)
-  * https://retroachievements.org/
-  * https://github.com/RetroAchievements/rcheevos
-  * https://github.com/RetroAchievements/RAIntegration
-  * Competitive Hardcore Mode specification (save-state lock, sub-1.0x slowdown
-    prohibition, cold-boot session verification, debugger step protection),
-    `rcheevos` memory condition syntax, Rich Presence script evaluation, and
-    `rc_consoles.h` 32KB flat SM8521 memory map specification.
-
+COMPETITIVE ECOSYSTEM & VERIFICATION
+------------------------------------
 - RFC 1321 (MD5 Message-Digest Algorithm) & FNV-1a (Fowler-Noll-Vo Hash)
   * Used for deterministic ROM cartridge identification and rolling hardware
     input entropy attestation in `CSC1-...` Signed Score Certificates.
@@ -58,8 +49,8 @@ OPEN-SOURCE LIBRARIES & RUNTIME DEPENDENCIES
 
 - TypeScript (v7) — Apache-2.0 License
   * https://www.typescriptlang.org/
-  * Strictly typed SM8521 CPU core, LCD renderer, sound synthesis engine,
-    NVRAM High Score Vault, and RetroAchievements engine.
+  * Strictly typed SM8521 CPU core, LCD renderer, sound synthesis engine, and
+    NVRAM High Score Vault.
 
 - Vite (v8) & @vitejs/plugin-react — MIT License
   * https://vite.dev/

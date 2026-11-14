@@ -339,8 +339,10 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         </div>
       )}
 
-      {/* RetroAchievements Hardcore Compliance Overlays (Section A & Section E) */}
-      {system.isPoweredOn && system.retroAchievements.config.enabled && (
+      {/* RetroAchievements Overlays (hidden by default behind enableRetroAchievements toggle) */}
+      {system.isPoweredOn &&
+        system.settings.enableRetroAchievements &&
+        system.retroAchievements.config.enabled && (
         <>
           {/* Section E: Game Start Mode Notification Banner */}
           {system.retroAchievements.bootBanner.visible && (

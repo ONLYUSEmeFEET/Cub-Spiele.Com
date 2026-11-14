@@ -180,7 +180,8 @@ export class GameComSystem {
     gamepadIndex: -1,
     gamepadDeadzone: 0.15,
     advancedMode: false,
-    showScoreOverlay: false
+    showScoreOverlay: false,
+    enableRetroAchievements: false
   };
 
   // Timing
@@ -371,9 +372,7 @@ export class GameComSystem {
   public frameAdvance(): boolean {
     if (!this.isPoweredOn) return false;
     if (this.retroAchievements.config.hardcoreMode) {
-      this.onHardcoreViolation?.(
-        'Frame Advance is disabled in Hardcore Mode per RetroAchievements compliance rules.'
-      );
+      this.onHardcoreViolation?.('Frame Advance is disabled in Hardcore Mode.');
       return false;
     }
     this.retroAchievements.taintSession('frame_advance');
@@ -391,9 +390,7 @@ export class GameComSystem {
   public rewindStep(): boolean {
     if (!this.isPoweredOn) return false;
     if (this.retroAchievements.config.hardcoreMode) {
-      this.onHardcoreViolation?.(
-        'Rewind is disabled in Hardcore Mode per RetroAchievements compliance rules.'
-      );
+      this.onHardcoreViolation?.('Rewind is disabled in Hardcore Mode.');
       return false;
     }
     const snap = this.rewindBuffer.pop();
@@ -431,9 +428,7 @@ export class GameComSystem {
    */
   public applyMemoryPoke(address: number, value: number): boolean {
     if (this.retroAchievements.config.hardcoreMode) {
-      this.onHardcoreViolation?.(
-        'Cheats and memory editing are prohibited in Hardcore Mode per RetroAchievements compliance rules.'
-      );
+      this.onHardcoreViolation?.('Cheats and memory editing are prohibited in Hardcore Mode.');
       return false;
     }
     this.retroAchievements.taintSession('cheat');
@@ -515,8 +510,12 @@ export class GameComSystem {
         if (typeof parsedI.showScoreOverlay === 'boolean') {
           this.settings.showScoreOverlay = parsedI.showScoreOverlay;
         }
+        if (typeof parsedI.enableRetroAchievements === 'boolean') {
+          this.settings.enableRetroAchievements = parsedI.enableRetroAchievements;
+        }
       }
       this.retroAchievements.config.leaderboardPopups = this.settings.showScoreOverlay;
+      this.retroAchievements.config.enabled = this.settings.enableRetroAchievements;
     } catch {
       // Ignore storage errors
     }
@@ -533,12 +532,28 @@ export class GameComSystem {
           gamepadDeadzone: this.settings.gamepadDeadzone,
           snapToGrid: this.virtualStylus.snapToGrid,
           advancedMode: this.settings.advancedMode,
-          showScoreOverlay: this.settings.showScoreOverlay
+          showScoreOverlay: this.settings.showScoreOverlay,
+          enableRetroAchievements: this.settings.enableRetroAchievements
         })
       );
     } catch {
       // Ignore storage errors
     }
+  }
+
+  /**
+   * Toggles visibility & evaluation of RetroAchievements UI components (defaults to false / hidden).
+   */
+  public toggleRetroAchievements(enabled?: boolean): boolean {
+    const next = enabled !== undefined ? enabled : !this.settings.enableRetroAchievements;
+    this.settings.enableRetroAchievements = next;
+    this.retroAchievements.config.enabled = next;
+    if (next) {
+      this.retroAchievements.raDll.probeBundledOrNativeDll().catch(() => {});
+    }
+    this.retroAchievements.saveConfig();
+    this.saveInputSettingsToStorage();
+    return next;
   }
 
   /**
@@ -1354,9 +1369,7 @@ export class GameComSystem {
 
   public loadState(slotIndex: number = 0): boolean {
     if (this.retroAchievements.config.hardcoreMode) {
-      this.onHardcoreViolation?.(
-        'Save State loading is disabled in Hardcore Mode per RetroAchievements compliance rules.'
-      );
+      this.onHardcoreViolation?.('Save State loading is disabled in Hardcore Mode.');
       return false;
     }
 

@@ -28,7 +28,7 @@ export const DebuggerModal: React.FC<DebuggerModalProps> = ({
   const handleStep = () => {
     if (isHardcore) {
       system.onHardcoreViolation?.(
-        'CPU single-stepping is prohibited in Hardcore Mode per RetroAchievements compliance rules.'
+        'CPU single-stepping is prohibited in Hardcore Mode to protect competitive integrity.'
       );
       return;
     }
@@ -132,7 +132,7 @@ export const DebuggerModal: React.FC<DebuggerModalProps> = ({
                   CPU Debugger, Memory Inspector &amp; Cheats Disabled in Hardcore Mode
                 </h3>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Per <strong>RetroAchievements Hardcore Compliance Requirements (Section B &amp; G)</strong>,
+                  Per <strong>Competitive Hardcore Mode rules</strong>,
                   memory editors, live RAM inspection, cheats, and CPU single-stepping are strictly
                   disabled during Hardcore sessions. You may switch to <strong>Casual Mode</strong> mid-session
                   without resetting your game to use the debugger and RAM poke tools.
@@ -318,7 +318,7 @@ export const DebuggerModal: React.FC<DebuggerModalProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-800 bg-slate-950/70 text-xs text-slate-400">
           <span>
-            rcheevos Banks: Bank 0 ($0000-$03FF RAM) · Bank 1 ($E000-$FFFF NVRAM) · Bank 2 ($A000-$DFFF VRAM)
+            Hardware Banks: Bank 0 ($0000-$03FF RAM) · Bank 1 ($E000-$FFFF NVRAM) · Bank 2 ($A000-$DFFF VRAM)
           </span>
           <button
             onClick={onClose}

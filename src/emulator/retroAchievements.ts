@@ -479,7 +479,7 @@ export type TaintReason =
 
 export class RetroAchievementsEngine {
   public config: RetroAchievementsConfig = {
-    enabled: true,
+    enabled: false,
     hardcoreMode: false, // Default to Casual (Softcore) initially; user-specified mode is persisted afterward
     username: '',
     connectToken: '',
@@ -552,11 +552,15 @@ export class RetroAchievementsEngine {
     this.loadCustomUserTxt();
     this.session = this.createCleanSession(null);
 
-    // Probe bundled RA_Integration-x64.dll and set up automatic online queue flushing
+    // Probe bundled RA_Integration-x64.dll when enabled and set up automatic online queue flushing
     if (typeof window !== 'undefined') {
-      this.raDll.probeBundledOrNativeDll().catch(() => {});
+      if (this.config.enabled) {
+        this.raDll.probeBundledOrNativeDll().catch(() => {});
+      }
       window.addEventListener('online', () => {
-        this.flushOfflineQueue().catch(() => {});
+        if (this.config.enabled) {
+          this.flushOfflineQueue().catch(() => {});
+        }
       });
     }
   }
@@ -851,7 +855,7 @@ export class RetroAchievementsEngine {
     if (!this.config.hardcoreMode) return true;
     if (this.config.warnOnHardcoreDisable && typeof window !== 'undefined' && typeof window.confirm === 'function') {
       const confirmed = window.confirm(
-        `RetroAchievements Hardcore Compliance Warning:\n\n` +
+        `Hardcore Mode Warning:\n\n` +
           `You cannot ${activityDescription} while Hardcore Mode is active.\n\n` +
           `Would you like to switch to Casual (Softcore) Mode mid-session and proceed?`
       );
