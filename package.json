@@ -30,6 +30,8 @@
     "type": "git",
     "url": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com.git"
   },
+  "author": "AJ Ryan <onlyusemefeet@gmail.com> (https://github.com/ONLYUSEmeFEET)",
+  "license": "MIT",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -38,9 +40,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "release:win": "vite build && python scripts/build-windows-release.py",
-    "release:all": "vite build && python scripts/build-windows-release.py",
-    "github:sync": "python scripts/github-sync.py",
+    "release:win": "vite build && (python3 scripts/build-windows-release.py || python scripts/build-windows-release.py)",
+    "release:all": "vite build && (python3 scripts/build-windows-release.py || python scripts/build-windows-release.py)",
+    "github:sync": "python3 scripts/github-sync.py || python scripts/github-sync.py",
     "dist:win": "vite build && electron-builder --win --x64",
     "dist:mac": "vite build && electron-builder --mac --universal"
   },
@@ -50,6 +52,8 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "LICENSE",
+      "credits.txt",
       "package.json"
     ],
     "win": {

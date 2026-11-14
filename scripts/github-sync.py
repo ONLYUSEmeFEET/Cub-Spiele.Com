@@ -82,7 +82,7 @@ def sync_workspace_to_stage():
     run([GIT_EXE, "config", "user.email", "onlyusemefeet@gmail.com"], check=False)
 
     exclude_root = {
-        ".git", "node_modules", "dist", "release", "roms",
+        ".git", ".aistudio", "node_modules", "dist", "release", "roms",
         "Applications", "Firmware", "Other_Emulators", "build", "coverage"
     }
 
@@ -170,14 +170,22 @@ def main():
         print("Working tree clean — all workspace changes already committed.")
 
     push_url = REMOTE_URL
-    if os.path.exists(GH_EXE):
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
+    if not token and os.path.exists(GH_EXE):
         tok_res = subprocess.run([GH_EXE, "auth", "token"], capture_output=True, text=True)
         token = tok_res.stdout.strip()
-        if token:
-            push_url = f"https://x-access-token:{token}@github.com/{REPO_SLUG}.git"
+    if token:
+        push_url = f"https://x-access-token:{token}@github.com/{REPO_SLUG}.git"
 
     print(f"Pushing main to {REMOTE_URL}...")
-    run([GIT_EXE, "push", push_url, "main"])
+    push_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    push_res = subprocess.run([GIT_EXE, "push", push_url, "main"], cwd=LOCAL_GIT_STAGE, text=True, env=push_env)
+    if push_res.returncode != 0:
+        print(
+            f"Note: Local commit created in {LOCAL_GIT_STAGE}, but remote push requires GitHub authentication "
+            f"(run `npm run github:sync` on your authenticated desktop or with GH_TOKEN set)."
+        )
+        return
 
     # Ensure all release tags exist and are pushed
     for rel in manifest.get("releases", []):

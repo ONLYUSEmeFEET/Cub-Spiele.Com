@@ -1,0 +1,47 @@
+MIT License
+
+Copyright (c) 2026 AJ Ryan (@ONLYUSEmeFEET)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+THIRD-PARTY OPEN-SOURCE & HARDWARE ATTRIBUTION NOTICE
+================================================================================
+
+Cub Spiele.Com is an independent, clean-room hardware emulator for the Sharp
+SM8521 8/16-bit microcontroller architecture.
+
+1. Non-Affiliation & Trademark Disclaimer:
+   "Game.Com" and "Tiger Electronics" are registered trademarks of Tiger
+   Electronics, Ltd. / Hasbro, Inc. "SM8521" is a trademark of Sharp
+   Corporation. Cub Spiele.Com is an independent hardware preservation and
+   emulation project and is not affiliated with, endorsed by, or sponsored by
+   Tiger Electronics, Hasbro, Inc., or Sharp Corporation.
+
+2. Hardware Documentation & Reference Implementations:
+   - Sharp SM8521 8-Bit Single-Chip Microcomputer Data Book (Sharp Corporation)
+   - MAME Project (`sm8500` CPU core & `gamecom.cpp` driver documentation by
+     Wilbert Pol and contributors — BSD-3-Clause / GPL-2.0+)
+   - RetroAchievements (`rcheevos` specification & Hardcore compliance standard
+     — MIT License)
+
+3. Third-Party Libraries:
+   Full open-source dependency attributions and licenses (React, Vite, Electron,
+   Tailwind CSS, Lucide Icons, Motion, fflate, Express, TypeScript) are listed
+   in `credits.txt`.

@@ -795,6 +795,9 @@ STANDALONE HANDHELD EMULATOR FEATURES:
         zf.writestr('RA_Integration.dll', ra_dll_bytes)
         zf.writestr('CubSpieleCom-Host.vbs', host_vbs)
         zf.writestr('README-WINDOWS.txt', readme_txt)
+        license_path = os.path.join(ROOT_DIR, 'LICENSE')
+        if os.path.exists(license_path):
+            zf.write(license_path, 'LICENSE')
         credits_path = os.path.join(ROOT_DIR, 'credits.txt')
         if os.path.exists(credits_path):
             zf.write(credits_path, 'credits.txt')
@@ -918,6 +921,9 @@ NVRAM & HIGH SCORE VAULT LOCATION:
         write_exec(zf, f'{app_root}/MacOS/CubSpieleCom-Universal', macho_universal)
         zf.writestr(f'{app_root}/Resources/app/index.html', offline_html)
         zf.writestr('README-MACOS.txt', readme_macos)
+        license_path = os.path.join(ROOT_DIR, 'LICENSE')
+        if os.path.exists(license_path):
+            zf.write(license_path, 'LICENSE')
         credits_path = os.path.join(ROOT_DIR, 'credits.txt')
         if os.path.exists(credits_path):
             zf.write(credits_path, 'credits.txt')

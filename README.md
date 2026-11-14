@@ -18,5 +18,8 @@
 ## Credits
 See [credits.txt](./credits.txt) for a complete list of open-source libraries, hardware datasheets, emulation references, and competitive ecosystems utilized by **Cub Spiele.Com**.
 
+## License
+**Cub Spiele.Com** is released under the [MIT License](./LICENSE). Copyright © 2026 AJ Ryan (`@ONLYUSEmeFEET`). Third-party open-source attributions and hardware trademark notices are included in [LICENSE](./LICENSE) and [credits.txt](./credits.txt).
+
 ## Tags
 `emulator` `gamecom` `tiger-game-com` `sm8521` `sharp-sm8521` `retroachievements` `rcheevos` `hardcore-mode` `online-leaderboards` `high-scores` `handheld-emulator` `retro-gaming` `nvram` `stn-lcd` `typescript` `electron` `windows-x64`
