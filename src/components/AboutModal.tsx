@@ -222,8 +222,14 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
                   </li>
                   <li>
                     <strong className="text-zinc-900 dark:text-zinc-100">Tiger Electronics, Inc. (1997)</strong> —
-                    Game.Com hardware architecture, dual-cartridge Port 3 bus isolation, and NVRAM
-                    High Score format.
+                    Creator of the Tiger Game.Com handheld console, BIOS, dual-cartridge Port 3 bus
+                    isolation, NVRAM High Score format, Tiger Web Link, and Game.Com Modem hardware.
+                  </li>
+                  <li>
+                    <strong className="text-zinc-900 dark:text-zinc-100">MiSTer FPGA Core Developers</strong>{' '}
+                    (<span className="font-mono">MiSTer-devel/GameCom_MiSTer</span>) — FPGA hardware
+                    research for SG0/SG1 wavetable &amp; SG2 LFSR audio, HALT/DMA preemption, and
+                    LCDC timing/inversion behavior.
                   </li>
                   <li>
                     <strong className="text-zinc-900 dark:text-zinc-100">MAME Project</strong> (Wilbert Pol,

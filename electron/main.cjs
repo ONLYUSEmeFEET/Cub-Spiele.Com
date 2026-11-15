@@ -235,7 +235,7 @@ function createWindow() {
     height: 760,
     minWidth: 680,
     minHeight: 580,
-    title: `Cub Spiele.Com — SM8521 Standalone Emulator (${process.platform} ${process.arch})`,
+    title: 'Cub Spiele.Com',
     backgroundColor: '#111319',
     icon: getPlatformIconPath(),
     autoHideMenuBar: false,

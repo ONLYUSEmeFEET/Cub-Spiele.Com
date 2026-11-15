@@ -1,14 +1,14 @@
-# Cub Spiele.Com Sharp SM8521 Tiger Game.Com Handheld Emulator
+# Cub Spiele.Com — Cycle-Accurate Tiger Game.Com (Tiger Electronics SM8521) Emulator
 
-**Cub Spiele.Com** (`v0.0.10`) is a cycle-accurate standalone handheld emulator for the 1997 **Tiger Electronics Game.Com** console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + internal speaker band-pass audio engine, dual cartridge bays with hardware `P3` chip-select isolation, and a competitive **Multi-Player High Score Vault, Online Leaderboards & Hardcore Mode Ecosystem**.
+**Cub Spiele.Com** (`v0.1.0`) is a cycle-accurate standalone **Tiger Game.Com** emulator for the 1997 **Tiger Electronics** handheld console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + SG0/SG1/SG2 audio engine, dual cartridge bays with hardware `P3` chip-select isolation, **Tiger Web Link** (`gclink`), **Virtual Hayes AT Modem** (`Internet`), and a competitive **Multi-Player High Score Vault, Online Leaderboards & Hardcore Mode Ecosystem**.
 
 ## Play Online (Latest Web Version)
 - **Web Emulator (GitHub Pages)**: [https://onlyusemefeet.github.io/Cub-Spiele.Com/](https://onlyusemefeet.github.io/Cub-Spiele.Com/) — automatically built and deployed from `main`.
 
-## Supported Platforms (`v0.0.10`)
-- **Windows 10 / 11 (x64)**: Self-Contained Single-File 64-bit PE32+ GUI executable (`CubSpieleCom.exe`, embedding the offline emulator bundle and BIOS) and Portable Archive (`CubSpieleCom-v0.0.10-win64.zip`)
-- **macOS 11+ (Universal)**: Native macOS Application Bundle (`Cub Spiele.Com.app` inside `CubSpieleCom-v0.0.10-macos-universal.zip`) with Universal Mach-O (`Apple Silicon ARM64` + `Intel x86_64`) support
-- **Android 8.0+ & Mobile Touch**: Android Universal Package (`CubSpieleCom-v0.0.10-android.apk`), Capacitor runtime config, and offline-capable Progressive Web App (`manifest.webmanifest` + Service Worker) with multi-touch D-Pad/A/B/C/D and 13×10 resistive touchscreen support
+## Supported Platforms (`v0.1.0`)
+- **Windows 10 / 11 (x64)**: Self-Contained Single-File 64-bit PE32+ GUI executable (`CubSpieleCom.exe`, embedding the offline emulator bundle and BIOS) and Portable Archive (`CubSpieleCom-v0.1.0-win64.zip`)
+- **macOS 11+ (Universal)**: Native macOS Application Bundle (`Cub Spiele.Com.app` inside `CubSpieleCom-v0.1.0-macos-universal.zip`) with Universal Mach-O (`Apple Silicon ARM64` + `Intel x86_64`) support
+- **Android 8.0+ & Mobile Touch**: Android Universal Package (`CubSpieleCom-v0.1.0-android.apk`), Capacitor runtime config, and offline-capable Progressive Web App (`manifest.webmanifest` + Service Worker) with multi-touch D-Pad/A/B/C/D and 13×10 resistive touchscreen support
 
 ## Key Features
 - **Full Retail, Prototype & `.zip` ROM Compatibility**: Supports `.bin`, `.tgc`, `.rom`, and `.zip` cartridge archives across the official Game.Com library (including *Sonic Jam*, *Resident Evil 2*, *Fighters Megamix*, *Duke Nukem 3D*, and *Lights Out*) as well as the unreleased prototype *Castlevania: Symphony of the Night* (`$0448`) with double-buffered VRAM page-flip synchronization and `MMU1..MMU4` cartridge detection.
@@ -19,7 +19,7 @@
 - **Authentic STN Hardware Screen Presets**: Includes calibrated display profiles for the 1997 Original Olive Green (`#71-500`), 1999 Pocket Pro Backlit Green (`#71-520`), Silver Grey (`#71-530`), Warm Amber Compact (`#71-510`), Crisp High Contrast, and custom 2-shade color blending.
 
 ## Credits
-Special thanks to **Diskman (Brandon Cobb)** and *Diskman Presents / The end of the game.com* ([diskman.com](https://www.diskman.com/)) for Tiger Game.Com historical preservation, prototype documentation, scans, and archival resources. See [credits.txt](./credits.txt) for a complete list of open-source libraries, hardware datasheets, and emulation references utilized by **Cub Spiele.Com**.
+Special thanks to **Tiger Electronics** (creators of the 1997 **Tiger Game.Com** console and peripherals), the **MiSTer FPGA Game.Com core developers** (`MiSTer-devel/GameCom_MiSTer`), **Diskman (Brandon Cobb)** and *Diskman Presents / The end of the game.com* ([diskman.com](https://www.diskman.com/)) for Tiger Game.Com historical preservation, prototype documentation, scans, and archival resources, and the **MAME** / **mGBA** projects. See [credits.txt](./credits.txt) for a complete list of open-source libraries, hardware datasheets, and emulation references utilized by **Cub Spiele.Com**.
 
 ## License
 **Cub Spiele.Com** is released under the [MIT License](./LICENSE). Copyright © 2026 AJ Ryan (`@ONLYUSEmeFEET`). Third-party open-source attributions and hardware trademark notices are included in [LICENSE](./LICENSE) and [credits.txt](./credits.txt).

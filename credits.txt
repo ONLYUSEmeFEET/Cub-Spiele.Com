@@ -27,10 +27,16 @@ HARDWARE, ARCHITECTURE & EMULATION REFERENCES
     SGDA $004E 8-bit DAC, SG0/SG1/SG2 Tone Generators, and Interrupt Controller).
 
 - Tiger Electronics, Inc. (1997)
-  * Original Tiger Game.Com Handheld Console Hardware Architecture, 4KB Internal
-    ROM ($2000-$2FFF), 32KB External Kernel ROM, Dual Cartridge Bus Isolation
-    (Port 3 Bit 6), 13x10 Resistive Touch Matrix, and $FC60-$FEDF Battery-Backed
-    NVRAM High Score Table format.
+  * Creator of the original Tiger Game.Com handheld console, System BIOS,
+    dual cartridge bus isolation (Port 3 Bit 6), 13x10 resistive touch matrix,
+    $FC60-$FEDF battery-backed NVRAM High Score Table, Compete.Com Link Cable,
+    Tiger Web Link, and Game.Com Modem / Internet terminal hardware.
+
+- MiSTer FPGA Core Developers (`MiSTer-devel/GameCom_MiSTer`)
+  * https://github.com/MiSTer-devel/GameCom_MiSTer
+  * FPGA hardware core research for Tiger Game.Com / Sharp SM8521, including
+    cycle-accurate SG0/SG1 32-step wavetable & SG2 15-bit LFSR audio synthesis,
+    HALT + DMA preemption timing, and LCC[0] display inversion behavior.
 
 - MAME (Multiple Arcade Machine Emulator) Project — Game.Com Driver (`gamecom.cpp` / `sm8500`)
   * https://github.com/mamedev/mame
