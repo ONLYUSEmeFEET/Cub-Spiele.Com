@@ -45,13 +45,13 @@ jobs:
         if: runner.os == 'Windows'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx --no-install electron-builder --win --x64 --config electron-builder.yml -c.electronVersion=35.1.5 --publish never
+        run: npx --no-install electron-builder --win --x64 --config electron-builder.yml --publish never
 
       - name: Build Native Electron Bundle (macOS)
         if: runner.os == 'macOS'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx --no-install electron-builder --mac --universal --config electron-builder.yml -c.electronVersion=35.1.5 --publish never
+        run: npx --no-install electron-builder --mac --universal --config electron-builder.yml --publish never
 
       - name: Upload Multi-Platform Artifacts
         uses: actions/upload-artifact@v4

@@ -1,12 +1,14 @@
 appId: com.cubspiele.sm8521.emulator
 productName: Cub Spiele.Com
 copyright: Copyright © 1997-2026 Cub Spiele.Com SM8521 Preservation Project
+electronVersion: "35.1.5"
 directories:
   output: release
   buildResources: public/assets
 files:
   - dist/**/*
   - "!dist/releases/**/*"
+  - "!node_modules/**/*"
   - electron/**/*
   - public/assets/icon.ico
   - public/assets/icon.icns
