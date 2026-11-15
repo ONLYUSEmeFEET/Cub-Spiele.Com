@@ -75,13 +75,26 @@ export function App() {
       showToast(reason);
     };
 
-    system.onScoreRecorded = (entry) => {
+    system.onScoreRecorded = (entry, meta) => {
+      forceUpdate();
+      if (!system.settings.highScoreNotifications || !meta?.scoreBroken) {
+        return;
+      }
+      const loadedCart = system.getActiveCartridge();
+      const matchesLoadedGame =
+        Boolean(loadedCart) &&
+        (loadedCart?.headerGameId === entry.gameId ||
+          (loadedCart?.title &&
+            entry.gameTitle &&
+            loadedCart.title.toLowerCase() === entry.gameTitle.toLowerCase()));
+      if (!matchesLoadedGame) {
+        return;
+      }
       showToast(
         `New High Score! ${entry.playerName}: ${entry.scoreText} in ${entry.gameTitle} (${
           entry.verification?.hardcoreVerified ? 'HARDCORE VERIFIED' : 'Softcore'
         })`
       );
-      forceUpdate();
     };
 
     system.retroAchievements.setNotificationHandler((title, subtitle) => {
@@ -174,43 +187,41 @@ export function App() {
       right: false
     };
 
-    const dpadKeyMap: Record<string, 'up' | 'down' | 'left' | 'right'> = {
-      ArrowUp: 'up',
-      KeyW: 'up',
-      ArrowDown: 'down',
-      KeyS: 'down',
-      ArrowLeft: 'left',
-      KeyA: 'left',
-      ArrowRight: 'right',
-      KeyD: 'right'
+    const hasKey = (
+      action: keyof typeof system.settings.inputBindings.keyboard,
+      code: string
+    ) => system.settings.inputBindings.keyboard[action]?.includes(code) ?? false;
+
+    const getDpadDirForCode = (
+      code: string
+    ): 'up' | 'down' | 'left' | 'right' | null => {
+      if (hasKey('dpadUp', code)) return 'up';
+      if (hasKey('dpadDown', code)) return 'down';
+      if (hasKey('dpadLeft', code)) return 'left';
+      if (hasKey('dpadRight', code)) return 'right';
+      return null;
     };
 
-    const dedicatedStylusDirMap: Record<string, 'up' | 'down' | 'left' | 'right'> = {
-      KeyI: 'up',
-      Numpad8: 'up',
-      KeyK: 'down',
-      Numpad5: 'down',
-      Numpad2: 'down',
-      KeyJ: 'left',
-      Numpad4: 'left',
-      KeyL: 'right',
-      Numpad6: 'right'
+    const getStylusDirForCode = (
+      code: string
+    ): 'up' | 'down' | 'left' | 'right' | null => {
+      if (hasKey('stylusUp', code)) return 'up';
+      if (hasKey('stylusDown', code)) return 'down';
+      if (hasKey('stylusLeft', code)) return 'left';
+      if (hasKey('stylusRight', code)) return 'right';
+      return null;
     };
 
-    const stylusTouchKeys = new Set(['Space', 'KeyE', 'Numpad0', 'NumpadEnter']);
-
-    const actionKeyMap: Record<string, keyof GameComButtons> = {
-      KeyZ: 'a',
-      Enter: 'a',
-      KeyX: 'b',
-      ShiftLeft: 'b',
-      ShiftRight: 'b',
-      KeyC: 'c',
-      KeyV: 'd',
-      KeyU: 'd',
-      KeyM: 'menu',
-      Backspace: 'menu',
-      KeyO: 'sound'
+    const getActionButtonForCode = (
+      code: string
+    ): keyof GameComButtons | null => {
+      if (hasKey('buttonA', code)) return 'a';
+      if (hasKey('buttonB', code)) return 'b';
+      if (hasKey('buttonC', code)) return 'c';
+      if (hasKey('buttonD', code)) return 'd';
+      if (hasKey('menu', code)) return 'menu';
+      if (hasKey('sound', code)) return 'sound';
+      return null;
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -244,19 +255,19 @@ export function App() {
         return;
       }
 
-      if (e.code === 'Tab') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('toggleStylusMode', e.code)) {
         e.preventDefault();
         const active = system.toggleDpadStylusMode();
         showToast(
           active
-            ? 'Virtual Stylus Mode ON (Arrow/WASD moves Stylus, Space/E taps)'
-            : 'Virtual Stylus Mode OFF (Arrow/WASD controls D-Pad)'
+            ? 'Virtual Stylus Mode ON (D-Pad moves Stylus)'
+            : 'Virtual Stylus Mode OFF (D-Pad controls D-Pad)'
         );
         forceUpdate();
         return;
       }
 
-      if (e.code === 'F5') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('saveState', e.code)) {
         e.preventDefault();
         system.saveState(0);
         showToast('Saved State (Slot 0)');
@@ -264,7 +275,7 @@ export function App() {
         return;
       }
 
-      if (e.code === 'F8') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('loadState', e.code)) {
         e.preventDefault();
         if (system.retroAchievements.config.hardcoreMode) {
           system.loadState(0);
@@ -277,13 +288,13 @@ export function App() {
         return;
       }
 
-      if (e.code === 'F9' || e.code === 'F12') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('screenshot', e.code)) {
         e.preventDefault();
         handleTakeScreenshot();
         return;
       }
 
-      if (e.code === 'F10') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('powerToggle', e.code)) {
         e.preventDefault();
         system.powerToggle();
         showToast(system.isPoweredOn ? 'Power On' : 'Power Off');
@@ -291,7 +302,7 @@ export function App() {
         return;
       }
 
-      if (e.code === 'F11') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('fullscreen', e.code)) {
         e.preventDefault();
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => {});
@@ -301,14 +312,14 @@ export function App() {
         return;
       }
 
-      if (e.code === 'KeyP') {
+      if (!e.ctrlKey && !e.metaKey && hasKey('pause', e.code)) {
         e.preventDefault();
         system.pauseToggle();
         forceUpdate();
         return;
       }
 
-      if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) {
+      if (!e.ctrlKey && !e.metaKey && hasKey('frameAdvance', e.code)) {
         e.preventDefault();
         const stepped = system.frameAdvance();
         if (stepped) {
@@ -318,7 +329,7 @@ export function App() {
         return;
       }
 
-      if (e.code === 'BracketLeft' && !e.ctrlKey && !e.metaKey) {
+      if (!e.ctrlKey && !e.metaKey && hasKey('rewind', e.code)) {
         e.preventDefault();
         const rewound = system.rewindStep();
         if (rewound) {
@@ -330,15 +341,15 @@ export function App() {
         return;
       }
 
-      if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey) {
+      if (!e.ctrlKey && !e.metaKey && hasKey('reset', e.code)) {
         e.preventDefault();
         system.resetSystem(system.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
         forceUpdate();
         return;
       }
 
-      // Stylus Touch / Tap Keys (Space, E, Numpad 0, Numpad Enter)
-      if (stylusTouchKeys.has(e.code)) {
+      // Stylus Touch / Tap Keys
+      if (hasKey('stylusTouch', e.code)) {
         e.preventDefault();
         if (!e.repeat) {
           system.setVirtualStylusTouch(true);
@@ -347,8 +358,8 @@ export function App() {
         return;
       }
 
-      // Dedicated Stylus Movement Keys (I/J/K/L & Numpad 8/4/5/6)
-      const stylusDir = dedicatedStylusDirMap[e.code];
+      // Dedicated Stylus Movement Keys
+      const stylusDir = getStylusDirForCode(e.code);
       if (stylusDir) {
         e.preventDefault();
         if (system.virtualStylus.snapToGrid) {
@@ -366,8 +377,8 @@ export function App() {
         return;
       }
 
-      // D-Pad or D-Pad-Stylus-Mode Keys (Arrows / WASD)
-      const dpadDir = dpadKeyMap[e.code];
+      // D-Pad or D-Pad-Stylus-Mode Keys
+      const dpadDir = getDpadDirForCode(e.code);
       if (dpadDir) {
         e.preventDefault();
         if (system.virtualStylus.dpadStylusMode) {
@@ -390,7 +401,7 @@ export function App() {
         return;
       }
 
-      const mapped = actionKeyMap[e.code];
+      const mapped = getActionButtonForCode(e.code);
       if (mapped) {
         e.preventDefault();
         system.setButton(mapped, true);
@@ -399,21 +410,21 @@ export function App() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (stylusTouchKeys.has(e.code)) {
+      if (hasKey('stylusTouch', e.code)) {
         e.preventDefault();
         system.setVirtualStylusTouch(false);
         forceUpdate();
         return;
       }
 
-      const stylusDir = dedicatedStylusDirMap[e.code];
+      const stylusDir = getStylusDirForCode(e.code);
       if (stylusDir) {
         e.preventDefault();
         heldStylusDirs[stylusDir] = false;
         return;
       }
 
-      const dpadDir = dpadKeyMap[e.code];
+      const dpadDir = getDpadDirForCode(e.code);
       if (dpadDir) {
         e.preventDefault();
         heldStylusDirs[dpadDir] = false;
@@ -422,7 +433,7 @@ export function App() {
         return;
       }
 
-      const mapped = actionKeyMap[e.code];
+      const mapped = getActionButtonForCode(e.code);
       if (mapped) {
         e.preventDefault();
         system.setButton(mapped, false);
@@ -506,23 +517,27 @@ export function App() {
       const ry = applyDeadzone(activePad.axes[3] || 0);
 
       const btnPressed = (idx: number) => Boolean(activePad!.buttons[idx]?.pressed);
+      const padBindings = system.settings.inputBindings.gamepad;
+      const anyPadAction = (action: keyof typeof padBindings) =>
+        (padBindings[action] || []).some((idx) => btnPressed(idx));
 
-      // L3 (button 10) toggles D-Pad Stylus Mode
-      const l3Now = btnPressed(10);
+      // Toggle D-Pad Stylus Mode
+      const l3Now = anyPadAction('toggleStylusMode');
       if (l3Now && !prevPadL3) {
         system.toggleDpadStylusMode();
       }
       prevPadL3 = l3Now;
 
-      // L2/LT (button 6) acts as instant Stylus Shift modifier for Left Stick / D-Pad
-      const l2StylusShift = btnPressed(6) || system.virtualStylus.dpadStylusMode;
+      // Stylus Shift modifier for Left Stick / D-Pad
+      const l2StylusShift =
+        anyPadAction('gamepadStylusShift') || system.virtualStylus.dpadStylusMode;
 
-      const dpadUp = btnPressed(12) || ly < -0.45;
-      const dpadDown = btnPressed(13) || ly > 0.45;
-      const dpadLeft = btnPressed(14) || lx < -0.45;
-      const dpadRight = btnPressed(15) || lx > 0.45;
+      const dpadUp = anyPadAction('dpadUp') || ly < -0.45;
+      const dpadDown = anyPadAction('dpadDown') || ly > 0.45;
+      const dpadLeft = anyPadAction('dpadLeft') || lx < -0.45;
+      const dpadRight = anyPadAction('dpadRight') || lx > 0.45;
 
-      // Move Virtual Stylus with Right Stick OR (when L2/StylusMode active) Left Stick / D-Pad
+      // Move Virtual Stylus with Right Stick OR (when Shift/StylusMode active) Left Stick / D-Pad
       const spd = system.settings.stylusSpeed * 1.4;
       let sDx = rx * spd;
       let sDy = ry * spd;
@@ -539,8 +554,8 @@ export function App() {
         system.moveVirtualStylus(sDx, sDy);
       }
 
-      // Stylus Touch via R2/RT (7), R1/RB (5), or R3 (11)
-      const padTouchNow = btnPressed(7) || btnPressed(5) || btnPressed(11);
+      // Stylus Touch
+      const padTouchNow = anyPadAction('stylusTouch');
       if (padTouchNow !== prevPadStylusTouch) {
         system.setVirtualStylusTouch(padTouchNow);
         prevPadStylusTouch = padTouchNow;
@@ -552,13 +567,13 @@ export function App() {
         down: l2StylusShift ? false : dpadDown,
         left: l2StylusShift ? false : dpadLeft,
         right: l2StylusShift ? false : dpadRight,
-        a: btnPressed(0),
-        b: btnPressed(1),
-        c: btnPressed(2),
-        d: btnPressed(3),
-        sound: btnPressed(4),
-        menu: btnPressed(8),
-        pause: btnPressed(9)
+        a: anyPadAction('buttonA'),
+        b: anyPadAction('buttonB'),
+        c: anyPadAction('buttonC'),
+        d: anyPadAction('buttonD'),
+        sound: anyPadAction('sound'),
+        menu: anyPadAction('menu'),
+        pause: anyPadAction('pause')
       };
 
       (Object.keys(nextPadButtons) as (keyof GameComButtons)[]).forEach((k) => {

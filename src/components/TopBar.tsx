@@ -1430,6 +1430,28 @@ export const TopBar: React.FC<TopBarProps> = ({
                   )}
                 </span>
               </button>
+
+              <div className={dividerClass} />
+              <div className={sectionLabelClass}>Notifications</div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  system.settings.highScoreNotifications =
+                    !system.settings.highScoreNotifications;
+                  system.saveInputSettingsToStorage();
+                  onUpdate();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                  <span>High Score Notifications</span>
+                </span>
+                {system.settings.highScoreNotifications && (
+                  <Check className="w-3.5 h-3.5 text-indigo-500" />
+                )}
+              </button>
             </div>
           )}
         </div>

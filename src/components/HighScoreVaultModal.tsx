@@ -692,19 +692,17 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
             <span>Players &amp; Import ({hs.profiles.length})</span>
           </button>
 
-          {system.settings.advancedMode && (
-            <button
-              onClick={() => setActiveTab('nvram')}
-              className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                activeTab === 'nvram'
-                  ? 'bg-white dark:bg-zinc-900 text-[#4e3d73] dark:text-[#c4b5e6] border-[#4e3d73]'
-                  : 'text-zinc-600 dark:text-zinc-400 border-transparent hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40'
-              }`}
-            >
-              <Layers className="w-4 h-4 text-[#4e3d73] dark:text-[#c4b5e6]" />
-              <span>Hardware NVRAM ($FC60)</span>
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('nvram')}
+            className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'nvram'
+                ? 'bg-white dark:bg-zinc-900 text-[#4e3d73] dark:text-[#c4b5e6] border-[#4e3d73]'
+                : 'text-zinc-600 dark:text-zinc-400 border-transparent hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-[#4e3d73] dark:text-[#c4b5e6]" />
+            <span>Hardware NVRAM ($FC60)</span>
+          </button>
 
           {system.settings.advancedMode && system.settings.enableRetroAchievements && (
             <button

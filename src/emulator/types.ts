@@ -273,6 +273,39 @@ export interface RecentGameEntry {
   isPreloaded?: boolean;
 }
 
+export type InputActionId =
+  | 'dpadUp'
+  | 'dpadDown'
+  | 'dpadLeft'
+  | 'dpadRight'
+  | 'buttonA'
+  | 'buttonB'
+  | 'buttonC'
+  | 'buttonD'
+  | 'menu'
+  | 'pause'
+  | 'sound'
+  | 'stylusUp'
+  | 'stylusDown'
+  | 'stylusLeft'
+  | 'stylusRight'
+  | 'stylusTouch'
+  | 'toggleStylusMode'
+  | 'gamepadStylusShift'
+  | 'saveState'
+  | 'loadState'
+  | 'screenshot'
+  | 'powerToggle'
+  | 'fullscreen'
+  | 'frameAdvance'
+  | 'rewind'
+  | 'reset';
+
+export interface InputBindingsConfig {
+  keyboard: Record<InputActionId, string[]>;
+  gamepad: Partial<Record<InputActionId, number[]>>;
+}
+
 export interface EmulatorSettings {
   palette: LCDPaletteId;
   /** Two user-selected hex shades [Light/Background Shade 0, Dark/Foreground Shade 3] */
@@ -321,6 +354,10 @@ export interface EmulatorSettings {
   enableRetroAchievements: boolean;
   /** Skip BIOS 3D globe/splash intro via accelerated scripted stylus taps (false = authentic normal boot default) */
   fastBoot: boolean;
+  /** Show toast notifications when a loaded game's high score is broken (defaults to false) */
+  highScoreNotifications: boolean;
+  /** Custom keyboard and gamepad input bindings */
+  inputBindings: InputBindingsConfig;
 }
 
 export interface CPURegisters {

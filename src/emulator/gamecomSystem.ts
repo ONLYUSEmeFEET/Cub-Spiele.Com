@@ -29,9 +29,60 @@ import {
   PALETTES,
   DEFAULT_LIGHT_SHADE,
   DEFAULT_DARK_SHADE,
-  blendTwoShades
+  blendTwoShades,
+  InputActionId,
+  InputBindingsConfig
 } from './types';
 import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
+
+export function createDefaultInputBindings(): InputBindingsConfig {
+  return {
+    keyboard: {
+      dpadUp: ['ArrowUp', 'KeyW'],
+      dpadDown: ['ArrowDown', 'KeyS'],
+      dpadLeft: ['ArrowLeft', 'KeyA'],
+      dpadRight: ['ArrowRight', 'KeyD'],
+      buttonA: ['KeyZ', 'Enter'],
+      buttonB: ['KeyX', 'ShiftLeft', 'ShiftRight'],
+      buttonC: ['KeyC'],
+      buttonD: ['KeyV', 'KeyU'],
+      menu: ['KeyM', 'Backspace'],
+      pause: ['KeyP'],
+      sound: ['KeyO'],
+      stylusUp: ['KeyI', 'Numpad8'],
+      stylusDown: ['KeyK', 'Numpad5', 'Numpad2'],
+      stylusLeft: ['KeyJ', 'Numpad4'],
+      stylusRight: ['KeyL', 'Numpad6'],
+      stylusTouch: ['Space', 'KeyE', 'Numpad0', 'NumpadEnter'],
+      toggleStylusMode: ['Tab'],
+      gamepadStylusShift: [],
+      saveState: ['F5'],
+      loadState: ['F8'],
+      screenshot: ['F9', 'F12'],
+      powerToggle: ['F10'],
+      fullscreen: ['F11'],
+      frameAdvance: ['KeyF'],
+      rewind: ['BracketLeft'],
+      reset: ['KeyR']
+    },
+    gamepad: {
+      dpadUp: [12],
+      dpadDown: [13],
+      dpadLeft: [14],
+      dpadRight: [15],
+      buttonA: [0],
+      buttonB: [1],
+      buttonC: [2],
+      buttonD: [3],
+      sound: [4],
+      menu: [8],
+      pause: [9],
+      toggleStylusMode: [10],
+      gamepadStylusShift: [6],
+      stylusTouch: [7, 5, 11]
+    }
+  };
+}
 
 const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v2';
 const TWO_SHADE_STORAGE_KEY = 'cub_spiele_two_shade_v2';
@@ -114,7 +165,7 @@ export class GameComSystem {
   public retroAchievements: RetroAchievementsEngine;
   public onlineLeaderboard: OnlineLeaderboardManager;
   public onHardcoreViolation?: (reason: string) => void;
-  public onScoreRecorded?: (entry: any) => void;
+  public onScoreRecorded?: (entry: any, meta?: { scoreBroken: boolean }) => void;
   public onScreenSettingsSynced?: () => void;
   private screenSyncChannel: BroadcastChannel | null = null;
 
@@ -239,7 +290,9 @@ export class GameComSystem {
     advancedMode: false,
     showScoreOverlay: false,
     enableRetroAchievements: false,
-    fastBoot: false
+    fastBoot: false,
+    highScoreNotifications: false,
+    inputBindings: createDefaultInputBindings()
   };
 
   // Timing
@@ -309,7 +362,7 @@ export class GameComSystem {
     this.highScores.attachCompetitiveEngines(
       this.retroAchievements,
       this.onlineLeaderboard,
-      (entry) => this.onScoreRecorded?.(entry)
+      (entry, meta) => this.onScoreRecorded?.(entry, meta)
     );
 
     // Wire RAIntegration DLL (`RA_Interface.h`) shared callbacks & SM8521 memory banks (Banks 0, 1, 2)
@@ -687,6 +740,28 @@ export class GameComSystem {
         if (typeof parsedI.fastBoot === 'boolean') {
           this.settings.fastBoot = parsedI.fastBoot;
         }
+        if (typeof parsedI.highScoreNotifications === 'boolean') {
+          this.settings.highScoreNotifications = parsedI.highScoreNotifications;
+        }
+        if (parsedI.inputBindings && typeof parsedI.inputBindings === 'object') {
+          const defaults = createDefaultInputBindings();
+          const loadedKb = parsedI.inputBindings.keyboard || {};
+          const loadedPad = parsedI.inputBindings.gamepad || {};
+          (Object.keys(defaults.keyboard) as InputActionId[]).forEach((action) => {
+            if (Array.isArray(loadedKb[action])) {
+              this.settings.inputBindings.keyboard[action] = loadedKb[action].filter(
+                (v: unknown) => typeof v === 'string' && v.length > 0
+              );
+            }
+          });
+          (Object.keys(defaults.gamepad) as InputActionId[]).forEach((action) => {
+            if (Array.isArray(loadedPad[action])) {
+              this.settings.inputBindings.gamepad[action] = loadedPad[action].filter(
+                (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0
+              );
+            }
+          });
+        }
         if (parsedI.theme === 'light' || parsedI.theme === 'dark') {
           this.settings.theme = parsedI.theme;
         }
@@ -794,6 +869,8 @@ export class GameComSystem {
           showScoreOverlay: this.settings.showScoreOverlay,
           enableRetroAchievements: this.settings.enableRetroAchievements,
           fastBoot: this.settings.fastBoot,
+          highScoreNotifications: this.settings.highScoreNotifications,
+          inputBindings: this.settings.inputBindings,
           theme: this.settings.theme
         })
       );
@@ -801,6 +878,27 @@ export class GameComSystem {
     } catch {
       // Ignore storage errors
     }
+  }
+
+  public setKeyboardBinding(action: InputActionId, codes: string[]) {
+    this.settings.inputBindings.keyboard[action] = Array.from(new Set(codes));
+    this.saveInputSettingsToStorage();
+  }
+
+  public setGamepadBinding(action: InputActionId, buttons: number[]) {
+    this.settings.inputBindings.gamepad[action] = Array.from(new Set(buttons));
+    this.saveInputSettingsToStorage();
+  }
+
+  public resetAllInputBindingsToDefault() {
+    this.settings.inputBindings = createDefaultInputBindings();
+    this.settings.stylusSpeed = 2.5;
+    this.settings.gamepadIndex = -1;
+    this.settings.gamepadDeadzone = 0.15;
+    this.settings.backgroundInput = true;
+    this.virtualStylus.snapToGrid = false;
+    this.virtualStylus.dpadStylusMode = false;
+    this.saveInputSettingsToStorage();
   }
 
   public applyThemeToDom() {

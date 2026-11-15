@@ -83,12 +83,18 @@ export class NvramHighScoreManager {
 
   public raEngine?: RetroAchievementsEngine;
   public onlineLeaderboard?: OnlineLeaderboardManager;
-  private onScoreRecordedCallback?: (entry: OnlineLeaderboardEntry) => void;
+  private onScoreRecordedCallback?: (
+    entry: OnlineLeaderboardEntry,
+    meta?: { scoreBroken: boolean }
+  ) => void;
 
   constructor(
     raEngine?: RetroAchievementsEngine,
     onlineLeaderboard?: OnlineLeaderboardManager,
-    onScoreRecorded?: (entry: OnlineLeaderboardEntry) => void
+    onScoreRecorded?: (
+      entry: OnlineLeaderboardEntry,
+      meta?: { scoreBroken: boolean }
+    ) => void
   ) {
     this.isSecondaryInstance =
       typeof window !== 'undefined' &&
@@ -168,7 +174,10 @@ export class NvramHighScoreManager {
   public attachCompetitiveEngines(
     raEngine: RetroAchievementsEngine,
     onlineLeaderboard: OnlineLeaderboardManager,
-    onScoreRecorded?: (entry: OnlineLeaderboardEntry) => void
+    onScoreRecorded?: (
+      entry: OnlineLeaderboardEntry,
+      meta?: { scoreBroken: boolean }
+    ) => void
   ) {
     this.raEngine = raEngine;
     if (this.isSecondaryInstance) {
@@ -752,13 +761,21 @@ export class NvramHighScoreManager {
           decoded.playerId = activeProfile.id;
 
           if (scoreChanged && this.raEngine) {
+            const prevBestForGame = this.records.reduce((max, r) => {
+              if (r && r.gameId === decoded.gameId && r.numericScore > max) {
+                return r.numericScore;
+              }
+              return max;
+            }, 0);
+            const scoreBroken =
+              prevBestForGame > 0 && decoded.numericScore > prevBestForGame;
             decoded.verification = this.raEngine.createScoreProof(
               decoded.gameId,
               decoded.numericScore,
               decoded.scoreText,
               playerName
             );
-            this.publishVerifiedRecord(decoded);
+            this.publishVerifiedRecord(decoded, scoreBroken);
           } else if (existing?.verification) {
             decoded.verification = existing.verification;
           }
@@ -774,7 +791,9 @@ export class NvramHighScoreManager {
 
     const solScore = (nvram[0xfee0 - 0xe000] << 8) | nvram[0xfee1 - 0xe000];
     if (solScore !== this.solitaireScore && solScore < 0xffff) {
+      const prevSolScore = this.solitaireScore;
       const isHigher = solScore > this.solitaireScore && solScore > 0;
+      const solScoreBroken = prevSolScore > 0 && solScore > prevSolScore;
       this.solitaireScore = solScore;
       changed = true;
 
@@ -786,16 +805,19 @@ export class NvramHighScoreManager {
           playerName
         );
         activeProfile.solitaireVerification = solProof;
-        this.publishVerifiedRecord({
-          gameId: 0xfee0,
-          title: 'SOLITAIRE',
-          scoreText: String(solScore),
-          numericScore: solScore,
-          updatedAt: Date.now(),
-          playerName,
-          playerId: activeProfile.id,
-          verification: solProof
-        });
+        this.publishVerifiedRecord(
+          {
+            gameId: 0xfee0,
+            title: 'SOLITAIRE',
+            scoreText: String(solScore),
+            numericScore: solScore,
+            updatedAt: Date.now(),
+            playerName,
+            playerId: activeProfile.id,
+            verification: solProof
+          },
+          solScoreBroken
+        );
       }
     }
 
@@ -807,7 +829,7 @@ export class NvramHighScoreManager {
     this.saveRawNvram(nvram);
   }
 
-  private publishVerifiedRecord(rec: HighScoreRecord) {
+  private publishVerifiedRecord(rec: HighScoreRecord, scoreBroken: boolean = false) {
     if (!rec.verification) return;
     if (!rec.numericScore || !Number.isFinite(rec.numericScore) || rec.numericScore <= 0) {
       return;
@@ -842,7 +864,7 @@ export class NvramHighScoreManager {
     if (this.raEngine && rec.verification.hardcoreVerified) {
       this.raEngine.submitLeaderboardEntryToRA(rec.gameId, rec.numericScore).catch(() => {});
     }
-    this.onScoreRecordedCallback?.(lbEntry);
+    this.onScoreRecordedCallback?.(lbEntry, { scoreBroken });
   }
 
   /**

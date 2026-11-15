@@ -1,6 +1,94 @@
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, X, CheckCircle2, Crosshair, Monitor } from 'lucide-react';
-import { GameComSystem } from '../emulator/gamecomSystem';
+import { Gamepad2, X, CheckCircle2, Crosshair, Monitor, RotateCcw, Plus } from 'lucide-react';
+import { GameComSystem, createDefaultInputBindings } from '../emulator/gamecomSystem';
+import { InputActionId } from '../emulator/types';
+
+function formatKeyCode(code: string): string {
+  if (code.startsWith('Key') && code.length === 4) return code.slice(3);
+  if (code.startsWith('Digit') && code.length === 6) return code.slice(5);
+  if (code.startsWith('Numpad')) return `Num ${code.slice(6)}`;
+  switch (code) {
+    case 'ArrowUp':
+      return '↑ Up';
+    case 'ArrowDown':
+      return '↓ Down';
+    case 'ArrowLeft':
+      return '← Left';
+    case 'ArrowRight':
+      return '→ Right';
+    case 'ShiftLeft':
+      return 'L-Shift';
+    case 'ShiftRight':
+      return 'R-Shift';
+    case 'BracketLeft':
+      return '[';
+    case 'BracketRight':
+      return ']';
+    case 'Space':
+      return 'Space';
+    default:
+      return code;
+  }
+}
+
+const GAMEPAD_BTN_LABELS: Record<number, string> = {
+  0: 'Btn 0 (A/Cross)',
+  1: 'Btn 1 (B/Circle)',
+  2: 'Btn 2 (X/Square)',
+  3: 'Btn 3 (Y/Triangle)',
+  4: 'Btn 4 (L1/LB)',
+  5: 'Btn 5 (R1/RB)',
+  6: 'Btn 6 (L2/LT)',
+  7: 'Btn 7 (R2/RT)',
+  8: 'Btn 8 (Select/Back)',
+  9: 'Btn 9 (Start/Options)',
+  10: 'Btn 10 (L3)',
+  11: 'Btn 11 (R3)',
+  12: 'Btn 12 (D-Up)',
+  13: 'Btn 13 (D-Down)',
+  14: 'Btn 14 (D-Left)',
+  15: 'Btn 15 (D-Right)'
+};
+
+function formatGamepadBtn(idx: number): string {
+  return GAMEPAD_BTN_LABELS[idx] || `Btn ${idx}`;
+}
+
+interface ActionRowDef {
+  id: InputActionId;
+  label: string;
+  supportsGamepad: boolean;
+  gamepadNote?: string;
+}
+
+const ACTION_ROWS: ActionRowDef[] = [
+  { id: 'dpadUp', label: 'D-Pad Up', supportsGamepad: true, gamepadNote: '+ Left Stick Up' },
+  { id: 'dpadDown', label: 'D-Pad Down', supportsGamepad: true, gamepadNote: '+ Left Stick Down' },
+  { id: 'dpadLeft', label: 'D-Pad Left', supportsGamepad: true, gamepadNote: '+ Left Stick Left' },
+  { id: 'dpadRight', label: 'D-Pad Right', supportsGamepad: true, gamepadNote: '+ Left Stick Right' },
+  { id: 'buttonA', label: 'Button A (Primary Action)', supportsGamepad: true },
+  { id: 'buttonB', label: 'Button B (Secondary / Cancel)', supportsGamepad: true },
+  { id: 'buttonC', label: 'Button C (Action 3 / Tool)', supportsGamepad: true },
+  { id: 'buttonD', label: 'Button D (Action 4 / Special)', supportsGamepad: true },
+  { id: 'menu', label: 'MENU (Main Menu)', supportsGamepad: true },
+  { id: 'pause', label: 'PAUSE (Pause Game)', supportsGamepad: true },
+  { id: 'sound', label: 'SOUND (Toggle Sound)', supportsGamepad: true },
+  { id: 'stylusUp', label: 'Move Virtual Stylus Up', supportsGamepad: false, gamepadNote: 'Right Stick Up' },
+  { id: 'stylusDown', label: 'Move Virtual Stylus Down', supportsGamepad: false, gamepadNote: 'Right Stick Down' },
+  { id: 'stylusLeft', label: 'Move Virtual Stylus Left', supportsGamepad: false, gamepadNote: 'Right Stick Left' },
+  { id: 'stylusRight', label: 'Move Virtual Stylus Right', supportsGamepad: false, gamepadNote: 'Right Stick Right' },
+  { id: 'stylusTouch', label: 'Touch / Tap Screen at Stylus Tip', supportsGamepad: true },
+  { id: 'toggleStylusMode', label: 'Toggle D-Pad / Stylus Mode', supportsGamepad: true },
+  { id: 'gamepadStylusShift', label: 'Gamepad Stylus Shift Modifier', supportsGamepad: true },
+  { id: 'frameAdvance', label: 'Frame Advance (+1 Frame — Casual)', supportsGamepad: false },
+  { id: 'rewind', label: 'Rewind (-15 Frames — Casual)', supportsGamepad: false },
+  { id: 'saveState', label: 'Save State (Slot 0)', supportsGamepad: false },
+  { id: 'loadState', label: 'Load State (Slot 0 — Casual)', supportsGamepad: false },
+  { id: 'screenshot', label: 'Take Screenshot (PNG)', supportsGamepad: false },
+  { id: 'powerToggle', label: 'Power On / Power Off', supportsGamepad: false },
+  { id: 'fullscreen', label: 'Toggle Fullscreen', supportsGamepad: false },
+  { id: 'reset', label: 'Reset System', supportsGamepad: false }
+];
 
 interface KeybindsModalProps {
   isOpen: boolean;
@@ -17,9 +105,16 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
 }) => {
   const [gamepads, setGamepads] = useState<{ index: number; id: string }[]>([]);
   const [, setTick] = useState(0);
+  const [listeningTarget, setListeningTarget] = useState<{
+    action: InputActionId;
+    type: 'keyboard' | 'gamepad';
+  } | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setListeningTarget(null);
+      return;
+    }
     const checkGamepads = () => {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];
       const connected: { index: number; id: string }[] = [];
@@ -44,95 +139,68 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
     };
   }, [isOpen]);
 
+  // Capture keyboard or gamepad input while remapping
+  useEffect(() => {
+    if (!isOpen || !listeningTarget || !system) return;
+
+    if (listeningTarget.type === 'keyboard') {
+      const onCaptureKey = (e: KeyboardEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.code === 'Escape') {
+          setListeningTarget(null);
+          return;
+        }
+        const current = system.settings.inputBindings.keyboard[listeningTarget.action] || [];
+        system.setKeyboardBinding(listeningTarget.action, [...current, e.code]);
+        setListeningTarget(null);
+        setTick((t) => t + 1);
+        onUpdate?.();
+      };
+      window.addEventListener('keydown', onCaptureKey, true);
+      return () => {
+        window.removeEventListener('keydown', onCaptureKey, true);
+      };
+    }
+
+    // Gamepad button capture
+    const onCancelEsc = (e: KeyboardEvent) => {
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setListeningTarget(null);
+      }
+    };
+    window.addEventListener('keydown', onCancelEsc, true);
+
+    const padTimer = window.setInterval(() => {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (let i = 0; i < pads.length; i++) {
+        const pad = pads[i];
+        if (!pad || !pad.connected) continue;
+        for (let b = 0; b < pad.buttons.length; b++) {
+          if (pad.buttons[b]?.pressed) {
+            const current = system.settings.inputBindings.gamepad[listeningTarget.action] || [];
+            system.setGamepadBinding(listeningTarget.action, [...current, b]);
+            setListeningTarget(null);
+            setTick((t) => t + 1);
+            onUpdate?.();
+            return;
+          }
+        }
+      }
+    }, 50);
+
+    return () => {
+      window.removeEventListener('keydown', onCancelEsc, true);
+      clearInterval(padTimer);
+    };
+  }, [isOpen, listeningTarget, system, onUpdate]);
+
   if (!isOpen) return null;
 
-  const keyMap = [
-    {
-      action: 'Move Virtual Stylus Cursor',
-      keys: ['I / J / K / L', 'Numpad 8 / 4 / 5 / 6', 'Tab + Arrows / WASD'],
-      gamepad: 'Right Stick  OR  L2/LT + Left Stick / D-Pad'
-    },
-    {
-      action: 'Touch / Tap Screen at Stylus Tip',
-      keys: ['Space', 'E', 'Numpad 0', 'Numpad Enter'],
-      gamepad: 'R2 / RT  OR  R1 / RB  OR  R3 (Right Stick Click)'
-    },
-    {
-      action: 'Toggle D-Pad / Stylus Mode',
-      keys: ['Tab'],
-      gamepad: 'L3 (Left Stick Click)'
-    },
-    {
-      action: 'D-Pad Up / Down / Left / Right',
-      keys: ['Arrow Keys', 'W / A / S / D'],
-      gamepad: 'D-Pad  OR  Left Analog Stick'
-    },
-    {
-      action: 'Button A (Primary Action)',
-      keys: ['Z', 'Enter'],
-      gamepad: 'A / Cross (Bottom Face Button)'
-    },
-    {
-      action: 'Button B (Secondary / Cancel)',
-      keys: ['X', 'Shift'],
-      gamepad: 'B / Circle (Right Face Button)'
-    },
-    {
-      action: 'Button C (Action 3 / Tool)',
-      keys: ['C'],
-      gamepad: 'X / Square (Left Face Button)'
-    },
-    {
-      action: 'Button D (Action 4 / Special)',
-      keys: ['V'],
-      gamepad: 'Y / Triangle (Top Face Button)'
-    },
-    {
-      action: 'MENU (Main Menu)',
-      keys: ['M', 'Backspace'],
-      gamepad: 'Select / Back / Share Button'
-    },
-    {
-      action: 'PAUSE (Pause Game)',
-      keys: ['P'],
-      gamepad: 'Start / Options Button'
-    },
-    {
-      action: 'SOUND (Toggle Sound)',
-      keys: ['O'],
-      gamepad: 'L1 / LB Shoulder Button'
-    },
-    {
-      action: 'Frame Advance (+1 Frame — Casual Mode)',
-      keys: ['F'],
-      gamepad: 'Locked in Hardcore Mode'
-    },
-    {
-      action: 'Rewind (-15 Frames — Casual Mode)',
-      keys: ['['],
-      gamepad: 'Locked in Hardcore Mode'
-    },
-    {
-      action: 'Save State / Load State (Load Casual Only)',
-      keys: ['F5 (Save)', 'F8 (Load)'],
-      gamepad: 'Menu Bar -> Emulation'
-    },
-    {
-      action: 'Power On / Power Off',
-      keys: ['F10'],
-      gamepad: 'File -> Power / Bottom Bar'
-    },
-    {
-      action: 'Show / Hide Bottom Status Bar',
-      keys: ['Ctrl + B'],
-      gamepad: 'View -> Status Bar'
-    },
-    {
-      action: 'Take Emulator Screenshot (PNG)',
-      keys: ['F9', 'F12'],
-      gamepad: 'Top Bar Camera Button / File Menu'
-    }
-  ];
+  const activeBindings = system?.settings.inputBindings || createDefaultInputBindings();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
@@ -334,35 +402,173 @@ export const KeybindsModal: React.FC<KeybindsModalProps> = ({
 
           {/* Key Map Table */}
           <div className="border border-zinc-300 dark:border-zinc-800 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#eceee7] dark:bg-zinc-950 border-b border-zinc-300 dark:border-zinc-800">
+              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                Remap Controls &amp; Hotkeys{' '}
+                <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                  (Click + Add to bind, × to remove, Esc to cancel)
+                </span>
+              </span>
+              {system && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    system.resetAllInputBindingsToDefault();
+                    setListeningTarget(null);
+                    setTick((t) => t + 1);
+                    onUpdate?.();
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-zinc-300 dark:border-zinc-700 hover:border-rose-400 text-rose-600 dark:text-rose-400 text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset All to Default</span>
+                </button>
+              )}
+            </div>
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#eceee7] dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 font-mono border-b border-zinc-300 dark:border-zinc-800 uppercase">
+              <thead className="bg-[#f5f6f1] dark:bg-zinc-950/70 text-zinc-600 dark:text-zinc-400 font-mono border-b border-zinc-300 dark:border-zinc-800 uppercase">
                 <tr>
-                  <th className="py-2.5 px-4">Game.Com / Stylus Action</th>
-                  <th className="py-2.5 px-4">Keyboard Shortcuts</th>
-                  <th className="py-2.5 px-4">Controller / Gamepad</th>
+                  <th className="py-2 px-4">Game.Com / Stylus Action</th>
+                  <th className="py-2 px-4">Keyboard Bindings</th>
+                  <th className="py-2 px-4">Controller / Gamepad</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/80">
-                {keyMap.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-zinc-100 dark:hover:bg-zinc-800/40 transition-colors">
-                    <td className="py-2.5 px-4 font-semibold text-zinc-900 dark:text-white">{row.action}</td>
-                    <td className="py-2.5 px-4">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {row.keys.map((k, kIdx) => (
-                          <kbd
-                            key={kIdx}
-                            className="px-2 py-0.5 bg-[#eceee7] dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-800 dark:text-zinc-200 font-mono text-[11px] shadow-xs"
-                          >
-                            {k}
-                          </kbd>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-4 font-mono text-zinc-700 dark:text-zinc-300 text-[11px]">
-                      {row.gamepad}
-                    </td>
-                  </tr>
-                ))}
+                {ACTION_ROWS.map((row) => {
+                  const kbKeys = activeBindings.keyboard[row.id] || [];
+                  const padBtns = activeBindings.gamepad[row.id] || [];
+                  const isListeningKb =
+                    listeningTarget?.action === row.id && listeningTarget.type === 'keyboard';
+                  const isListeningPad =
+                    listeningTarget?.action === row.id && listeningTarget.type === 'gamepad';
+
+                  return (
+                    <tr key={row.id} className="hover:bg-zinc-100 dark:hover:bg-zinc-800/40 transition-colors">
+                      <td className="py-2 px-4 font-semibold text-zinc-900 dark:text-white">
+                        {row.label}
+                      </td>
+                      <td className="py-2 px-4">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {kbKeys.map((code) => (
+                            <span
+                              key={code}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#eceee7] dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-800 dark:text-zinc-200 font-mono text-[11px] shadow-xs"
+                            >
+                              <span>{formatKeyCode(code)}</span>
+                              {system && (
+                                <button
+                                  type="button"
+                                  title={`Remove ${formatKeyCode(code)}`}
+                                  onClick={() => {
+                                    system.setKeyboardBinding(
+                                      row.id,
+                                      kbKeys.filter((c) => c !== code)
+                                    );
+                                    setTick((t) => t + 1);
+                                    onUpdate?.();
+                                  }}
+                                  className="text-zinc-400 hover:text-rose-500 cursor-pointer leading-none"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                          {system && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setListeningTarget(
+                                  isListeningKb ? null : { action: row.id, type: 'keyboard' }
+                                )
+                              }
+                              className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                                isListeningKb
+                                  ? 'bg-[#7a1f5c] border-[#561340] text-white animate-pulse'
+                                  : 'bg-white dark:bg-zinc-900 border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                              }`}
+                            >
+                              {isListeningKb ? (
+                                <span>Press Key...</span>
+                              ) : (
+                                <>
+                                  <Plus className="w-3 h-3" />
+                                  <span>Add</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-4 font-mono text-zinc-700 dark:text-zinc-300 text-[11px]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {row.supportsGamepad ? (
+                            <>
+                              {padBtns.map((btnIdx) => (
+                                <span
+                                  key={btnIdx}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#eceee7] dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-800 dark:text-zinc-200 font-mono text-[11px]"
+                                >
+                                  <span>{formatGamepadBtn(btnIdx)}</span>
+                                  {system && (
+                                    <button
+                                      type="button"
+                                      title={`Remove ${formatGamepadBtn(btnIdx)}`}
+                                      onClick={() => {
+                                        system.setGamepadBinding(
+                                          row.id,
+                                          padBtns.filter((b) => b !== btnIdx)
+                                        );
+                                        setTick((t) => t + 1);
+                                        onUpdate?.();
+                                      }}
+                                      className="text-zinc-400 hover:text-rose-500 cursor-pointer leading-none"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                              {system && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setListeningTarget(
+                                      isListeningPad ? null : { action: row.id, type: 'gamepad' }
+                                    )
+                                  }
+                                  className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                                    isListeningPad
+                                      ? 'bg-[#4c5931] border-[#3a4424] text-white animate-pulse'
+                                      : 'bg-white dark:bg-zinc-900 border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                                  }`}
+                                >
+                                  {isListeningPad ? (
+                                    <span>Press Pad...</span>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-3 h-3" />
+                                      <span>Bind</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                              {row.gamepadNote && (
+                                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                  {row.gamepadNote}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-zinc-500 dark:text-zinc-400">
+                              {row.gamepadNote || 'Keyboard / Menu'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
