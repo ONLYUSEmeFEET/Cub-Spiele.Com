@@ -285,6 +285,7 @@ export class SM8521CPU {
     this.mmu[3] = 0;
     this.mmu[4] = 0;
     this.activeCartRom = null;
+    this.latchedCartSlot = 1;
 
     this.m_timer[0] = { enabled: false, upcounter_max: 0, prescale_max: 1, prescale_count: 0 };
     this.m_timer[1] = { enabled: false, upcounter_max: 0, prescale_max: 1, prescale_count: 0 };
@@ -923,12 +924,15 @@ export class SM8521CPU {
           // Check if CPU is currently executing inside cartridge ROM space ($2000-$9FFF with MMU >= 0x20)
           // or if any MMU bank currently maps cartridge ROM while an application is active.
           const pcBankIdx = this.m_PC >> 13;
+          const inBiosSlotSelector =
+            this.mmu[1] === 2 && this.m_PC >= 0x3fc0 && this.m_PC <= 0x3fd5;
           const inCartridgeSpace =
-            (this.m_PC >= 0x2000 &&
+            !inBiosSlotSelector &&
+            ((this.m_PC >= 0x2000 &&
               this.m_PC < 0xa000 &&
               this.mmu[pcBankIdx] >= 0x20) ||
-            this.mmu[3] >= 0x20 ||
-            this.mmu[4] >= 0x20;
+              this.mmu[3] >= 0x20 ||
+              this.mmu[4] >= 0x20);
 
           if (!inCartridgeSpace) {
             // BIOS is selecting a cartridge slot ($3FC4 = 0x40 Slot 1, $3FC9 = 0x80 Slot 2)

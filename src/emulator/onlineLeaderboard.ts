@@ -191,22 +191,30 @@ export class OnlineLeaderboardManager {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          this.entries = parsed.filter(
-            (e) =>
-              e &&
-              typeof e.gameId === 'number' &&
-              typeof e.numericScore === 'number' &&
-              Number.isFinite(e.numericScore) &&
-              e.numericScore > 0 &&
-              !isDefaultPlayerProfileName(e.playerName || '') &&
-              e.verification &&
-              !isNonScoringUtilitySave(
+          this.entries = parsed
+            .filter(
+              (e) =>
+                e &&
+                typeof e.gameId === 'number' &&
+                typeof e.numericScore === 'number' &&
+                Number.isFinite(e.numericScore) &&
+                e.numericScore > 0 &&
+                !isDefaultPlayerProfileName(e.playerName || '') &&
+                e.verification &&
+                !isNonScoringUtilitySave(
+                  e.gameId,
+                  e.biosTitle || e.gameTitle || '',
+                  e.scoreText || '',
+                  e.numericScore || 0
+                )
+            )
+            .map((e) => {
+              const known = resolveKnownGameByGameIdOrTitle(
                 e.gameId,
-                e.biosTitle || e.gameTitle || '',
-                e.scoreText || '',
-                e.numericScore || 0
-              )
-          );
+                e.biosTitle || e.gameTitle
+              );
+              return known ? { ...e, gameTitle: known.title } : e;
+            });
         }
       }
     } catch {

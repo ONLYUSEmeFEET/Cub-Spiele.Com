@@ -340,6 +340,18 @@ export function resolveKnownGameByGameIdOrTitle(
   gameId: number,
   rawTitle?: string
 ): KnownGame | null {
+  if (rawTitle) {
+    const norm = rawTitle.toUpperCase().replace(/\s+/g, ' ').trim();
+    const compact = norm.replace(/\s+/g, '');
+    if (/^SONIC\s*3(?:\b|$)/.test(norm) || compact === 'SONIC3') {
+      return {
+        ...KNOWN_GAMECOM_GAMES.sonicjam,
+        id: 'sonic3',
+        title: 'Sonic 3',
+        headerMatches: ['SONIC 3', 'SONIC3']
+      };
+    }
+  }
   if (gameId !== 0) {
     for (const key in KNOWN_GAMECOM_GAMES) {
       const g = KNOWN_GAMECOM_GAMES[key];
