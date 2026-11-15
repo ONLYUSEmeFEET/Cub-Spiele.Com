@@ -6,7 +6,12 @@ directories:
   buildResources: public/assets
 files:
   - dist/**/*
+  - "!dist/releases/**/*"
   - electron/**/*
+  - public/assets/icon.ico
+  - public/assets/icon.icns
+  - LICENSE
+  - credits.txt
   - package.json
 extraMetadata:
   main: electron/main.cjs
@@ -32,6 +37,35 @@ win:
       name: SM8521 Binary ROM
       description: SM8521 Binary ROM Image
       role: Viewer
+    - ext: rom
+      name: SM8521 Cartridge ROM
+      description: SM8521 Cartridge ROM Image
+      role: Viewer
+    - ext: zip
+      name: Compressed Cartridge Archive
+      description: Compressed Tiger Game.Com ROM Archive
+      role: Viewer
+mac:
+  icon: public/assets/icon.icns
+  category: public.app-category.games
+  artifactName: "CubSpieleCom-${version}-mac-${arch}.${ext}"
+  target:
+    - target: zip
+      arch:
+        - universal
+  fileAssociations:
+    - ext: tgc
+      name: Handheld Cartridge ROM
+      role: Viewer
+    - ext: bin
+      name: SM8521 Binary ROM
+      role: Viewer
+    - ext: rom
+      name: SM8521 Cartridge ROM
+      role: Viewer
+    - ext: zip
+      name: Compressed Cartridge Archive
+      role: Viewer
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
@@ -41,6 +75,4 @@ nsis:
   artifactName: "CubSpieleCom-Setup-${version}-${arch}.${ext}"
 portable:
   artifactName: "CubSpieleCom-Portable-${version}-${arch}.${ext}"
-publish:
-  provider: github
-  releaseType: release
+publish: null

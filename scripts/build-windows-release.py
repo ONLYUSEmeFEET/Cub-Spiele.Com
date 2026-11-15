@@ -123,12 +123,13 @@ def encode_png(size: int) -> bytes:
     )
 
 
-def generate_macos_icns(png_128: bytes, png_512: bytes) -> bytes:
-    """Generates a valid Apple macOS .icns icon bundle containing ic07 (128x128) and ic09 (512x512) PNGs."""
+def generate_macos_icns(png_128: bytes, png_256: bytes, png_512: bytes) -> bytes:
+    """Generates a valid Apple macOS .icns icon bundle containing ic07 (128px), ic08 (256px), and ic09 (512px) PNGs."""
     chunk_128 = b'ic07' + struct.pack('>I', 8 + len(png_128)) + png_128
+    chunk_256 = b'ic08' + struct.pack('>I', 8 + len(png_256)) + png_256
     chunk_512 = b'ic09' + struct.pack('>I', 8 + len(png_512)) + png_512
-    total_len = 8 + len(chunk_128) + len(chunk_512)
-    return b'icns' + struct.pack('>I', total_len) + chunk_128 + chunk_512
+    total_len = 8 + len(chunk_128) + len(chunk_256) + len(chunk_512)
+    return b'icns' + struct.pack('>I', total_len) + chunk_128 + chunk_256 + chunk_512
 
 
 def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
@@ -177,8 +178,13 @@ def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
     )
 
     dib_data = bih + bytes(pixels) + and_mask
-    icondir = struct.pack('<HHH', 0, 1, 1)
-    icondirentry = struct.pack(
+    png_256 = encode_png(256)
+
+    # Multi-resolution ICO (32x32 DIB + 256x256 PNG) required by electron-builder (>=256x256)
+    icondir = struct.pack('<HHH', 0, 1, 2)
+    offset_32 = 6 + 16 * 2
+    offset_256 = offset_32 + len(dib_data)
+    entry_32 = struct.pack(
         '<BBBBHHII',
         width,
         height,
@@ -187,10 +193,21 @@ def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
         1,
         32,
         len(dib_data),
-        6 + 16
+        offset_32
+    )
+    entry_256 = struct.pack(
+        '<BBBBHHII',
+        0,  # 0 denotes 256px in ICO specification
+        0,
+        0,
+        0,
+        1,
+        32,
+        len(png_256),
+        offset_256
     )
 
-    return icondir + icondirentry + dib_data, dib_data
+    return icondir + entry_32 + entry_256 + dib_data + png_256, dib_data
 
 
 def build_windows_bootstrap_ps1() -> bytes:
@@ -1427,12 +1444,13 @@ def main():
             ],
         })
 
-    # 1. Generate Multi-Platform Icons (ICO, PNG 128/192/512, macOS ICNS)
+    # 1. Generate Multi-Platform Icons (ICO 32/256, PNG 128/192/256/512, macOS ICNS)
     ico_bytes, dib_bytes = generate_cub_spiele_ico()
     png_128 = encode_png(128)
     png_192 = encode_png(192)
+    png_256 = encode_png(256)
     png_512 = encode_png(512)
-    icns_bytes = generate_macos_icns(png_128, png_512)
+    icns_bytes = generate_macos_icns(png_128, png_256, png_512)
 
     with open(os.path.join(ASSETS_DIR, 'icon.ico'), 'wb') as f:
         f.write(ico_bytes)
