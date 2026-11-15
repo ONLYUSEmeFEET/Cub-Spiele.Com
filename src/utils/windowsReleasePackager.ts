@@ -98,56 +98,209 @@ export function generateCubSpieleIconDib(): Uint8Array {
   return out;
 }
 
+function utf16LeToBase64(text: string): string {
+  const bytes = new Uint8Array(text.length * 2);
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    bytes[i * 2] = code & 0xff;
+    bytes[i * 2 + 1] = (code >> 8) & 0xff;
+  }
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) {
+    bin += String.fromCharCode(bytes[i]);
+  }
+  return btoa(bin);
+}
+
+function buildWindowsBootstrapPs1Base64(): string {
+  const script =
+    "$ErrorActionPreference='SilentlyContinue'\n" +
+    '$exe=$env:CUB_EXE_PATH\n' +
+    'if(-not $exe -or -not (Test-Path -LiteralPath $exe)){exit 1}\n' +
+    '$dir=Split-Path -Parent $exe\n' +
+    "$localApp=Join-Path $dir 'app\\index.html'\n" +
+    "$localData=[Environment]::GetFolderPath('LocalApplicationData')\n" +
+    'if(-not $localData){$localData=$env:TEMP}\n' +
+    "$baseWork=Join-Path $localData 'CubSpieleCom'\n" +
+    '$appHtml=$null\n' +
+    'if(Test-Path -LiteralPath $localApp){\n' +
+    '  $appHtml=$localApp\n' +
+    '}else{\n' +
+    '  $fi=Get-Item -LiteralPath $exe\n' +
+    '  $stamp="$($fi.Length)_$($fi.LastWriteTimeUtc.Ticks)"\n' +
+    '  $rtDir=Join-Path $baseWork "runtime-$($fi.Length)"\n' +
+    "  $stampFile=Join-Path $rtDir '.cub_stamp'\n" +
+    "  $rtApp=Join-Path $rtDir 'app\\index.html'\n" +
+    '  if(-not ((Test-Path -LiteralPath $rtApp) -and (Test-Path -LiteralPath $stampFile) -and ((Get-Content -LiteralPath $stampFile -Raw) -eq $stamp))){\n' +
+    '    if(Test-Path -LiteralPath $rtDir){Remove-Item -LiteralPath $rtDir -Recurse -Force}\n' +
+    '    $null=New-Item -ItemType Directory -Path $rtDir -Force\n' +
+    '    Add-Type -AssemblyName System.IO.Compression.FileSystem\n' +
+    '    [System.IO.Compression.ZipFile]::ExtractToDirectory($exe,$rtDir)\n' +
+    '    Set-Content -LiteralPath $stampFile -Value $stamp -NoNewline\n' +
+    '  }\n' +
+    '  $appHtml=$rtApp\n' +
+    '}\n' +
+    'if(-not $appHtml -or -not (Test-Path -LiteralPath $appHtml)){exit 2}\n' +
+    '$fileUrl=[System.Uri]::new($appHtml).AbsoluteUri\n' +
+    "$profileDir=Join-Path $baseWork 'Profile'\n" +
+    '$null=New-Item -ItemType Directory -Path $profileDir -Force\n' +
+    '$browsers=@(\n' +
+    '  "${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe",\n' +
+    '  "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe",\n' +
+    '  "$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe",\n' +
+    '  "${env:ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe",\n' +
+    '  "$env:ProgramFiles\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"\n' +
+    ')\n' +
+    '$chosen=$browsers|Where-Object{$_ -and (Test-Path -LiteralPath $_)}|Select-Object -First 1\n' +
+    'if($chosen){\n' +
+    '  $argsList=@(\n' +
+    '    "`"--app=$fileUrl`"",\n' +
+    "    '--window-size=920,760',\n" +
+    "    '--allow-file-access-from-files',\n" +
+    "    '--autoplay-policy=no-user-gesture-required',\n" +
+    '    "`"--user-data-dir=$profileDir`""\n' +
+    '  )\n' +
+    '  Start-Process -FilePath $chosen -ArgumentList $argsList\n' +
+    '}else{\n' +
+    '  Start-Process -FilePath $appHtml\n' +
+    '}\n';
+  return utf16LeToBase64(script);
+}
+
 /**
- * Synthesizes a 64-bit Windows PE32+ GUI Executable (CubSpieleCom.exe)
+ * Shifts ZIP Central Directory & EOCD offsets by +baseOffset so an appended
+ * ZIP archive reads validly from byte 0 of a PE32+ executable.
  */
-export function buildCubSpielePe64Exe(): Uint8Array {
+export function shiftZipOffsets(zipBytes: Uint8Array, baseOffset: number): Uint8Array {
+  if (baseOffset === 0) return zipBytes;
+  const buf = new Uint8Array(zipBytes);
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+
+  let eocdPos = -1;
+  const minPos = Math.max(0, buf.length - 65557);
+  for (let i = buf.length - 22; i >= minPos; i--) {
+    if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
+      const commentLen = dv.getUint16(i + 20, true);
+      if (i + 22 + commentLen === buf.length) {
+        eocdPos = i;
+        break;
+      }
+    }
+  }
+  if (eocdPos < 0) return zipBytes;
+
+  const cdSize = dv.getUint32(eocdPos + 12, true);
+  const cdOffset = dv.getUint32(eocdPos + 16, true);
+  let pos = cdOffset;
+  const endCd = cdOffset + cdSize;
+  while (pos < endCd) {
+    if (buf[pos] !== 0x50 || buf[pos + 1] !== 0x4b || buf[pos + 2] !== 0x01 || buf[pos + 3] !== 0x02) {
+      break;
+    }
+    const fnLen = dv.getUint16(pos + 28, true);
+    const exLen = dv.getUint16(pos + 30, true);
+    const cmLen = dv.getUint16(pos + 32, true);
+    const localHdrOff = dv.getUint32(pos + 42, true);
+    dv.setUint32(pos + 42, localHdrOff + baseOffset, true);
+    pos += 46 + fnLen + exLen + cmLen;
+  }
+
+  dv.setUint32(eocdPos + 16, cdOffset + baseOffset, true);
+  return buf;
+}
+
+/**
+ * Synthesizes a 64-bit Windows PE32+ Self-Extracting GUI Executable (CubSpieleCom.exe)
+ */
+export function buildCubSpielePe64Exe(embeddedZipPayload?: Uint8Array): Uint8Array {
   const dibIcon = generateCubSpieleIconDib();
   const fileAlign = 0x200;
   const sectAlign = 0x1000;
 
-  const rdata = new Uint8Array(0x400);
+  // --- 1. Build .rdata section (RVA 0x2000) ---
+  const rdata = new Uint8Array(0x200);
   const rdataDv = new DataView(rdata.buffer);
   const rvaRdata = 0x2000;
 
-  const rvaHnExit = rvaRdata + 0x0080;
-  const rvaHnShell = rvaRdata + 0x0090;
-  const rvaNameK32 = rvaRdata + 0x00a0;
-  const rvaNameS32 = rvaRdata + 0x00b0;
+  const rvaHnGetMod = rvaRdata + 0x00e0;
+  const rvaHnSetEnv = rvaRdata + 0x0100;
+  const rvaHnCreate = rvaRdata + 0x0120;
+  const rvaHnExit = rvaRdata + 0x0138;
+  const rvaHnShell = rvaRdata + 0x0150;
 
-  const rvaStrOpen = rvaRdata + 0x00c0;
-  const rvaStrWscript = rvaRdata + 0x00d0;
-  const rvaStrVbsArg = rvaRdata + 0x00e0;
-  const rvaStrHtml = rvaRdata + 0x0108;
+  const rvaNameK32 = rvaRdata + 0x00c0;
+  const rvaNameS32 = rvaRdata + 0x00d0;
 
-  rdataDv.setUint32(0x0000, rvaHnExit, true);
-  rdataDv.setUint32(0x0010, rvaHnShell, true);
-  rdataDv.setUint32(0x0020, rvaHnExit, true);
-  rdataDv.setUint32(0x0030, rvaHnShell, true);
+  const rvaStrEnv = rvaRdata + 0x0168;
+  const rvaStrOpen = rvaRdata + 0x0180;
+  const rvaStrPsExe = rvaRdata + 0x0190;
 
-  rdataDv.setUint32(0x0040, rvaRdata + 0x0020, true);
-  rdataDv.setUint32(0x004c, rvaNameK32, true);
-  rdataDv.setUint32(0x0050, rvaRdata + 0x0000, true);
+  // IAT KERNEL32
+  rdataDv.setUint32(0x0000, rvaHnGetMod, true);
+  rdataDv.setUint32(0x0008, rvaHnSetEnv, true);
+  rdataDv.setUint32(0x0010, rvaHnCreate, true);
+  rdataDv.setUint32(0x0018, rvaHnExit, true);
+  // IAT SHELL32
+  rdataDv.setUint32(0x0028, rvaHnShell, true);
 
-  rdataDv.setUint32(0x0054, rvaRdata + 0x0030, true);
-  rdataDv.setUint32(0x0060, rvaNameS32, true);
-  rdataDv.setUint32(0x0064, rvaRdata + 0x0010, true);
+  // ILT KERNEL32
+  rdataDv.setUint32(0x0040, rvaHnGetMod, true);
+  rdataDv.setUint32(0x0048, rvaHnSetEnv, true);
+  rdataDv.setUint32(0x0050, rvaHnCreate, true);
+  rdataDv.setUint32(0x0058, rvaHnExit, true);
+  // ILT SHELL32
+  rdataDv.setUint32(0x0068, rvaHnShell, true);
 
-  rdata.set(strToU8('ExitProcess\0'), 0x0082);
-  rdata.set(strToU8('ShellExecuteA\0'), 0x0092);
-  rdata.set(strToU8('KERNEL32.dll\0'), 0x00a0);
-  rdata.set(strToU8('SHELL32.dll\0'), 0x00b0);
-  rdata.set(strToU8('open\0'), 0x00c0);
-  rdata.set(strToU8('wscript.exe\0'), 0x00d0);
-  rdata.set(strToU8('"CubSpieleCom-Host.vbs"\0'), 0x00e0);
-  rdata.set(strToU8('app\\index.html\0'), 0x0108);
+  // Import Directory Descriptors (3 * 20 = 60 bytes)
+  rdataDv.setUint32(0x0080, rvaRdata + 0x0040, true);
+  rdataDv.setUint32(0x008c, rvaNameK32, true);
+  rdataDv.setUint32(0x0090, rvaRdata + 0x0000, true);
 
-  const rvaIatExit = rvaRdata + 0x0000;
-  const rvaIatShell = rvaRdata + 0x0010;
+  rdataDv.setUint32(0x0094, rvaRdata + 0x0068, true);
+  rdataDv.setUint32(0x00a0, rvaNameS32, true);
+  rdataDv.setUint32(0x00a4, rvaRdata + 0x0028, true);
 
+  rdata.set(strToU8('KERNEL32.dll\0'), 0x00c0);
+  rdata.set(strToU8('SHELL32.dll\0'), 0x00d0);
+  rdata.set(strToU8('GetModuleFileNameA\0'), 0x00e2);
+  rdata.set(strToU8('SetEnvironmentVariableA\0'), 0x0102);
+  rdata.set(strToU8('CreateProcessA\0'), 0x0122);
+  rdata.set(strToU8('ExitProcess\0'), 0x013a);
+  rdata.set(strToU8('ShellExecuteA\0'), 0x0152);
+  rdata.set(strToU8('CUB_EXE_PATH\0'), 0x0168);
+  rdata.set(strToU8('open\0'), 0x0180);
+  rdata.set(strToU8('powershell.exe\0'), 0x0190);
+
+  const rdataVsize = 0x1a0;
+  const rvaIatGetMod = rvaRdata + 0x0000;
+  const rvaIatSetEnv = rvaRdata + 0x0008;
+  const rvaIatCreate = rvaRdata + 0x0010;
+  const rvaIatExit = rvaRdata + 0x0018;
+  const rvaIatShell = rvaRdata + 0x0028;
+
+  // --- 2. Build writable .data section ---
+  const rvaData = rvaRdata + align(rdataVsize, sectAlign); // 0x3000
+  const psB64 = buildWindowsBootstrapPs1Base64();
+  const psPrefix = 'powershell.exe ';
+  const psArgs = `-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand ${psB64}\0`;
+  const cmdLineBytes = strToU8(psPrefix + psArgs);
+  const dataRawLen = 0x0490 + cmdLineBytes.length;
+  const dataSection = new Uint8Array(align(dataRawLen, fileAlign));
+  const dataDv = new DataView(dataSection.buffer);
+  dataDv.setUint32(0x0400, 104, true); // STARTUPINFOA.cb
+  dataDv.setUint32(0x043c, 1, true);   // STARTF_USESHOWWINDOW
+  dataDv.setUint16(0x0440, 0, true);   // SW_HIDE
+  dataSection.set(cmdLineBytes, 0x0490);
+
+  const rvaExeBuf = rvaData + 0x0000;
+  const rvaStartupInfo = rvaData + 0x0400;
+  const rvaProcessInfo = rvaData + 0x0470;
+  const rvaCmdLine = rvaData + 0x0490;
+  const rvaPsArgs = rvaData + 0x0490 + psPrefix.length;
+
+  // --- 3. Build .text section (RVA 0x1000) ---
   const textBytes: number[] = [];
   const rvaText = 0x1000;
-
   const emit = (...bytes: number[]) => textBytes.push(...bytes);
   const emitRipRel = (prefix: number[], targetRva: number) => {
     const nextRip = rvaText + textBytes.length + prefix.length + 4;
@@ -158,25 +311,40 @@ export function buildCubSpielePe64Exe(): Uint8Array {
     textBytes.push(...new Uint8Array(b));
   };
 
-  emit(0x48, 0x83, 0xec, 0x38);
+  emit(0x48, 0x83, 0xec, 0x58); // sub rsp, 0x58
   emit(0x31, 0xc9);
-  emitRipRel([0x48, 0x8d, 0x15], rvaStrOpen);
-  emitRipRel([0x4c, 0x8d, 0x05], rvaStrWscript);
-  emitRipRel([0x4c, 0x8d, 0x0d], rvaStrVbsArg);
-  emit(0x48, 0xc7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00);
-  emit(0xc7, 0x44, 0x24, 0x28, 0x01, 0x00, 0x00, 0x00);
-  emitRipRel([0xff, 0x15], rvaIatShell);
+  emitRipRel([0x48, 0x8d, 0x15], rvaExeBuf);
+  emit(0x41, 0xb8, 0x00, 0x04, 0x00, 0x00);
+  emitRipRel([0xff, 0x15], rvaIatGetMod);
 
-  emit(0x48, 0x83, 0xf8, 0x20);
-  const jccPos = textBytes.length;
-  emit(0x7f, 0x00);
+  emitRipRel([0x48, 0x8d, 0x0d], rvaStrEnv);
+  emitRipRel([0x48, 0x8d, 0x15], rvaExeBuf);
+  emitRipRel([0xff, 0x15], rvaIatSetEnv);
 
   emit(0x31, 0xc9);
-  emitRipRel([0x48, 0x8d, 0x15], rvaStrOpen);
-  emitRipRel([0x4c, 0x8d, 0x05], rvaStrHtml);
+  emitRipRel([0x48, 0x8d, 0x15], rvaCmdLine);
+  emit(0x45, 0x31, 0xc0);
   emit(0x45, 0x31, 0xc9);
   emit(0x48, 0xc7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00);
-  emit(0xc7, 0x44, 0x24, 0x28, 0x01, 0x00, 0x00, 0x00);
+  emit(0x48, 0xc7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x08);
+  emit(0x48, 0xc7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00);
+  emit(0x48, 0xc7, 0x44, 0x24, 0x38, 0x00, 0x00, 0x00, 0x00);
+  emitRipRel([0x48, 0x8d, 0x05], rvaStartupInfo);
+  emit(0x48, 0x89, 0x44, 0x24, 0x40);
+  emitRipRel([0x48, 0x8d, 0x05], rvaProcessInfo);
+  emit(0x48, 0x89, 0x44, 0x24, 0x48);
+  emitRipRel([0xff, 0x15], rvaIatCreate);
+
+  emit(0x85, 0xc0);
+  const jccPos = textBytes.length;
+  emit(0x75, 0x00);
+
+  emit(0x31, 0xc9);
+  emitRipRel([0x48, 0x8d, 0x15], rvaStrOpen);
+  emitRipRel([0x4c, 0x8d, 0x05], rvaStrPsExe);
+  emitRipRel([0x4c, 0x8d, 0x0d], rvaPsArgs);
+  emit(0x48, 0xc7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00);
+  emit(0x48, 0xc7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x00);
   emitRipRel([0xff, 0x15], rvaIatShell);
 
   const exitPos = textBytes.length;
@@ -184,12 +352,13 @@ export function buildCubSpielePe64Exe(): Uint8Array {
 
   emit(0x31, 0xc9);
   emitRipRel([0xff, 0x15], rvaIatExit);
-  emit(0x48, 0x83, 0xc4, 0x38, 0xc3);
+  emit(0x48, 0x83, 0xc4, 0x58, 0xc3);
 
-  const textPadded = new Uint8Array(fileAlign);
+  const textPadded = new Uint8Array(align(textBytes.length, fileAlign));
   textPadded.set(textBytes);
 
-  const rvaRsrc = 0x3000;
+  // --- 4. Build .rsrc section ---
+  const rvaRsrc = rvaData + align(dataRawLen, sectAlign);
   const grpIcon = new Uint8Array(20);
   const grpDv = new DataView(grpIcon.buffer);
   grpDv.setUint16(0, 0, true);
@@ -239,6 +408,7 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   rsrcDv.setUint32(0x90, rvaRsrc + grpOffset, true);
   rsrcDv.setUint32(0x94, grpIcon.length, true);
 
+  // --- 5. Assemble PE32+ Headers ---
   const headers = new Uint8Array(0x400);
   const hDv = new DataView(headers.buffer);
   headers[0] = 0x4d;
@@ -248,17 +418,18 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   const peOff = 0x80;
   headers.set([0x50, 0x45, 0x00, 0x00], peOff);
   hDv.setUint16(peOff + 4, 0x8664, true);
-  hDv.setUint16(peOff + 6, 3, true);
+  hDv.setUint16(peOff + 6, 4, true);
   hDv.setUint32(peOff + 8, 1794400000, true);
   hDv.setUint16(peOff + 20, 240, true);
   hDv.setUint16(peOff + 22, 0x0022, true);
 
   const optOff = peOff + 24;
-  const sizeOfImage = 0x3000 + align(rsrcRawLen, sectAlign);
+  const sizeOfImage = rvaRsrc + align(rsrcRawLen, sectAlign);
+  const sizeOfInitData = rdata.length + dataSection.length + rsrcPadded.length;
   hDv.setUint16(optOff + 0, 0x020b, true);
   headers[optOff + 2] = 14;
   hDv.setUint32(optOff + 4, textPadded.length, true);
-  hDv.setUint32(optOff + 8, rdata.length + rsrcPadded.length, true);
+  hDv.setUint32(optOff + 8, sizeOfInitData, true);
   hDv.setUint32(optOff + 16, 0x1000, true);
   hDv.setUint32(optOff + 20, 0x1000, true);
   hDv.setUint32(optOff + 24, 0x40000000, true);
@@ -267,7 +438,7 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   hDv.setUint32(optOff + 36, fileAlign, true);
   hDv.setUint16(optOff + 40, 6, true);
   hDv.setUint16(optOff + 44, 1, true);
-  hDv.setUint16(optOff + 46, 3, true);
+  hDv.setUint16(optOff + 46, 5, true);
   hDv.setUint16(optOff + 48, 6, true);
   hDv.setUint32(optOff + 56, sizeOfImage, true);
   hDv.setUint32(optOff + 60, 0x400, true);
@@ -280,12 +451,12 @@ export function buildCubSpielePe64Exe(): Uint8Array {
   hDv.setUint32(optOff + 108, 16, true);
 
   const ddOff = optOff + 112;
-  hDv.setUint32(ddOff + 1 * 8, rvaRdata + 0x0040, true);
+  hDv.setUint32(ddOff + 1 * 8, rvaRdata + 0x0080, true);
   hDv.setUint32(ddOff + 1 * 8 + 4, 60, true);
   hDv.setUint32(ddOff + 2 * 8, rvaRsrc, true);
   hDv.setUint32(ddOff + 2 * 8 + 4, rsrcRawLen, true);
   hDv.setUint32(ddOff + 12 * 8, rvaRdata, true);
-  hDv.setUint32(ddOff + 12 * 8 + 4, 32, true);
+  hDv.setUint32(ddOff + 12 * 8 + 4, 0x38, true);
 
   const sectOff = optOff + 240;
   const writeSect = (
@@ -306,24 +477,33 @@ export function buildCubSpielePe64Exe(): Uint8Array {
     hDv.setUint32(off + 36, chars, true);
   };
 
-  writeSect(0, '.text', textBytes.length, 0x1000, textPadded.length, 0x400, 0x60000020);
-  writeSect(1, '.rdata', 0x120, 0x2000, rdata.length, 0x400 + textPadded.length, 0x40000040);
-  writeSect(
-    2,
-    '.rsrc',
-    rsrcRawLen,
-    0x3000,
-    rsrcPadded.length,
-    0x400 + textPadded.length + rdata.length,
-    0x40000040
-  );
+  const ptrText = 0x400;
+  const ptrRdata = ptrText + textPadded.length;
+  const ptrData = ptrRdata + rdata.length;
+  const ptrRsrc = ptrData + dataSection.length;
 
-  const total = new Uint8Array(headers.length + textPadded.length + rdata.length + rsrcPadded.length);
-  total.set(headers, 0);
-  total.set(textPadded, headers.length);
-  total.set(rdata, headers.length + textPadded.length);
-  total.set(rsrcPadded, headers.length + textPadded.length + rdata.length);
-  return total;
+  writeSect(0, '.text', textBytes.length, rvaText, textPadded.length, ptrText, 0x60000020);
+  writeSect(1, '.rdata', rdataVsize, rvaRdata, rdata.length, ptrRdata, 0x40000040);
+  writeSect(2, '.data', dataRawLen, rvaData, dataSection.length, ptrData, 0xc0000040);
+  writeSect(3, '.rsrc', rsrcRawLen, rvaRsrc, rsrcPadded.length, ptrRsrc, 0x40000040);
+
+  const peStub = new Uint8Array(
+    headers.length + textPadded.length + rdata.length + dataSection.length + rsrcPadded.length
+  );
+  peStub.set(headers, 0);
+  peStub.set(textPadded, ptrText);
+  peStub.set(rdata, ptrRdata);
+  peStub.set(dataSection, ptrData);
+  peStub.set(rsrcPadded, ptrRsrc);
+
+  if (embeddedZipPayload && embeddedZipPayload.length > 0) {
+    const shifted = shiftZipOffsets(embeddedZipPayload, peStub.length);
+    const out = new Uint8Array(peStub.length + shifted.length);
+    out.set(peStub, 0);
+    out.set(shifted, peStub.length);
+    return out;
+  }
+  return peStub;
 }
 
 export function triggerBinaryDownload(bytes: Uint8Array | Blob, fileName: string, mimeType: string) {
@@ -343,22 +523,35 @@ export function triggerBinaryDownload(bytes: Uint8Array | Blob, fileName: string
 }
 
 /**
- * Downloads the standalone CubSpieleCom.exe Windows x64 GUI executable
+ * Downloads the self-contained CubSpieleCom.exe Windows x64 GUI executable
  */
 export async function downloadStandaloneWindowsExe(fileName: string = 'CubSpieleCom.exe'): Promise<number> {
   try {
     const res = await fetch('./releases/CubSpieleCom.exe');
     if (res.ok) {
       const buf = new Uint8Array(await res.arrayBuffer());
-      if (buf.length > 1024 && buf[0] === 0x4d && buf[1] === 0x5a) {
+      if (buf.length > 100000 && buf[0] === 0x4d && buf[1] === 0x5a) {
         triggerBinaryDownload(buf, fileName, 'application/vnd.microsoft.portable-executable');
         return buf.length;
       }
     }
   } catch {
-    // Fallback to in-memory PE32+ synthesis
+    // Fallback to in-memory self-contained PE32+ SFX synthesis
   }
-  const exeBytes = buildCubSpielePe64Exe();
+  const fallbackAssets: Record<string, Uint8Array> = {};
+  for (const rel of ['bios/internal.bin', 'bios/external.bin']) {
+    try {
+      const r = await fetch(`./${rel}`);
+      if (r.ok) {
+        fallbackAssets[`app/${rel}`] = new Uint8Array(await r.arrayBuffer());
+      }
+    } catch {
+      // Ignore unreachable assets
+    }
+  }
+  fallbackAssets['app/index.html'] = strToU8(document.documentElement.outerHTML);
+  const payloadZip = zipSync(fallbackAssets, { level: 6 });
+  const exeBytes = buildCubSpielePe64Exe(payloadZip);
   triggerBinaryDownload(exeBytes, fileName, 'application/vnd.microsoft.portable-executable');
   return exeBytes.length;
 }
@@ -383,7 +576,6 @@ export async function downloadWindowsPortableZip(
     // Proceed to in-memory fflate.zipSync builder
   }
 
-  const exeBytes = buildCubSpielePe64Exe();
   const hostVbs = `' Cub Spiele.Com — Standalone Handheld Emulator Host
 Option Explicit
 Dim fso, shell, baseDir, appHtmlPath, edgePaths, edgeExe, p, cmd, userDataDir
@@ -434,12 +626,12 @@ QUICK START (WINDOWS 10 / WINDOWS 11 x64):
 2. Double-click "CubSpieleCom.exe" to launch the standalone emulator.
 
 FEATURES:
-- Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
-- Recently Played ROMs submenu with TigerDMGC cartridge header verification
-- Screen-Only Mode (Default, 2x / 3x / 4x integer scale) & Touch View (Button-Only Controls)
-- Light / Dark Mode appearance toggle with authentic Tiger Game.Com accents
-- STN Passive-Matrix LCD Ghosting Intensity & Persistence controls
-- 2-Shade LCD Color Blender
+- Self-Contained PE32+ Executable with embedded runtime & BIOS
+- Native Desktop Menu Bar (File, Emulation, View, Display, Settings, Tools, About)
+- Recently Played ROMs submenu with TigerDMGC cartridge header verification & .zip support
+- Screen-Only Mode (1x - 8x / Full) & Touch View (Configurable Scale & Compact/Standard/Large Controls)
+- Dedicated Display Menu with Screen Color Presets, Custom Colors, LCD Contrast & Ghosting (0% - 100%)
+- Streamlined UI by default with optional Advanced Mode (Tools -> Advanced Mode)
 - Internal Real-Time Clock & Date synced to your device on boot
 ================================================================================
 `;
@@ -468,7 +660,6 @@ SOFTWARE.
 `;
 
   const zipFiles: Record<string, Uint8Array> = {
-    'CubSpieleCom.exe': exeBytes,
     'CubSpieleCom-Host.vbs': strToU8(hostVbs),
     'README-WINDOWS.txt': strToU8(readmeTxt),
     'LICENSE': strToU8(licenseTxt)
@@ -488,6 +679,9 @@ SOFTWARE.
       // Skip if unreachable
     }
   }
+  zipFiles['app/index.html'] = strToU8(document.documentElement.outerHTML);
+  const embeddedPayload = zipSync(zipFiles, { level: 6 });
+  zipFiles['CubSpieleCom.exe'] = buildCubSpielePe64Exe(embeddedPayload);
 
   const zipped = zipSync(zipFiles, { level: 6 });
   triggerBinaryDownload(zipped, zipFileName, 'application/zip');

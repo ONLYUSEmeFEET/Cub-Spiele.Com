@@ -35,7 +35,8 @@ const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v2';
 const TWO_SHADE_STORAGE_KEY = 'cub_spiele_two_shade_v2';
 const GHOSTING_SETTINGS_STORAGE_KEY = 'cub_spiele_ghosting_v2';
 const INPUT_SETTINGS_STORAGE_KEY = 'cub_spiele_input_settings_v1';
-const VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v1';
+const VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v2';
+const LEGACY_VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v1';
 
 export function getDefaultViewModeForPlatform(): 'screen-only' | 'touch' {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -211,7 +212,10 @@ export class GameComSystem {
     screenScale: 3,
     screenFitMode: 'scale',
     integerScaling: true,
-    showBottomBar: true,
+    touchScaleMode: 'auto',
+    touchScale: 2.5,
+    touchControlSize: 'standard',
+    showBottomBar: false,
     contrast: 1.0,
     volume: 0.2,
     muted: false,
@@ -565,7 +569,13 @@ export class GameComSystem {
           this.settings.theme = parsedI.theme;
         }
       }
-      const rawView = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      const rawView =
+        localStorage.getItem(VIEW_MODE_STORAGE_KEY) ||
+        localStorage.getItem(LEGACY_VIEW_MODE_STORAGE_KEY);
+      const isMigratedFromLegacy =
+        !localStorage.getItem(VIEW_MODE_STORAGE_KEY) &&
+        Boolean(localStorage.getItem(LEGACY_VIEW_MODE_STORAGE_KEY));
+
       if (rawView) {
         const parsedV = JSON.parse(rawView);
         if (parsedV?.viewMode === 'screen-only' || parsedV?.viewMode === 'touch') {
@@ -582,12 +592,31 @@ export class GameComSystem {
         if (typeof parsedV?.integerScaling === 'boolean') {
           this.settings.integerScaling = parsedV.integerScaling;
         }
-        if (typeof parsedV?.showBottomBar === 'boolean') {
+        if (parsedV?.touchScaleMode === 'auto' || parsedV?.touchScaleMode === 'scale') {
+          this.settings.touchScaleMode = parsedV.touchScaleMode;
+        }
+        if (typeof parsedV?.touchScale === 'number' && parsedV.touchScale >= 1 && parsedV.touchScale <= 5) {
+          this.settings.touchScale = Math.round(parsedV.touchScale * 100) / 100;
+        }
+        if (
+          parsedV?.touchControlSize === 'compact' ||
+          parsedV?.touchControlSize === 'standard' ||
+          parsedV?.touchControlSize === 'large'
+        ) {
+          this.settings.touchControlSize = parsedV.touchControlSize;
+        }
+        if (!isMigratedFromLegacy && typeof parsedV?.showBottomBar === 'boolean') {
           this.settings.showBottomBar = parsedV.showBottomBar;
+        } else {
+          this.settings.showBottomBar = false;
+        }
+        if (isMigratedFromLegacy) {
+          this.saveViewSettingsToStorage();
         }
       } else {
         // First boot: set platform default (Screen-Only on Windows/macOS, Touch on Android/mobile) and persist it
         this.settings.viewMode = getDefaultViewModeForPlatform();
+        this.settings.showBottomBar = false;
         this.saveViewSettingsToStorage();
       }
       this.retroAchievements.config.leaderboardPopups = this.settings.showScoreOverlay;
@@ -650,6 +679,9 @@ export class GameComSystem {
           screenScale: this.settings.screenScale,
           screenFitMode: this.settings.screenFitMode,
           integerScaling: this.settings.integerScaling,
+          touchScaleMode: this.settings.touchScaleMode,
+          touchScale: this.settings.touchScale,
+          touchControlSize: this.settings.touchControlSize,
           showBottomBar: this.settings.showBottomBar
         })
       );
@@ -686,6 +718,25 @@ export class GameComSystem {
     this.settings.integerScaling = next;
     this.saveViewSettingsToStorage();
     return next;
+  }
+
+  public setTouchScale(scale: number) {
+    this.settings.touchScale = Math.max(1, Math.min(5, Math.round(scale * 100) / 100));
+    this.settings.touchScaleMode = 'scale';
+    this.settings.viewMode = 'touch';
+    this.saveViewSettingsToStorage();
+  }
+
+  public setTouchScaleMode(mode: 'auto' | 'scale') {
+    this.settings.touchScaleMode = mode;
+    this.settings.viewMode = 'touch';
+    this.saveViewSettingsToStorage();
+  }
+
+  public setTouchControlSize(size: 'compact' | 'standard' | 'large') {
+    this.settings.touchControlSize = size;
+    this.settings.viewMode = 'touch';
+    this.saveViewSettingsToStorage();
   }
 
   public toggleBottomBar(enabled?: boolean): boolean {

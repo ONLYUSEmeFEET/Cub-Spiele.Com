@@ -4,10 +4,10 @@
 **Cub Spiele.Com** is a cycle-accurate standalone handheld emulator for the 1997 **Sharp SM8521** 8/16-bit microcontroller architecture (originally used in the Tiger Game.Com handheld console), designed for both **Native Windows x64 Desktop** (`CubSpieleCom.exe` / Electron) and **Web** execution.
 
 The interface follows standalone handheld emulators such as **mGBA**, offering:
-- **Native Desktop Menu Bar** (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`)
-- **Screen-Only Mode (Default)** (`2×`, `3×`, `4×` integer scaling of the 200×160 2-bpp STN LCD) & **Touch View** (mobile-inspired button-only border controls) with **Light / Dark Mode**
-- **Recently Played ROMs** tracking with 1-click boot into **Cartridge Slot 1** or **Cartridge Slot 2**
-- **Touch Grid Visibility Slider (`0%–100%`)** for the 13×10 resistive touchscreen matrix
+- **Native Desktop Menu Bar** (`File`, `Emulation`, `View`, `Display`, `Settings`, `Tools`, `About`)
+- **Platform-Adaptive Views**: **Screen-Only Mode** default on Windows/macOS (`1×`–`8×` / `Full` scaling) & **Touch View** default on Android/mobile (with Touch screen scaling presets and `Compact`/`Standard`/`Large` control sizing) plus **Light / Dark Mode** and hidden-by-default **Status Bar** (`Ctrl+B`)
+- **Multi-Format ROM Loading**: Supports `.bin`, `.tgc`, `.rom`, and `.zip` archives with **Recently Played ROMs** tracking and 1-click boot into **Cartridge Slot 1** or **Cartridge Slot 2**
+- **Dedicated Display & Overlay Controls**: **Display** menu consolidating **Screen Color Presets**, **Custom Screen Colors**, **LCD Contrast (`0%–100%`)**, **LCD Ghosting (`0%–100%`)**, and **LCD Pixel Grid**; plus **Touch Grid Visibility (`0%–100%`)** under **View -> Overlays**
 - **Expanded Battery-Backed NVRAM High Score Vault (`$FC60–$FEDF`)** supporting unlimited 10-slot banks via automatic bank paging
 
 ---
@@ -20,14 +20,15 @@ The interface follows standalone handheld emulators such as **mGBA**, offering:
 | `src/emulator/lcd.ts` | 200×160 2-bpp (4-shade) passive-matrix STN LCD renderer with calibrated reflective olive-green palette (`#b9c48a`) and frame ghosting. |
 | `src/emulator/sound.ts` | Hardware audio engine: `SGDA ($004E)` 8-bit DAC streamer (~7,877 Hz sample-rate conversion), `SG0`/`SG1`/`SG2` programmable tone generators, and 28mm internal speaker band-pass filter (`310 Hz – 3,450 Hz`). Default volume: `20%` (`0.2`). |
 | `src/emulator/nvramHighScores.ts` | Multi-player battery-backed NVRAM High Score & binary save manager (`$FC60–$FEDF`). Supports player profile creation, renaming, multi-user `.json`/`.nvram` score import, and preserves the full 64-byte hardware slot (`rawSlot`), including *Lights Out* (`Game ID $0917`) binary level progress bytes at offsets `+0x12..+0x17`. |
-| `src/emulator/retroAchievements.ts` | Competitive Hardcore Mode, RFC 1321 MD5 ROM hashing, and rolling input entropy attestation engine (optional achievement UI components hidden behind user toggle). |
+| `src/emulator/retroAchievements.ts` | Competitive Hardcore Mode, RFC 1321 MD5 ROM hashing, and rolling input entropy attestation engine (optional UI components hidden by default behind `Tools -> Advanced Tools`). |
 | `src/emulator/onlineLeaderboard.ts` | Online Competitive Leaderboard manager (`/api/leaderboards` REST sync, `BroadcastChannel` peer sync, best-score-per-game aggregation, and `CSC1-...` Signed Score Certificates). |
-| `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (unloaded by default, user-loadable), Hardcore/Softcore Mode enforcement, and Recently Played ROM persistence. |
-| `src/components/TopBar.tsx` | Standalone desktop menu bar (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`) and quick toolbar with streamlined Standard Mode and optional Advanced Mode. |
-| `src/components/ScreenOnlyView.tsx` | Standalone Screen-Only viewport with `2×`/`3×`/`4×` integer scaling and hardware status bar. |
-| `src/components/GameComConsole.tsx` | Mobile-inspired **Touch View** (`TouchView` / `GameComConsole`) with button-only D-Pad, A/B/C/D, and system strip controls styled with Tiger Game.Com accents. |
-| `electron/main.cjs` & `preload.cjs` | Electron Native Windows desktop main process and IPC preload bridge (`window.gamecomDesktop`). |
-| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.0.9-win64.zip` + macOS/Android builds. |
+| `src/emulator/gamecomSystem.ts` | System coordinator managing fast-boot states, dual cartridge bays (unloaded by default, user-loadable `.bin`/`.tgc`/`.rom`/`.zip`), Hardcore/Softcore Mode enforcement, and Recently Played ROM persistence. |
+| `src/components/TopBar.tsx` | Standalone desktop menu bar (`File`, `Emulation`, `View`, `Display`, `Settings`, `Tools`, `About`) and quick toolbar with streamlined Standard Mode and `Tools -> Advanced Mode`. |
+| `src/components/ScreenOnlyView.tsx` | Standalone Screen-Only viewport with `1×`–`8×` / `Full` integer/smooth scaling. |
+| `src/components/GameComConsole.tsx` | Mobile-inspired **Touch View** (`TouchView` / `GameComConsole`) with configurable screen scaling and `Compact`/`Standard`/`Large` button-only controls styled with Tiger Game.Com accents. |
+| `src/components/AboutModal.tsx` | Project overview, credits (including Diskman / `diskman.com`), and MIT License + Hardware Attribution dialog opened from `TopBar`. |
+| `electron/main.cjs` & `preload.cjs` | Electron Native desktop main process and IPC preload bridge (`window.gamecomDesktop`). |
+| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.0.10-win64.zip` + macOS/Android builds. |
 
 ---
 

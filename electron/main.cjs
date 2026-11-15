@@ -32,10 +32,10 @@ let secondWindow = null;
 let lanServerPort = 3197;
 let pendingStartupRomPath = null;
 
-// Check if a .bin or .tgc file was passed via Windows Explorer file association
+// Check if a .bin, .tgc, .rom, or .zip file was passed via Explorer/Finder file association
 function extractRomArg(argv) {
   for (const arg of argv.slice(1)) {
-    if (arg && !arg.startsWith('-') && /\.(bin|tgc|zip)$/i.test(arg)) {
+    if (arg && !arg.startsWith('-') && /\.(bin|tgc|rom|zip)$/i.test(arg)) {
       if (fs.existsSync(arg)) {
         return path.resolve(arg);
       }
@@ -187,6 +187,15 @@ function createApplicationMenu() {
         { role: 'zoomIn' },
         { role: 'zoomOut' }
       ]
+    },
+    {
+      label: '&Help',
+      submenu: [
+        {
+          label: 'About Cub Spiele.Com...',
+          click: () => mainWindow?.webContents.send('desktop:menu-action', 'open-about')
+        }
+      ]
     }
   ];
 
@@ -199,7 +208,8 @@ async function promptAndLoadRom(slot = 1) {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: `Select Tiger Game.Com Cartridge ROM (Slot ${slot})`,
     filters: [
-      { name: 'Tiger Game.Com ROMs (.bin, .tgc, .zip)', extensions: ['bin', 'tgc', 'zip'] },
+      { name: 'Tiger Game.Com ROMs (.bin, .tgc, .rom, .zip)', extensions: ['bin', 'tgc', 'rom', 'zip'] },
+      { name: 'ZIP Archives (.zip)', extensions: ['zip'] },
       { name: 'All Files', extensions: ['*'] }
     ],
     properties: ['openFile']
@@ -678,7 +688,7 @@ ipcMain.on('desktop:link-packet', (event, packet) => {
 // Handle macOS Finder file associations (open-file event)
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  if (filePath && fs.existsSync(filePath) && /\.(bin|tgc|zip)$/i.test(filePath)) {
+  if (filePath && fs.existsSync(filePath) && /\.(bin|tgc|rom|zip)$/i.test(filePath)) {
     if (mainWindow && !mainWindow.isDestroyed()) {
       const data = fs.readFileSync(filePath);
       mainWindow.webContents.send('desktop:rom-loaded', {

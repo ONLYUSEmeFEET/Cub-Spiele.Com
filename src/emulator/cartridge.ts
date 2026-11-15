@@ -588,19 +588,18 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
   if (fileName.toLowerCase().endsWith('.zip') || (romBytes[0] === 0x50 && romBytes[1] === 0x4b)) {
     try {
       const unzipped = unzipSync(romBytes);
-      const entryNames = Object.keys(unzipped);
+      const entryNames = Object.keys(unzipped).filter(
+        (name) => !name.endsWith('/') && !name.startsWith('__MACOSX') && unzipped[name].length > 0
+      );
       let targetEntry = entryNames.find((name) => {
         const lower = name.toLowerCase();
-        return (
-          (lower.endsWith('.bin') || lower.endsWith('.tgc') || lower.endsWith('.rom')) &&
-          !name.startsWith('__MACOSX')
-        );
+        return lower.endsWith('.bin') || lower.endsWith('.tgc') || lower.endsWith('.rom');
       });
 
       if (!targetEntry && entryNames.length > 0) {
         let maxLen = 0;
         for (const name of entryNames) {
-          if (!name.startsWith('__MACOSX') && unzipped[name].length > maxLen) {
+          if (unzipped[name].length > maxLen) {
             maxLen = unzipped[name].length;
             targetEntry = name;
           }
@@ -609,7 +608,7 @@ export async function loadCartridgeFromFile(file: File): Promise<CartridgeInfo> 
 
       if (targetEntry && unzipped[targetEntry]) {
         romBytes = unzipped[targetEntry];
-        fileName = targetEntry;
+        fileName = targetEntry.split(/[\\/]/).pop() || targetEntry;
       } else {
         throw new Error('No valid Game.com ROM file found inside ZIP archive.');
       }

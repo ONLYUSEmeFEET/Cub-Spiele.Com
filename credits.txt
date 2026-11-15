@@ -9,6 +9,16 @@ AUTHOR & LEAD DEVELOPER
 - AJ Ryan (@ONLYUSEmeFEET)
 
 
+HISTORICAL PRESERVATION & COMMUNITY ARCHIVES
+-------------------------------------------
+- Diskman (Brandon Cobb) — "Diskman Presents / The end of the game.com"
+  * https://www.diskman.com/
+  * Invaluable Tiger Game.Com historical preservation archive documenting
+    hardware specifications, commercial and unreleased prototype release
+    histories, cartridge scans, developer interviews, music rips, and
+    community archival resources.
+
+
 HARDWARE, ARCHITECTURE & EMULATION REFERENCES
 ---------------------------------------------
 - Sharp Corporation
@@ -30,8 +40,9 @@ HARDWARE, ARCHITECTURE & EMULATION REFERENCES
 - mGBA Project
   * https://mgba.io/
   * Desktop UI/UX design inspiration for standalone handheld emulator menu bar
-    (`File`, `Emulation`, `Audio/Video`, `View`, `Tools`), Screen-Only integer
-    scaling (`2x`/`3x`/`4x`), and multi-window link cable ergonomics.
+    (`File`, `Emulation`, `View`, `Display`, `Settings`, `Tools`, `About`),
+    integer scaling (`1x`-`8x` / `Full`), Touch View sizing, and multi-window
+    link cable ergonomics.
 
 
 COMPETITIVE ECOSYSTEM & VERIFICATION

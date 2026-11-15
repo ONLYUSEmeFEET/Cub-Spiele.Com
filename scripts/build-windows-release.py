@@ -12,6 +12,7 @@ Reads project version dynamically from package.json (single source of truth):
 
 import os
 import re
+import io
 import json
 import zlib
 import struct
@@ -192,47 +193,203 @@ def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
     return icondir + icondirentry + dib_data, dib_data
 
 
-def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
+def build_windows_bootstrap_ps1() -> bytes:
+    """UTF-16LE base64-encoded PowerShell bootstrapper for self-contained CubSpieleCom.exe."""
+    script = (
+        "$ErrorActionPreference='SilentlyContinue'\n"
+        "$exe=$env:CUB_EXE_PATH\n"
+        "if(-not $exe -or -not (Test-Path -LiteralPath $exe)){exit 1}\n"
+        "$dir=Split-Path -Parent $exe\n"
+        "$localApp=Join-Path $dir 'app\\index.html'\n"
+        "$localData=[Environment]::GetFolderPath('LocalApplicationData')\n"
+        "if(-not $localData){$localData=$env:TEMP}\n"
+        "$baseWork=Join-Path $localData 'CubSpieleCom'\n"
+        "$appHtml=$null\n"
+        "if(Test-Path -LiteralPath $localApp){\n"
+        "  $appHtml=$localApp\n"
+        "}else{\n"
+        "  $fi=Get-Item -LiteralPath $exe\n"
+        "  $stamp=\"$($fi.Length)_$($fi.LastWriteTimeUtc.Ticks)\"\n"
+        "  $rtDir=Join-Path $baseWork \"runtime-$($fi.Length)\"\n"
+        "  $stampFile=Join-Path $rtDir '.cub_stamp'\n"
+        "  $rtApp=Join-Path $rtDir 'app\\index.html'\n"
+        "  if(-not ((Test-Path -LiteralPath $rtApp) -and (Test-Path -LiteralPath $stampFile) -and ((Get-Content -LiteralPath $stampFile -Raw) -eq $stamp))){\n"
+        "    if(Test-Path -LiteralPath $rtDir){Remove-Item -LiteralPath $rtDir -Recurse -Force}\n"
+        "    $null=New-Item -ItemType Directory -Path $rtDir -Force\n"
+        "    Add-Type -AssemblyName System.IO.Compression.FileSystem\n"
+        "    [System.IO.Compression.ZipFile]::ExtractToDirectory($exe,$rtDir)\n"
+        "    Set-Content -LiteralPath $stampFile -Value $stamp -NoNewline\n"
+        "  }\n"
+        "  $appHtml=$rtApp\n"
+        "}\n"
+        "if(-not $appHtml -or -not (Test-Path -LiteralPath $appHtml)){exit 2}\n"
+        "$fileUrl=[System.Uri]::new($appHtml).AbsoluteUri\n"
+        "$profileDir=Join-Path $baseWork 'Profile'\n"
+        "$null=New-Item -ItemType Directory -Path $profileDir -Force\n"
+        "$browsers=@(\n"
+        "  \"${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe\",\n"
+        "  \"$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe\",\n"
+        "  \"$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe\",\n"
+        "  \"${env:ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe\",\n"
+        "  \"$env:ProgramFiles\\BraveSoftware\\Brave-Browser\\Application\\brave.exe\"\n"
+        ")\n"
+        "$chosen=$browsers|Where-Object{$_ -and (Test-Path -LiteralPath $_)}|Select-Object -First 1\n"
+        "if($chosen){\n"
+        "  $argsList=@(\n"
+        "    \"`\"--app=$fileUrl`\"\",\n"
+        "    '--window-size=920,760',\n"
+        "    '--allow-file-access-from-files',\n"
+        "    '--autoplay-policy=no-user-gesture-required',\n"
+        "    \"`\"--user-data-dir=$profileDir`\"\"\n"
+        "  )\n"
+        "  Start-Process -FilePath $chosen -ArgumentList $argsList\n"
+        "}else{\n"
+        "  Start-Process -FilePath $appHtml\n"
+        "}\n"
+    )
+    return base64.b64encode(script.encode('utf-16le'))
+
+
+def shift_zip_offsets(zip_bytes: bytes, base_offset: int) -> bytes:
+    """
+    Shifts Central Directory & EOCD offsets by +base_offset so a ZIP archive
+    appended directly after a PE32+ executable reads cleanly from byte 0.
+    """
+    if base_offset == 0:
+        return zip_bytes
+    buf = bytearray(zip_bytes)
+    eocd_pos = -1
+    min_pos = max(0, len(buf) - 65557)
+    for i in range(len(buf) - 22, min_pos - 1, -1):
+        if buf[i:i + 4] == b'PK\x05\x06':
+            comment_len = struct.unpack_from('<H', buf, i + 20)[0]
+            if i + 22 + comment_len == len(buf):
+                eocd_pos = i
+                break
+    if eocd_pos < 0:
+        raise ValueError('Could not locate ZIP End of Central Directory')
+
+    cd_size, cd_offset = struct.unpack_from('<II', buf, eocd_pos + 12)
+    pos = cd_offset
+    end_cd = cd_offset + cd_size
+    while pos < end_cd:
+        if buf[pos:pos + 4] != b'PK\x01\x02':
+            raise ValueError(f'Invalid Central Directory signature at {pos}')
+        fn_len, ex_len, cm_len = struct.unpack_from('<HHH', buf, pos + 28)
+        local_hdr_off = struct.unpack_from('<I', buf, pos + 42)[0]
+        struct.pack_into('<I', buf, pos + 42, local_hdr_off + base_offset)
+        pos += 46 + fn_len + ex_len + cm_len
+
+    struct.pack_into('<I', buf, eocd_pos + 16, cd_offset + base_offset)
+    return bytes(buf)
+
+
+def build_pe64_gui_executable(dib_icon: bytes, embedded_zip_payload: bytes | None = None) -> bytes:
+    """
+    Builds a genuine 64-bit Windows PE32+ GUI Self-Extracting Executable (CubSpieleCom.exe):
+      - .text : GetModuleFileNameA -> SetEnvironmentVariableA("CUB_EXE_PATH", ...) ->
+                CreateProcessA("powershell.exe ... -EncodedCommand ...", CREATE_NO_WINDOW) ->
+                (ShellExecuteA fallback if CreateProcessA fails) -> ExitProcess(0)
+      - .rdata: IAT/ILT/Import Descriptors for KERNEL32.dll & SHELL32.dll + strings
+      - .data : Writable exePathBuf[1024], pre-initialized STARTUPINFOA (SW_HIDE),
+                PROCESS_INFORMATION, and writable PowerShell command line
+      - .rsrc : 32x32 32-bit BGRA Cub Spiele.Com icon resource
+      - Overlay (optional): Complete shifted ZIP payload appended cleanly after .rsrc
+    """
     file_align = 0x200
     sect_align = 0x1000
     image_base = 0x0000000140000000
 
-    rdata = bytearray(0x400)
+    # --- 1. Build .rdata section (RVA 0x2000) ---
     rva_rdata = 0x2000
+    rdata = bytearray(0x200)
 
-    rva_hn_exit = rva_rdata + 0x0080
-    rva_hn_shell = rva_rdata + 0x0090
-    rva_name_k32 = rva_rdata + 0x00A0
-    rva_name_s32 = rva_rdata + 0x00B0
+    # IAT (0x0000..0x003F) & ILT (0x0040..0x007F)
+    rva_hn_getmod = rva_rdata + 0x00E0
+    rva_hn_setenv = rva_rdata + 0x0100
+    rva_hn_create = rva_rdata + 0x0120
+    rva_hn_exit = rva_rdata + 0x0138
+    rva_hn_shell = rva_rdata + 0x0150
 
-    rva_str_open = rva_rdata + 0x00C0
-    rva_str_wscript = rva_rdata + 0x00D0
-    rva_str_vbs_arg = rva_rdata + 0x00E0
-    rva_str_html = rva_rdata + 0x0108
+    rva_name_k32 = rva_rdata + 0x00C0
+    rva_name_s32 = rva_rdata + 0x00D0
 
-    struct.pack_into('<QQ', rdata, 0x0000, rva_hn_exit, 0)
-    struct.pack_into('<QQ', rdata, 0x0010, rva_hn_shell, 0)
-    struct.pack_into('<QQ', rdata, 0x0020, rva_hn_exit, 0)
-    struct.pack_into('<QQ', rdata, 0x0030, rva_hn_shell, 0)
+    rva_str_env = rva_rdata + 0x0168
+    rva_str_open = rva_rdata + 0x0180
+    rva_str_ps_exe = rva_rdata + 0x0190
 
-    struct.pack_into('<IIIII', rdata, 0x0040, rva_rdata + 0x0020, 0, 0, rva_name_k32, rva_rdata + 0x0000)
-    struct.pack_into('<IIIII', rdata, 0x0054, rva_rdata + 0x0030, 0, 0, rva_name_s32, rva_rdata + 0x0010)
-    struct.pack_into('<IIIII', rdata, 0x0068, 0, 0, 0, 0, 0)
+    # IAT KERNEL32 (4 entries + null) at 0x0000
+    struct.pack_into('<QQQQQ', rdata, 0x0000, rva_hn_getmod, rva_hn_setenv, rva_hn_create, rva_hn_exit, 0)
+    # IAT SHELL32 (1 entry + null) at 0x0028
+    struct.pack_into('<QQ', rdata, 0x0028, rva_hn_shell, 0)
 
-    struct.pack_into('<H12s', rdata, 0x0080, 0, b'ExitProcess\x00')
-    struct.pack_into('<H14s', rdata, 0x0090, 0, b'ShellExecuteA\x00')
-    rdata[0x00A0:0x00AD] = b'KERNEL32.dll\x00'
-    rdata[0x00B0:0x00BC] = b'SHELL32.dll\x00'
-    rdata[0x00C0:0x00C5] = b'open\x00'
-    rdata[0x00D0:0x00DC] = b'wscript.exe\x00'
-    vbs_arg_bytes = b'"CubSpieleCom-Host.vbs"\x00'
-    rdata[0x00E0:0x00E0 + len(vbs_arg_bytes)] = vbs_arg_bytes
-    html_bytes = b'app\\index.html\x00'
-    rdata[0x0108:0x0108 + len(html_bytes)] = html_bytes
+    # ILT KERNEL32 at 0x0040
+    struct.pack_into('<QQQQQ', rdata, 0x0040, rva_hn_getmod, rva_hn_setenv, rva_hn_create, rva_hn_exit, 0)
+    # ILT SHELL32 at 0x0068
+    struct.pack_into('<QQ', rdata, 0x0068, rva_hn_shell, 0)
 
-    rva_iat_exit = rva_rdata + 0x0000
-    rva_iat_shell = rva_rdata + 0x0010
+    # Import Directory Descriptors at 0x0080 (3 * 20 = 60 bytes)
+    struct.pack_into('<IIIII', rdata, 0x0080, rva_rdata + 0x0040, 0, 0, rva_name_k32, rva_rdata + 0x0000)
+    struct.pack_into('<IIIII', rdata, 0x0094, rva_rdata + 0x0068, 0, 0, rva_name_s32, rva_rdata + 0x0028)
+    struct.pack_into('<IIIII', rdata, 0x00A8, 0, 0, 0, 0, 0)
 
+    rdata[0x00C0:0x00CD] = b'KERNEL32.dll\x00'
+    rdata[0x00D0:0x00DC] = b'SHELL32.dll\x00'
+
+    struct.pack_into('<H', rdata, 0x00E0, 0)
+    rdata[0x00E2:0x00F5] = b'GetModuleFileNameA\x00'
+
+    struct.pack_into('<H', rdata, 0x0100, 0)
+    rdata[0x0102:0x011A] = b'SetEnvironmentVariableA\x00'
+
+    struct.pack_into('<H', rdata, 0x0120, 0)
+    rdata[0x0122:0x0131] = b'CreateProcessA\x00'
+
+    struct.pack_into('<H', rdata, 0x0138, 0)
+    rdata[0x013A:0x0146] = b'ExitProcess\x00'
+
+    struct.pack_into('<H', rdata, 0x0150, 0)
+    rdata[0x0152:0x0160] = b'ShellExecuteA\x00'
+
+    rdata[0x0168:0x0175] = b'CUB_EXE_PATH\x00'
+    rdata[0x0180:0x0185] = b'open\x00'
+    rdata[0x0190:0x019F] = b'powershell.exe\x00'
+
+    rdata_vsize = 0x1A0
+    rdata_padded = bytes(rdata)
+
+    rva_iat_getmod = rva_rdata + 0x0000
+    rva_iat_setenv = rva_rdata + 0x0008
+    rva_iat_create = rva_rdata + 0x0010
+    rva_iat_exit = rva_rdata + 0x0018
+    rva_iat_shell = rva_rdata + 0x0028
+
+    # --- 2. Build writable .data section ---
+    rva_data = rva_rdata + align(rdata_vsize, sect_align)  # 0x3000
+    ps_b64 = build_windows_bootstrap_ps1()
+    ps_prefix = b'powershell.exe '
+    ps_args = b'-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand ' + ps_b64 + b'\x00'
+    cmd_line_bytes = ps_prefix + ps_args
+
+    # Layout inside .data:
+    # 0x0000 .. 0x03FF : exePathBuf (1024 bytes)
+    # 0x0400 .. 0x0467 : STARTUPINFOA (104 bytes; cb=104, dwFlags=STARTF_USESHOWWINDOW(1), wShowWindow=SW_HIDE(0))
+    # 0x0470 .. 0x0487 : PROCESS_INFORMATION (24 bytes)
+    # 0x0490 ..        : writable command line string ("powershell.exe -NoProfile ...")
+    data_raw_len = 0x0490 + len(cmd_line_bytes)
+    data = bytearray(align(data_raw_len, file_align))
+    struct.pack_into('<I', data, 0x0400, 104)       # STARTUPINFOA.cb
+    struct.pack_into('<I', data, 0x043C, 1)         # STARTUPINFOA.dwFlags = STARTF_USESHOWWINDOW
+    struct.pack_into('<H', data, 0x0440, 0)         # STARTUPINFOA.wShowWindow = SW_HIDE
+    data[0x0490:0x0490 + len(cmd_line_bytes)] = cmd_line_bytes
+
+    rva_exe_buf = rva_data + 0x0000
+    rva_startup_info = rva_data + 0x0400
+    rva_process_info = rva_data + 0x0470
+    rva_cmd_line = rva_data + 0x0490
+    rva_ps_args = rva_data + 0x0490 + len(ps_prefix)
+
+    # --- 3. Build .text section (RVA 0x1000) ---
     text = bytearray()
     rva_text = 0x1000
 
@@ -244,37 +401,62 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
         disp = target_rva - next_rip
         text.extend(opcode_prefix + struct.pack('<i', disp))
 
-    emit(b'\x48\x83\xEC\x38')
-    emit(b'\x31\xC9')
-    emit_rip_rel(b'\x48\x8D\x15', rva_str_open)
-    emit_rip_rel(b'\x4C\x8D\x05', rva_str_wscript)
-    emit_rip_rel(b'\x4C\x8D\x0D', rva_str_vbs_arg)
-    emit(b'\x48\xC7\x44\x24\x20\x00\x00\x00\x00')
-    emit(b'\xC7\x44\x24\x28\x01\x00\x00\x00')
-    emit_rip_rel(b'\xFF\x15', rva_iat_shell)
+    # Align stack to 16 bytes + reserve 32B shadow + 48B for params 5..10 of CreateProcessA
+    # Entry RSP is 16k+8 -> sub rsp, 0x58 (88) => RSP = 16k-80 (16-byte aligned)
+    emit(b'\x48\x83\xEC\x58')
 
-    emit(b'\x48\x83\xF8\x20')
+    # GetModuleFileNameA(NULL, exePathBuf, 1024)
+    emit(b'\x31\xC9')                                 # xor ecx, ecx
+    emit_rip_rel(b'\x48\x8D\x15', rva_exe_buf)        # lea rdx, [exePathBuf]
+    emit(b'\x41\xB8\x00\x04\x00\x00')                 # mov r8d, 1024
+    emit_rip_rel(b'\xFF\x15', rva_iat_getmod)         # call GetModuleFileNameA
+
+    # SetEnvironmentVariableA("CUB_EXE_PATH", exePathBuf)
+    emit_rip_rel(b'\x48\x8D\x0D', rva_str_env)        # lea rcx, ["CUB_EXE_PATH"]
+    emit_rip_rel(b'\x48\x8D\x15', rva_exe_buf)        # lea rdx, [exePathBuf]
+    emit_rip_rel(b'\xFF\x15', rva_iat_setenv)         # call SetEnvironmentVariableA
+
+    # CreateProcessA(NULL, cmdLineBuf, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &processInfo)
+    emit(b'\x31\xC9')                                 # xor ecx, ecx
+    emit_rip_rel(b'\x48\x8D\x15', rva_cmd_line)       # lea rdx, [cmdLineBuf]
+    emit(b'\x45\x31\xC0')                             # xor r8d, r8d
+    emit(b'\x45\x31\xC9')                             # xor r9d, r9d
+    emit(b'\x48\xC7\x44\x24\x20\x00\x00\x00\x00')     # mov qword ptr [rsp+0x20], 0
+    emit(b'\x48\xC7\x44\x24\x28\x00\x00\x00\x08')     # mov qword ptr [rsp+0x28], CREATE_NO_WINDOW (0x08000000)
+    emit(b'\x48\xC7\x44\x24\x30\x00\x00\x00\x00')     # mov qword ptr [rsp+0x30], 0
+    emit(b'\x48\xC7\x44\x24\x38\x00\x00\x00\x00')     # mov qword ptr [rsp+0x38], 0
+    emit_rip_rel(b'\x48\x8D\x05', rva_startup_info)   # lea rax, [startupInfo]
+    emit(b'\x48\x89\x44\x24\x40')                     # mov [rsp+0x40], rax
+    emit_rip_rel(b'\x48\x8D\x05', rva_process_info)   # lea rax, [processInfo]
+    emit(b'\x48\x89\x44\x24\x48')                     # mov [rsp+0x48], rax
+    emit_rip_rel(b'\xFF\x15', rva_iat_create)         # call CreateProcessA
+
+    # If CreateProcessA succeeded (eax != 0), skip ShellExecuteA fallback
+    emit(b'\x85\xC0')                                 # test eax, eax
     jcc_pos = len(text)
-    emit(b'\x7F\x00')
+    emit(b'\x75\x00')                                 # jnz exit_label
 
-    emit(b'\x31\xC9')
-    emit_rip_rel(b'\x48\x8D\x15', rva_str_open)
-    emit_rip_rel(b'\x4C\x8D\x05', rva_str_html)
-    emit(b'\x45\x31\xC9')
-    emit(b'\x48\xC7\x44\x24\x20\x00\x00\x00\x00')
-    emit(b'\xC7\x44\x24\x28\x01\x00\x00\x00')
-    emit_rip_rel(b'\xFF\x15', rva_iat_shell)
+    # Fallback: ShellExecuteA(NULL, "open", "powershell.exe", psArgs, NULL, SW_HIDE)
+    emit(b'\x31\xC9')                                 # xor ecx, ecx
+    emit_rip_rel(b'\x48\x8D\x15', rva_str_open)       # lea rdx, ["open"]
+    emit_rip_rel(b'\x4C\x8D\x05', rva_str_ps_exe)     # lea r8, ["powershell.exe"]
+    emit_rip_rel(b'\x4C\x8D\x0D', rva_ps_args)        # lea r9, [psArgs]
+    emit(b'\x48\xC7\x44\x24\x20\x00\x00\x00\x00')     # mov qword ptr [rsp+0x20], 0
+    emit(b'\x48\xC7\x44\x24\x28\x00\x00\x00\x00')     # mov qword ptr [rsp+0x28], SW_HIDE (0)
+    emit_rip_rel(b'\xFF\x15', rva_iat_shell)          # call ShellExecuteA
 
     exit_pos = len(text)
     text[jcc_pos + 1] = exit_pos - (jcc_pos + 2)
 
-    emit(b'\x31\xC9')
-    emit_rip_rel(b'\xFF\x15', rva_iat_exit)
-    emit(b'\x48\x83\xC4\x38\xC3')
+    # ExitProcess(0)
+    emit(b'\x31\xC9')                                 # xor ecx, ecx
+    emit_rip_rel(b'\xFF\x15', rva_iat_exit)           # call ExitProcess
+    emit(b'\x48\x83\xC4\x58\xC3')                     # add rsp, 0x58 ; ret
 
-    text_padded = text.ljust(file_align, b'\x00')
+    text_padded = bytes(text).ljust(align(len(text), file_align), b'\x00')
 
-    rva_rsrc = 0x3000
+    # --- 4. Build .rsrc section ---
+    rva_rsrc = rva_data + align(data_raw_len, sect_align)
     grp_icon_data = struct.pack(
         '<HHHBBBBHHIH',
         0, 1, 1,
@@ -308,8 +490,9 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
     struct.pack_into('<IIII', rsrc, 0x90, rva_rsrc + grp_offset, len(grp_icon_data), 0, 0)
 
     rsrc_raw_len = len(rsrc)
-    rsrc_padded = rsrc.ljust(align(rsrc_raw_len, file_align), b'\x00')
+    rsrc_padded = bytes(rsrc).ljust(align(rsrc_raw_len, file_align), b'\x00')
 
+    # --- 5. Assemble PE32+ Headers ---
     headers = bytearray(0x400)
     headers[0:2] = b'MZ'
     struct.pack_into('<I', headers, 0x3C, 0x80)
@@ -321,17 +504,18 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
         '<HHIIIHH',
         headers,
         pe_off + 4,
-        0x8664,
-        3,
-        1794400000,
+        0x8664,       # AMD64
+        4,            # NumberOfSections (.text, .rdata, .data, .rsrc)
+        1794400000,   # TimeDateStamp
         0,
         0,
-        240,
-        0x0022
+        240,          # SizeOfOptionalHeader
+        0x0022        # IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_LARGE_ADDRESS_AWARE
     )
 
     opt_off = pe_off + 24
-    size_of_image = 0x3000 + align(rsrc_raw_len, sect_align)
+    size_of_image = rva_rsrc + align(rsrc_raw_len, sect_align)
+    size_of_init_data = len(rdata_padded) + len(data) + len(rsrc_padded)
 
     struct.pack_into(
         '<HBBIIIIIQIIHHHHHHIIIIHHQQQQII',
@@ -340,7 +524,7 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
         0x020B,
         14, 0,
         len(text_padded),
-        len(rdata) + len(rsrc_padded),
+        size_of_init_data,
         0,
         0x1000,
         0x1000,
@@ -354,8 +538,8 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
         size_of_image,
         0x400,
         0,
-        2,
-        0x0140,
+        2,            # IMAGE_SUBSYSTEM_WINDOWS_GUI
+        0x0140,       # NX_COMPAT | DYNAMIC_BASE
         0x100000,
         0x1000,
         0x100000,
@@ -365,9 +549,9 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
     )
 
     dd_off = opt_off + 112
-    struct.pack_into('<II', headers, dd_off + 1 * 8, rva_rdata + 0x0040, 60)
-    struct.pack_into('<II', headers, dd_off + 2 * 8, rva_rsrc, rsrc_raw_len)
-    struct.pack_into('<II', headers, dd_off + 12 * 8, rva_rdata, 32)
+    struct.pack_into('<II', headers, dd_off + 1 * 8, rva_rdata + 0x0080, 60)  # Import Directory
+    struct.pack_into('<II', headers, dd_off + 2 * 8, rva_rsrc, rsrc_raw_len)  # Resource Directory
+    struct.pack_into('<II', headers, dd_off + 12 * 8, rva_rdata, 0x38)        # IAT
 
     sect_off = opt_off + 240
 
@@ -385,11 +569,20 @@ def build_pe64_gui_executable(dib_icon: bytes) -> bytes:
             chars
         )
 
-    write_section(0, b'.text', len(text), 0x1000, len(text_padded), 0x400, 0x60000020)
-    write_section(1, b'.rdata', 0x120, 0x2000, len(rdata), 0x400 + len(text_padded), 0x40000040)
-    write_section(2, b'.rsrc', rsrc_raw_len, 0x3000, len(rsrc_padded), 0x400 + len(text_padded) + len(rdata), 0x40000040)
+    ptr_text = 0x400
+    ptr_rdata = ptr_text + len(text_padded)
+    ptr_data = ptr_rdata + len(rdata_padded)
+    ptr_rsrc = ptr_data + len(data)
 
-    return bytes(headers + text_padded + rdata + rsrc_padded)
+    write_section(0, b'.text', len(text), rva_text, len(text_padded), ptr_text, 0x60000020)
+    write_section(1, b'.rdata', rdata_vsize, rva_rdata, len(rdata_padded), ptr_rdata, 0x40000040)
+    write_section(2, b'.data', data_raw_len, rva_data, len(data), ptr_data, 0xC0000040)
+    write_section(3, b'.rsrc', rsrc_raw_len, rva_rsrc, len(rsrc_padded), ptr_rsrc, 0x40000040)
+
+    pe_stub = bytes(headers) + text_padded + rdata_padded + bytes(data) + rsrc_padded
+    if embedded_zip_payload:
+        return pe_stub + shift_zip_offsets(embedded_zip_payload, len(pe_stub))
+    return pe_stub
 
 
 OFFICIAL_RA_INTEGRATION_EXPORTS = sorted([
@@ -803,23 +996,54 @@ def iter_dist_app_files():
             yield full_p, rel_p
 
 
+def build_windows_embedded_payload_zip(version: str) -> bytes:
+    """
+    Creates the self-contained compressed payload ZIP embedded inside CubSpieleCom.exe:
+      - app/index.html (with embedded BIOS internal.bin / external.bin + offline shim)
+      - app/assets/* (Vite JS/CSS runtime & icons)
+      - app/bios/*, app/roms/compete_test.bin
+      - CubSpieleCom-Host.vbs, LICENSE, credits.txt, compete_test.bin
+    """
+    offline_html = create_offline_desktop_index_html(version.lstrip('v'), 'win32', 'x64')
+    host_vbs = create_windows_desktop_host_vbs()
+    mem = io.BytesIO()
+    with zipfile.ZipFile(mem, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        zf.writestr('CubSpieleCom-Host.vbs', host_vbs)
+        license_path = os.path.join(ROOT_DIR, 'LICENSE')
+        if os.path.exists(license_path):
+            zf.write(license_path, 'LICENSE')
+        credits_path = os.path.join(ROOT_DIR, 'credits.txt')
+        if os.path.exists(credits_path):
+            zf.write(credits_path, 'credits.txt')
+        compete_rom_path = os.path.join(ROOT_DIR, 'compete_test.bin')
+        if os.path.exists(compete_rom_path):
+            zf.write(compete_rom_path, 'compete_test.bin')
+            zf.write(compete_rom_path, 'app/roms/compete_test.bin')
+        zf.writestr('app/index.html', offline_html)
+        for full_p, rel_p in iter_dist_app_files():
+            zf.write(full_p, f'app/{rel_p}')
+    return mem.getvalue()
+
+
 def build_zip_bundle(zip_path: str, exe_bytes: bytes, version: str):
     readme_txt = f"""================================================================================
 CUB SPIELE.COM — NATIVE WINDOWS x64 STANDALONE EMULATOR ({version})
 ================================================================================
 
 QUICK START (WINDOWS 10 / WINDOWS 11 x64):
-1. Extract all files from this ZIP archive to any folder on your PC.
+1. Extract all files from this ZIP archive to any folder on your PC
+   (or simply copy "CubSpieleCom.exe" by itself—it is 100% self-contained!).
 2. Double-click "CubSpieleCom.exe" to launch the standalone Windows application.
 
 STANDALONE HANDHELD EMULATOR FEATURES:
-- Native Desktop Menu Bar (File, Emulation, Audio/Video, View, Tools)
-- Full Retail & Prototype Compatibility (including Castlevania: SotN & Sonic Jam)
+- Self-Contained Single-File PE32+ Executable with embedded runtime & BIOS
+- Native Desktop Menu Bar (File, Emulation, View, Display, Settings, Tools, About)
+- Full Retail, Prototype & .zip ROM Support (Load Slot 1/2 & Recent Games)
 - Competitive Hardcore Mode, Multi-Player High Score Vault & Online Leaderboards
 - Frame Advance (F), Rewind ([), Save States (F5/F8) & Hardware Calendar RTC
-- Screen-Only Mode (Default, 2x / 3x / 4x integer scale) & Touch View (Button-Only Controls)
-- Authentic STN Hardware Screen Presets, Ghosting controls & Light/Dark Mode
-- Streamlined UI by default with optional Advanced Mode (View -> Advanced Mode)
+- Screen-Only Mode (1x - 8x / Full) & Touch View (Configurable Scale & Compact/Standard/Large Controls)
+- Dedicated Display Menu: Screen Color Presets, Custom Colors, LCD Contrast (0% - 100%) & LCD Ghosting (0% - 100%)
+- Streamlined UI by default with optional Advanced Mode (Tools -> Advanced Mode)
 ================================================================================
 """
     offline_html = create_offline_desktop_index_html(version.lstrip('v'), 'win32', 'x64')
@@ -1081,9 +1305,31 @@ def main():
     # Sequential 0.0.x release history starting from v0.0.1 up to current package.json version
     release_specs = [
         {
+            "tag": "v0.0.10",
+            "title": "Cub Spiele.Com v0.0.10 — Dedicated Display Menu, Compact View Submenus, LCD Sliders & Tools Reorganization",
+            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "highlights": [
+                "Added dedicated top-level Display menu in TopBar consolidating Screen Color Presets, Custom Screen Colors, LCD Contrast (0% - 100%), LCD Ghosting (0% - 100%), LCD Pixel Grid, and LCD Ghosting & Accuracy",
+                "Compacted View menu into flyout submenus (Screen Size, Touch Layout Size, Overlays) and removed redundant display controls from Settings",
+                "Moved Advanced Mode toggle into the Tools menu directly above Advanced Tools",
+                "Removed bundled retail/game ROM binaries from the distribution repository for clean user-provided .bin/.tgc/.rom/.zip cartridge loading"
+            ],
+        },
+        {
+            "tag": "v0.0.9",
+            "title": "Cub Spiele.Com v0.0.9 — Self-Contained Windows EXE, ZIP ROM Support, Touch Scaling & About Dialog",
+            "publishedAt": "2026-11-15T04:08:06Z",
+            "highlights": [
+                "Rebuilt CubSpieleCom.exe as a ~810 KB self-contained Windows x64 PE32+ SFX executable embedding the full offline app bundle and BIOS (resolving the 7 KB stub launch issue)",
+                "Added .zip ROM archive loading, removed exposed Open Game toolbar clutter, hid the Status Bar (Ctrl+B) by default, and gated RetroAchievements components under Tools -> Advanced Tools",
+                "Added Touch View screen scaling presets and Compact / Standard / Large control sizing options",
+                "Added About dialog in TopBar detailing project overview, credits (including Diskman / diskman.com), and MIT License"
+            ],
+        },
+        {
             "tag": "v0.0.8",
             "title": "Cub Spiele.Com v0.0.8 — Platform View Defaults, Touch Layout Overhaul, 0-100% Sliders & 0.0.x Versioning",
-            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "publishedAt": "2026-11-14T22:00:00Z",
             "highlights": [
                 "Added platform-aware first-boot View defaults (Screen-Only on Windows/macOS, Touch on Android/mobile) with localStorage persistence for user layout changes",
                 "Redesigned Touch View horizontally after the original Game.Com (D-Pad left, 2x2 A/B/C/D right, spaced Menu/Sound/Pause bottom-right) and vertically after an Analogue Pocket style layout (Screen top, D-Pad + diamond A/B/C/D middle, centered bottom Menu/Sound/Pause) with an isolated Power button and Power starting OFF at launch",
@@ -1209,8 +1455,9 @@ def main():
             with open(os.path.join(dist_assets, iname), 'wb') as df:
                 df.write(ibytes)
 
-    # 2. Build Windows x64 PE32+ Executable
-    exe_bytes = build_pe64_gui_executable(dib_bytes)
+    # 2. Build Self-Contained Windows x64 PE32+ Executable (~800 KB, embeds full runtime + BIOS)
+    embedded_payload_zip = build_windows_embedded_payload_zip(current_tag)
+    exe_bytes = build_pe64_gui_executable(dib_bytes, embedded_payload_zip)
     exe_path = os.path.join(RELEASES_DIR, 'CubSpieleCom.exe')
     with open(exe_path, 'wb') as f:
         f.write(exe_bytes)
@@ -1295,11 +1542,11 @@ def main():
             },
             {
                 "name": f"CubSpieleCom-{r_tag}.exe" if not is_latest else "CubSpieleCom.exe",
-                "label": f"Standalone Windows x64 Emulator Executable ({r_tag} .exe)",
+                "label": f"Self-Contained Windows x64 Executable ({r_tag} .exe)",
                 "url": "./releases/CubSpieleCom.exe",
                 "sizeBytes": exe_size,
                 "sha256": exe_sha,
-                "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
+                "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
                 "platform": "windows"
             }
         ]

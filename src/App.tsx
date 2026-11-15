@@ -14,6 +14,7 @@ import { BiosManagerModal } from './components/BiosManagerModal';
 import { WindowsReleaseModal } from './components/WindowsReleaseModal';
 import { ColorCustomizerModal } from './components/ColorCustomizerModal';
 import { CompeteLinkModal } from './components/CompeteLinkModal';
+import { AboutModal } from './components/AboutModal';
 import { GameComButtons } from './emulator/types';
 
 export function App() {
@@ -34,6 +35,7 @@ export function App() {
   const [isWindowsReleaseOpen, setIsWindowsReleaseOpen] = useState(false);
   const [isColorCustomizerOpen, setIsColorCustomizerOpen] = useState(false);
   const [isLinkCableOpen, setIsLinkCableOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Drag & Drop ROM overlay state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -121,11 +123,34 @@ export function App() {
           setIsAccuracyOpen(true);
         } else if (action === 'open-bios') {
           setIsBiosOpen(true);
+        } else if (action === 'open-about') {
+          setIsAboutOpen(true);
         }
       });
     }
 
-    return () => clearInterval(interval);
+    let unsubscribeRomLoaded: (() => void) | undefined;
+    if (desktop && typeof desktop.onRomLoaded === 'function') {
+      unsubscribeRomLoaded = desktop.onRomLoaded(
+        async (payload: { name: string; slot?: 1 | 2; bytes: number[] }) => {
+          try {
+            const bytes = new Uint8Array(payload.bytes);
+            const file = new File([bytes], payload.name);
+            const slot: 1 | 2 = payload.slot === 2 ? 2 : 1;
+            const cart = await system.loadRomFromFile(file, slot);
+            showToast(`Loaded "${cart.title}" into Slot ${slot}`);
+            forceUpdate();
+          } catch (err) {
+            showToast(`ROM Error: ${(err as Error).message}`);
+          }
+        }
+      );
+    }
+
+    return () => {
+      clearInterval(interval);
+      unsubscribeRomLoaded?.();
+    };
   }, [system, forceUpdate, showToast]);
 
   // Global Keyboard Controls, Virtual Stylus & Gamepad Polling
@@ -619,6 +644,7 @@ export function App() {
         onOpenBios={() => setIsBiosOpen(true)}
         onOpenWindowsRelease={() => setIsWindowsReleaseOpen(true)}
         onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
+        onOpenAbout={() => setIsAboutOpen(true)}
         onTakeScreenshot={handleTakeScreenshot}
         onUpdate={forceUpdate}
       />
@@ -823,6 +849,8 @@ export function App() {
           onUpdate={forceUpdate}
         />
       )}
+
+      <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
     </div>
   );
 }

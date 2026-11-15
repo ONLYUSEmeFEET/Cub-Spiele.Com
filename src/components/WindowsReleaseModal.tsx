@@ -46,19 +46,18 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
   project: 'cub-spiele-com-emulator',
   repository: 'https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com',
   latestVersion: APP_VERSION_TAG,
-  generatedAt: '2026-11-14T19:45:00Z',
+  generatedAt: '2026-11-15T04:12:00Z',
   releases: [
     {
       tag: APP_VERSION_TAG,
-      title: `Cub Spiele.Com ${APP_VERSION_TAG} — Platform View Defaults, Touch Layout Overhaul, 0–100% Sliders & 0.0.x Versioning`,
-      publishedAt: '2026-11-14T20:15:00Z',
+      title: `Cub Spiele.Com ${APP_VERSION_TAG} — Dedicated Display Menu, Compact View Submenus, LCD Sliders & Tools Reorganization`,
+      publishedAt: '2026-11-15T04:12:00Z',
       isLatest: true,
       commitRef: `HEAD (tag: ${APP_VERSION_TAG})`,
       highlights: [
-        'Defaulted View to Screen-Only on Windows/macOS and Touch on Android/mobile on first boot with persistent user choice storage',
-        'Redesigned Touch View horizontally after the original Game.Com and vertically in an Analogue Pocket style layout with an isolated Power button (starting OFF on boot)',
-        'Added 0%–100% Contrast slider in TopBar, enforced 0%–100% ranges on all sliders, moved Phone Book Manager and Ghosting to Basic settings, and gated optional diagnostic/achievement components behind Advanced Mode',
-        'Overhauled emulator versioning into a single-source-of-truth sequential 0.0.x schedule (v0.0.1 through v0.0.8) driven by package.json'
+        'Added dedicated Display menu in TopBar consolidating Screen Color Presets, Custom Screen Colors, LCD Contrast (0%–100%), LCD Ghosting (0%–100%), and LCD Pixel Grid',
+        'Compacted View menu into flyout submenus (Screen Size, Touch Layout Size, Overlays) and removed redundant display controls from Settings',
+        'Moved Advanced Mode toggle into Tools above Advanced Tools, with self-contained 810 KB Windows EXE, .zip ROM loading, Touch scaling, and About dialog'
       ],
       assets: [
         {
@@ -72,11 +71,11 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
         },
         {
           name: 'CubSpieleCom.exe',
-          label: `Standalone Windows x64 Emulator Executable (${APP_VERSION_TAG} .exe)`,
+          label: `Self-Contained Windows x64 Executable (${APP_VERSION_TAG} .exe)`,
           url: './releases/CubSpieleCom.exe',
-          sizeBytes: 7168,
+          sizeBytes: 805000,
           sha256: '',
-          architecture: 'Windows 10/11 x64 (PE32+ AMD64)',
+          architecture: 'Windows 10/11 x64 (PE32+ Self-Contained)',
           platform: 'windows'
         },
         {

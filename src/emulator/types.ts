@@ -291,6 +291,9 @@ export interface EmulatorSettings {
   screenScale: number;
   screenFitMode: 'scale' | 'full';
   integerScaling: boolean;
+  touchScaleMode: 'auto' | 'scale';
+  touchScale: number;
+  touchControlSize: 'compact' | 'standard' | 'large';
   showBottomBar: boolean;
   contrast: number;
   volume: number;

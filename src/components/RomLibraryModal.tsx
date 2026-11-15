@@ -103,7 +103,7 @@ export const RomLibraryModal: React.FC<RomLibraryModalProps> = ({
                   className="px-3.5 py-2 bg-[#7a1f5c] hover:bg-[#8e266c] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {isAdvanced ? 'Load ROM into Slot 1...' : 'Open Game File (.bin / .zip)...'}
+                  {isAdvanced ? 'Load ROM into Slot 1...' : 'Open Game File (.bin, .tgc, .rom, .zip)...'}
                 </button>
                 {system.slot1 && (
                   <button

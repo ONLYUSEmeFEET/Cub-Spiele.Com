@@ -35,8 +35,16 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npm run lint
 
-      - name: Build Web & Multi-Platform Bundles (Win64, macOS Universal, Android APK)
+      - name: Build Web & Multi-Platform Bundles (Self-Contained Win64 EXE/ZIP, macOS Universal, Android APK)
         run: npm run release:all
+
+      - name: Build Native Electron Portable/Installer (Windows)
+        if: runner.os == 'Windows'
+        run: npx --yes -p electron@35.1.5 -p electron-builder@26.0.12 electron-builder --win --x64 --config electron-builder.yml
+
+      - name: Build Native Electron Bundle (macOS)
+        if: runner.os == 'macOS'
+        run: npx --yes -p electron@35.1.5 -p electron-builder@26.0.12 electron-builder --mac --universal --config electron-builder.yml
 
       - name: Upload Multi-Platform Artifacts
         uses: actions/upload-artifact@v4
@@ -47,3 +55,4 @@ jobs:
             public/releases/CubSpieleCom-v*-win64.zip
             public/releases/CubSpieleCom-v*-macos-universal.zip
             public/releases/CubSpieleCom-v*-android.apk
+            release/CubSpieleCom-*.*

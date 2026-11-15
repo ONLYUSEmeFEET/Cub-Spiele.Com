@@ -59,14 +59,23 @@ interface TopBarProps {
   onOpenBios: () => void;
   onOpenWindowsRelease: () => void;
   onOpenColorCustomizer: () => void;
+  onOpenAbout: () => void;
   onTakeScreenshot?: () => void;
   onUpdate: () => void;
 }
 
-type MenuId = 'file' | 'emulation' | 'view' | 'settings' | 'tools' | null;
-type SubMenuId = 'recent' | 'speed' | 'presets' | null;
+type MenuId = 'file' | 'emulation' | 'view' | 'display' | 'settings' | 'tools' | null;
+type SubMenuId =
+  | 'recent'
+  | 'speed'
+  | 'presets'
+  | 'view-screen-size'
+  | 'view-touch-size'
+  | 'view-display'
+  | null;
 
 const SCREEN_SCALES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+const TOUCH_SCALES = [1.5, 2, 2.5, 3, 4] as const;
 const SPEED_OPTIONS = [0.5, 1.0, 1.5, 2.0, 3.0] as const;
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -82,6 +91,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenBios,
   onOpenWindowsRelease,
   onOpenColorCustomizer,
+  onOpenAbout,
   onTakeScreenshot,
   onUpdate
 }) => {
@@ -158,16 +168,10 @@ export const TopBar: React.FC<TopBarProps> = ({
     closeMenus();
   };
 
-  const activeCartTitle =
-    system.activeSlot === 1
-      ? system.slot1?.title
-      : system.activeSlot === 2
-        ? system.slot2?.title
-        : system.slot1?.title || system.slot2?.title || null;
-
   const isDark = system.settings.theme === 'dark';
   const isAdvanced = system.settings.advancedMode;
   const isFullFit = system.settings.screenFitMode === 'full';
+  const isTouchAuto = system.settings.touchScaleMode === 'auto';
 
   const menuBtnClass = (id: Exclude<MenuId, null>) =>
     `px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
@@ -195,14 +199,14 @@ export const TopBar: React.FC<TopBarProps> = ({
       <input
         ref={slot1InputRef}
         type="file"
-        accept=".bin,.tgc,.rom"
+        accept=".bin,.tgc,.rom,.zip"
         className="hidden"
         onChange={(e) => handleRomSelected(e, 1)}
       />
       <input
         ref={slot2InputRef}
         type="file"
-        accept=".bin,.tgc,.rom"
+        accept=".bin,.tgc,.rom,.zip"
         className="hidden"
         onChange={(e) => handleRomSelected(e, 2)}
       />
@@ -685,7 +689,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             View
           </button>
           {openMenu === 'view' && (
-            <div className={`${dropdownClass} w-72`}>
+            <div className={`${dropdownClass} w-64`}>
               <div className={sectionLabelClass}>Layout</div>
               <div className="px-3 py-1 grid grid-cols-2 gap-1.5">
                 <button
@@ -722,69 +726,262 @@ export const TopBar: React.FC<TopBarProps> = ({
 
               <div className={dividerClass} />
 
-              <div className={sectionLabelClass}>Screen Size (200×160 Base)</div>
-              <div className="px-3 py-1 space-y-1.5">
-                <div className="grid grid-cols-4 gap-1">
-                  {SCREEN_SCALES.map((scale) => {
-                    const active =
-                      !isFullFit && system.settings.screenScale === scale;
-                    return (
+              {/* Screen-Only Size & Scaling Submenu */}
+              <div
+                className="relative"
+                onMouseEnter={() => setOpenSubMenu('view-screen-size')}
+                onMouseLeave={() => setOpenSubMenu(null)}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenSubMenu((prev) =>
+                      prev === 'view-screen-size' ? null : 'view-screen-size'
+                    )
+                  }
+                  className={itemClass}
+                >
+                  <span className="flex items-center gap-2">
+                    <Monitor className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Screen Size</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      {isFullFit ? 'Full' : `${system.settings.screenScale}×`}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                  </span>
+                </button>
+                {openSubMenu === 'view-screen-size' && (
+                  <div className="absolute left-full top-0 ml-0.5 w-60 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                    <div className={sectionLabelClass}>Screen-Only Size (200×160)</div>
+                    <div className="px-3 py-1 space-y-1.5">
+                      <div className="grid grid-cols-4 gap-1">
+                        {SCREEN_SCALES.map((scale) => {
+                          const active =
+                            !isFullFit && system.settings.screenScale === scale;
+                          return (
+                            <button
+                              key={scale}
+                              type="button"
+                              onClick={() => {
+                                system.setScreenFitMode('scale');
+                                system.setScreenScale(scale);
+                                onUpdate();
+                              }}
+                              className={`py-1 rounded border text-[11px] font-mono transition-colors ${
+                                active
+                                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                                  : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                              }`}
+                            >
+                              {scale}×
+                            </button>
+                          );
+                        })}
+                      </div>
                       <button
-                        key={scale}
                         type="button"
                         onClick={() => {
-                          system.setScreenFitMode('scale');
-                          system.setScreenScale(scale);
+                          system.setScreenFitMode(isFullFit ? 'scale' : 'full');
                           onUpdate();
                         }}
-                        className={`py-1 rounded border text-[11px] font-mono transition-colors ${
-                          active
+                        className={`w-full py-1 rounded border text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                          isFullFit
                             ? 'bg-indigo-600 border-indigo-600 text-white'
                             : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                         }`}
                       >
-                        {scale}×
+                        <Maximize2 className="w-3 h-3" />
+                        <span>Full (Fit Window)</span>
                       </button>
-                    );
-                  })}
-                </div>
+                    </div>
+                    <div className={dividerClass} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        system.toggleIntegerScaling();
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                    >
+                      <span>
+                        Scaling:{' '}
+                        <strong className="font-semibold">
+                          {system.settings.integerScaling ? 'Integer' : 'Non-Integer'}
+                        </strong>
+                      </span>
+                      <span className="text-[10px] text-zinc-400">
+                        {system.settings.integerScaling ? 'Sharp' : 'Smooth'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Touch Mode Scaling & Button Size Submenu */}
+              <div
+                className="relative"
+                onMouseEnter={() => setOpenSubMenu('view-touch-size')}
+                onMouseLeave={() => setOpenSubMenu(null)}
+              >
                 <button
                   type="button"
-                  onClick={() => {
-                    system.setScreenFitMode(isFullFit ? 'scale' : 'full');
-                    onUpdate();
-                  }}
-                  className={`w-full py-1 rounded border text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                    isFullFit
-                      ? 'bg-indigo-600 border-indigo-600 text-white'
-                      : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                  }`}
+                  onClick={() =>
+                    setOpenSubMenu((prev) =>
+                      prev === 'view-touch-size' ? null : 'view-touch-size'
+                    )
+                  }
+                  className={itemClass}
                 >
-                  <Maximize2 className="w-3 h-3" />
-                  <span>Full (Fit Window)</span>
+                  <span className="flex items-center gap-2">
+                    <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Touch Layout Size</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-zinc-400 capitalize">
+                      {isTouchAuto ? 'Auto' : `${system.settings.touchScale}×`} ·{' '}
+                      {system.settings.touchControlSize}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                  </span>
                 </button>
+                {openSubMenu === 'view-touch-size' && (
+                  <div className="absolute left-full top-0 ml-0.5 w-60 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                    <div className={sectionLabelClass}>Touch Screen Scale</div>
+                    <div className="px-3 py-1 grid grid-cols-3 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          system.setTouchScaleMode('auto');
+                          onUpdate();
+                        }}
+                        className={`py-1 rounded border text-[11px] font-medium transition-colors ${
+                          isTouchAuto
+                            ? 'bg-indigo-600 border-indigo-600 text-white'
+                            : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                        }`}
+                      >
+                        Auto
+                      </button>
+                      {TOUCH_SCALES.map((scale) => {
+                        const active =
+                          !isTouchAuto &&
+                          Math.abs(system.settings.touchScale - scale) < 0.05;
+                        return (
+                          <button
+                            key={scale}
+                            type="button"
+                            onClick={() => {
+                              system.setTouchScale(scale);
+                              onUpdate();
+                            }}
+                            className={`py-1 rounded border text-[11px] font-mono transition-colors ${
+                              active
+                                ? 'bg-indigo-600 border-indigo-600 text-white'
+                                : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                            }`}
+                          >
+                            {scale}×
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className={dividerClass} />
+                    <div className={sectionLabelClass}>Touch Control Size</div>
+                    <div className="px-3 py-1 grid grid-cols-3 gap-1">
+                      {(['compact', 'standard', 'large'] as const).map((ctrlSize) => {
+                        const active = system.settings.touchControlSize === ctrlSize;
+                        return (
+                          <button
+                            key={ctrlSize}
+                            type="button"
+                            onClick={() => {
+                              system.setTouchControlSize(ctrlSize);
+                              onUpdate();
+                            }}
+                            className={`py-1 rounded border text-[11px] capitalize transition-colors ${
+                              active
+                                ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                                : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                            }`}
+                          >
+                            {ctrlSize}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Overlays Submenu */}
+              <div
+                className="relative"
+                onMouseEnter={() => setOpenSubMenu('view-display')}
+                onMouseLeave={() => setOpenSubMenu(null)}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenSubMenu((prev) =>
+                      prev === 'view-display' ? null : 'view-display'
+                    )
+                  }
+                  className={itemClass}
+                >
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Overlays</span>
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                </button>
+                {openSubMenu === 'view-display' && (
+                  <div className="absolute left-full top-0 ml-0.5 w-64 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                    <div className="px-3 py-1.5 space-y-1">
+                      <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <span>Touch Grid Visibility</span>
+                        <span className="font-mono tabular-nums">
+                          {Math.round(system.settings.touchGridOpacity * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(system.settings.touchGridOpacity * 100)}
+                        onChange={(e) => {
+                          const pct = Number(e.target.value);
+                          system.settings.touchGridOpacity = pct / 100;
+                          system.settings.showTouchGrid = pct > 0;
+                          system.saveViewSettingsToStorage();
+                          onUpdate();
+                        }}
+                        className="w-full accent-indigo-500 h-1.5 cursor-pointer"
+                        aria-label="Touch Grid Visibility"
+                      />
+                    </div>
+
+                    <div className={dividerClass} />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        system.toggleScoreOverlay();
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                    >
+                      <span>Score Display Overlay</span>
+                      {system.settings.showScoreOverlay && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className={dividerClass} />
-
-              <button
-                type="button"
-                onClick={() => {
-                  system.toggleIntegerScaling();
-                  onUpdate();
-                }}
-                className={itemClass}
-              >
-                <span>
-                  Scaling:{' '}
-                  <strong className="font-semibold">
-                    {system.settings.integerScaling ? 'Integer' : 'Non-Integer'}
-                  </strong>
-                </span>
-                <span className="text-[10px] text-zinc-400">
-                  {system.settings.integerScaling ? 'Sharp' : 'Smooth Fit'}
-                </span>
-              </button>
 
               <button
                 type="button"
@@ -826,63 +1023,6 @@ export const TopBar: React.FC<TopBarProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  system.settings.pixelGrid = !system.settings.pixelGrid;
-                  system.saveViewSettingsToStorage();
-                  onUpdate();
-                }}
-                className={itemClass}
-              >
-                <span className="flex items-center gap-2">
-                  <Grid className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>LCD Pixel Grid</span>
-                </span>
-                {system.settings.pixelGrid && (
-                  <Check className="w-3.5 h-3.5 text-indigo-500" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  system.toggleScoreOverlay();
-                  onUpdate();
-                }}
-                className={itemClass}
-              >
-                <span>Score Display Overlay</span>
-                {system.settings.showScoreOverlay && (
-                  <Check className="w-3.5 h-3.5 text-indigo-500" />
-                )}
-              </button>
-
-              <div className="px-3 py-1.5 space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                  <span>Touch Grid Visibility</span>
-                  <span className="font-mono">
-                    {Math.round(system.settings.touchGridOpacity * 100)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(system.settings.touchGridOpacity * 100)}
-                  onChange={(e) => {
-                    const pct = Number(e.target.value);
-                    system.settings.touchGridOpacity = pct / 100;
-                    system.settings.showTouchGrid = pct > 0;
-                    system.saveViewSettingsToStorage();
-                    onUpdate();
-                  }}
-                  className="w-full accent-indigo-500 h-1.5 cursor-pointer"
-                />
-              </div>
-
-              <div className={dividerClass} />
-
-              <button
-                type="button"
                 onClick={handleFullscreen}
                 className={itemClass}
               >
@@ -892,52 +1032,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </span>
                 <span className="text-[10px] font-mono text-zinc-400">F11</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  system.settings.advancedMode = !system.settings.advancedMode;
-                  system.saveViewSettingsToStorage();
-                  onUpdate();
-                }}
-                className={itemClass}
-              >
-                <span>Advanced Mode</span>
-                {isAdvanced && <Check className="w-3.5 h-3.5 text-indigo-500" />}
-              </button>
-
-              {isAdvanced && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    system.toggleRetroAchievements();
-                    onUpdate();
-                  }}
-                  className={itemClass}
-                >
-                  <span>RetroAchievements Components</span>
-                  {system.settings.enableRetroAchievements && (
-                    <Check className="w-3.5 h-3.5 text-amber-500" />
-                  )}
-                </button>
-              )}
             </div>
           )}
         </div>
 
-        {/* SETTINGS MENU */}
+        {/* DISPLAY MENU */}
         <div className="relative">
           <button
             type="button"
-            onClick={() => toggleMenu('settings')}
-            className={menuBtnClass('settings')}
+            onClick={() => toggleMenu('display')}
+            className={menuBtnClass('display')}
           >
-            Settings
+            Display
           </button>
-          {openMenu === 'settings' && (
+          {openMenu === 'display' && (
             <div className={`${dropdownClass} w-68`}>
-              <div className={sectionLabelClass}>Display</div>
-
               {/* Screen Color Presets Submenu */}
               <div
                 className="relative"
@@ -1004,24 +1113,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenAccuracy();
-                  closeMenus();
-                }}
-                className={itemClass}
-              >
-                <span className="flex items-center gap-2">
-                  <Monitor className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>LCD Ghosting & Accuracy...</span>
-                </span>
-              </button>
+              <div className={dividerClass} />
 
               <div className="px-3 py-1.5 space-y-1">
                 <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                  <span>LCD Contrast</span>
-                  <span className="font-mono">
+                  <span className="flex items-center gap-1.5">
+                    <Contrast className="w-3 h-3 text-zinc-400" />
+                    <span>LCD Contrast</span>
+                  </span>
+                  <span className="font-mono tabular-nums">
                     {Math.round(system.settings.contrast * 100)}%
                   </span>
                 </div>
@@ -1035,10 +1135,100 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onUpdate();
                   }}
                   className="w-full accent-indigo-500 h-1.5 cursor-pointer"
+                  aria-label="LCD Contrast"
                 />
               </div>
 
+              <div className="px-3 py-1.5 space-y-1">
+                <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span className="flex items-center gap-1.5">
+                    <Monitor className="w-3 h-3 text-zinc-400" />
+                    <span>LCD Ghosting</span>
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    {Math.round(
+                      (system.accuracyFixes.stnGhostingAccurate
+                        ? system.settings.ghosting
+                        : 0) * 100
+                    )}
+                    %
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(
+                    (system.accuracyFixes.stnGhostingAccurate
+                      ? system.settings.ghosting
+                      : 0) * 100
+                  )}
+                  onChange={(e) => {
+                    const val = Number(e.target.value) / 100;
+                    const persistence =
+                      system.settings.ghostingPersistence > 0
+                        ? system.settings.ghostingPersistence
+                        : val > 0
+                          ? 0.65
+                          : 0;
+                    system.accuracyFixes.stnGhostingAccurate =
+                      val > 0 || persistence > 0;
+                    system.setGhostingParameters(val, persistence);
+                    onUpdate();
+                  }}
+                  className="w-full accent-indigo-500 h-1.5 cursor-pointer"
+                  aria-label="LCD Ghosting"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  system.settings.pixelGrid = !system.settings.pixelGrid;
+                  system.saveViewSettingsToStorage();
+                  onUpdate();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <Grid className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>LCD Pixel Grid</span>
+                </span>
+                {system.settings.pixelGrid && (
+                  <Check className="w-3.5 h-3.5 text-indigo-500" />
+                )}
+              </button>
+
               <div className={dividerClass} />
+
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenAccuracy();
+                  closeMenus();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <Monitor className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>LCD Ghosting &amp; Accuracy...</span>
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* SETTINGS MENU */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => toggleMenu('settings')}
+            className={menuBtnClass('settings')}
+          >
+            Settings
+          </button>
+          {openMenu === 'settings' && (
+            <div className={`${dropdownClass} w-68`}>
               <div className={sectionLabelClass}>Audio</div>
 
               <div className="px-3 py-1.5 space-y-1">
@@ -1180,10 +1370,45 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </span>
               </button>
 
+              <div className={dividerClass} />
+
+              <button
+                type="button"
+                onClick={() => {
+                  system.settings.advancedMode = !system.settings.advancedMode;
+                  system.saveViewSettingsToStorage();
+                  onUpdate();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Advanced Mode</span>
+                </span>
+                {isAdvanced && <Check className="w-3.5 h-3.5 text-indigo-500" />}
+              </button>
+
               {isAdvanced && (
                 <>
                   <div className={dividerClass} />
                   <div className={sectionLabelClass}>Advanced Tools</div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      system.toggleRetroAchievements();
+                      onUpdate();
+                    }}
+                    className={itemClass}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                      <span>RetroAchievements Components</span>
+                    </span>
+                    {system.settings.enableRetroAchievements && (
+                      <Check className="w-3.5 h-3.5 text-amber-500" />
+                    )}
+                  </button>
 
                   {system.settings.enableRetroAchievements && onOpenAchievements && (
                     <button
@@ -1233,9 +1458,21 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
           )}
         </div>
+
+        {/* ABOUT BUTTON */}
+        <button
+          type="button"
+          onClick={() => {
+            closeMenus();
+            onOpenAbout();
+          }}
+          className="px-2.5 py-1 rounded text-[12px] font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white transition-colors"
+        >
+          About
+        </button>
       </div>
 
-      {/* Right: Quick Controls (No RetroAchievements pill here) */}
+      {/* Right: Quick Controls */}
       <div className="flex items-center gap-1.5">
         {system.linkCable.instanceNumber === 2 && (
           <span className="px-2 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-semibold">
@@ -1260,44 +1497,12 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <button
           type="button"
-          onClick={() => slot1InputRef.current?.click()}
-          className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded text-[11px] bg-zinc-200/70 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 max-w-[180px] transition-colors"
-          title={activeCartTitle ? `Active Cartridge: ${activeCartTitle}` : 'Open Game ROM (Ctrl+O)'}
-        >
-          <FolderOpen className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
-          <span className="truncate">
-            {activeCartTitle || 'Open Game'}
-          </span>
-        </button>
-
-        <button
-          type="button"
           onClick={handleScreenshot}
           className="p-1.5 rounded text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-900 transition-colors"
           title="Take Screenshot (F9 / F12)"
         >
           <Camera className="w-3.5 h-3.5" />
         </button>
-
-        {/* Quick Contrast */}
-        <div
-          className="hidden md:flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-zinc-200/60 dark:bg-zinc-900"
-          title={`LCD Contrast: ${Math.round(system.settings.contrast * 100)}%`}
-        >
-          <Contrast className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={Math.round(system.settings.contrast * 100)}
-            onChange={(e) => {
-              system.setContrast(Number(e.target.value) / 100);
-              onUpdate();
-            }}
-            className="w-14 accent-indigo-500 h-1 cursor-pointer"
-            aria-label="LCD Contrast"
-          />
-        </div>
 
         {/* Screen / Full / Touch quick toggle */}
         <button
