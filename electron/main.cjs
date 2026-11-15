@@ -271,11 +271,13 @@ function createWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.includes('instance=2')) {
+      const bounds =
+        mainWindow && !mainWindow.isDestroyed() ? mainWindow.getBounds() : null;
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
-          width: 820,
-          height: 700,
+          width: bounds ? bounds.width : 820,
+          height: bounds ? bounds.height : 700,
           title: 'Cub Spiele.Com — Player 2 (Compete.Com Link)',
           backgroundColor: '#111319',
           webPreferences: {
@@ -301,9 +303,12 @@ function createSecondInstanceWindow(roomCode = 'TIGER-1') {
     return true;
   }
 
+  const bounds =
+    mainWindow && !mainWindow.isDestroyed() ? mainWindow.getBounds() : null;
+
   secondWindow = new BrowserWindow({
-    width: 820,
-    height: 700,
+    width: bounds ? bounds.width : 820,
+    height: bounds ? bounds.height : 700,
     minWidth: 640,
     minHeight: 540,
     title: 'Cub Spiele.Com — Player 2 (Compete.Com Link)',

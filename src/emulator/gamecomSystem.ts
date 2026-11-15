@@ -39,6 +39,7 @@ const GHOSTING_SETTINGS_STORAGE_KEY = 'cub_spiele_ghosting_v2';
 const INPUT_SETTINGS_STORAGE_KEY = 'cub_spiele_input_settings_v1';
 const VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v2';
 const LEGACY_VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v1';
+const SCREEN_SYNC_CHANNEL_NAME = 'cub_spiele_screen_sync_v1';
 
 export function getDefaultViewModeForPlatform(): 'screen-only' | 'touch' {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -114,6 +115,8 @@ export class GameComSystem {
   public onlineLeaderboard: OnlineLeaderboardManager;
   public onHardcoreViolation?: (reason: string) => void;
   public onScoreRecorded?: (entry: any) => void;
+  public onScreenSettingsSynced?: () => void;
+  private screenSyncChannel: BroadcastChannel | null = null;
 
   // Dual cartridge slots
   public slot1: CartridgeInfo | null = null;
@@ -219,6 +222,7 @@ export class GameComSystem {
     touchScaleMode: 'auto',
     touchScale: 2.5,
     touchControlSize: 'standard',
+    touchOrientation: 'auto',
     showBottomBar: false,
     contrast: 1.0,
     volume: 0.2,
@@ -233,7 +237,8 @@ export class GameComSystem {
     gamepadDeadzone: 0.15,
     advancedMode: false,
     showScoreOverlay: false,
-    enableRetroAchievements: false
+    enableRetroAchievements: false,
+    fastBoot: false
   };
 
   // Timing
@@ -310,7 +315,7 @@ export class GameComSystem {
         this.retroAchievements.raDll.RA_SetPaused(true);
       },
       fpEstimateTitle: () => this.getActiveCartridge()?.title || 'BIOS Built-In PDA',
-      fpResetEmulator: () => this.resetSystem('MAIN_MENU')
+      fpResetEmulator: () => this.resetSystem(this.settings.fastBoot ? 'MAIN_MENU' : 'NONE')
     });
 
     // Wire hardware sound generator, 8-bit SGDA ($004E) DAC streamer, & BIOS digitized waveform callbacks
@@ -323,13 +328,13 @@ export class GameComSystem {
     this.cpu.onDacStreamStart = () => {
       const isSkippingGlobeForCart =
         (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') &&
-        this.bootFrameCounter >= 480;
+        this.bootFrameCounter >= 390;
       this.sound.onDacStreamStart(isSkippingGlobeForCart);
     };
     this.cpu.onDacSample = (val, sampleRate) => {
       if (
         (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') &&
-        this.bootFrameCounter < 495
+        this.bootFrameCounter < 405
       ) {
         return;
       }
@@ -351,7 +356,7 @@ export class GameComSystem {
     // Initialize official BIOS and sync to SM8521 when full 256KB external.bin finishes loading
     this.bios = new BiosSubsystem(() => {
       this.syncBiosToMemory();
-      this.resetSystem('MAIN_MENU');
+      this.resetSystem(this.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
     });
 
     this.syncBiosToMemory();
@@ -370,9 +375,58 @@ export class GameComSystem {
     }
     this.loadRecentGamesFromStorage();
     this.loadDisplaySettingsFromStorage();
+    this.initScreenSettingsMirrorSync();
     this.loadPreloadedCartridges();
 
-    this.resetSystem('MAIN_MENU');
+    this.resetSystem(this.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
+  }
+
+  private initScreenSettingsMirrorSync() {
+    if (typeof window === 'undefined') return;
+    const applyMirrorReload = () => {
+      if (this.linkCable.instanceId !== 2) return;
+      this.loadDisplaySettingsFromStorage();
+      this.onScreenSettingsSynced?.();
+    };
+    if ('BroadcastChannel' in window) {
+      try {
+        this.screenSyncChannel = new BroadcastChannel(SCREEN_SYNC_CHANNEL_NAME);
+        this.screenSyncChannel.onmessage = (ev) => {
+          if (
+            ev.data &&
+            ev.data.type === 'SCREEN_SETTINGS_UPDATED' &&
+            ev.data.sourceInstance !== this.linkCable.instanceId
+          ) {
+            applyMirrorReload();
+          }
+        };
+      } catch {
+        // Ignore BroadcastChannel errors
+      }
+    }
+    window.addEventListener('storage', (ev) => {
+      if (
+        ev.key === VIEW_MODE_STORAGE_KEY ||
+        ev.key === TWO_SHADE_STORAGE_KEY ||
+        ev.key === GHOSTING_SETTINGS_STORAGE_KEY ||
+        ev.key === INPUT_SETTINGS_STORAGE_KEY
+      ) {
+        applyMirrorReload();
+      }
+    });
+  }
+
+  private broadcastScreenSettingsUpdate() {
+    if (this.screenSyncChannel && this.linkCable.instanceId !== 2) {
+      try {
+        this.screenSyncChannel.postMessage({
+          type: 'SCREEN_SETTINGS_UPDATED',
+          sourceInstance: this.linkCable.instanceId
+        });
+      } catch {
+        // Ignore BroadcastChannel errors
+      }
+    }
   }
 
   public getActiveCartridge(): CartridgeInfo | null {
@@ -406,12 +460,13 @@ export class GameComSystem {
       }
       this.rewindBuffer = [];
       this.accuracyFixes.correctClockSpeed = true;
-      const bootTarget: FastBootTarget =
-        this.activeApp === 'CARTRIDGE'
+      const bootTarget: FastBootTarget = this.settings.fastBoot
+        ? this.activeApp === 'CARTRIDGE'
           ? this.activeSlot === 1
             ? 'CART_1'
             : 'CART_2'
-          : 'MAIN_MENU';
+          : 'MAIN_MENU'
+        : 'NONE';
       this.resetSystem(bootTarget);
     } else {
       this.retroAchievements.session.hardcoreActive = false;
@@ -590,6 +645,9 @@ export class GameComSystem {
         if (typeof parsedI.enableRetroAchievements === 'boolean') {
           this.settings.enableRetroAchievements = parsedI.enableRetroAchievements;
         }
+        if (typeof parsedI.fastBoot === 'boolean') {
+          this.settings.fastBoot = parsedI.fastBoot;
+        }
         if (parsedI.theme === 'light' || parsedI.theme === 'dark') {
           this.settings.theme = parsedI.theme;
         }
@@ -617,10 +675,14 @@ export class GameComSystem {
         if (typeof parsedV?.integerScaling === 'boolean') {
           this.settings.integerScaling = parsedV.integerScaling;
         }
-        if (parsedV?.touchScaleMode === 'auto' || parsedV?.touchScaleMode === 'scale') {
+        if (
+          parsedV?.touchScaleMode === 'auto' ||
+          parsedV?.touchScaleMode === 'full' ||
+          parsedV?.touchScaleMode === 'scale'
+        ) {
           this.settings.touchScaleMode = parsedV.touchScaleMode;
         }
-        if (typeof parsedV?.touchScale === 'number' && parsedV.touchScale >= 1 && parsedV.touchScale <= 5) {
+        if (typeof parsedV?.touchScale === 'number' && parsedV.touchScale >= 1 && parsedV.touchScale <= 8) {
           this.settings.touchScale = Math.round(parsedV.touchScale * 100) / 100;
         }
         if (
@@ -630,20 +692,43 @@ export class GameComSystem {
         ) {
           this.settings.touchControlSize = parsedV.touchControlSize;
         }
+        if (
+          parsedV?.touchOrientation === 'auto' ||
+          parsedV?.touchOrientation === 'horizontal' ||
+          parsedV?.touchOrientation === 'vertical'
+        ) {
+          this.settings.touchOrientation = parsedV.touchOrientation;
+        }
+        if (typeof parsedV?.pixelGrid === 'boolean') {
+          this.settings.pixelGrid = parsedV.pixelGrid;
+          this.lcd.pixelGrid = parsedV.pixelGrid;
+        }
+        if (typeof parsedV?.touchGridOpacity === 'number') {
+          const op = Math.max(0, Math.min(1, parsedV.touchGridOpacity));
+          this.settings.touchGridOpacity = op;
+          this.settings.showTouchGrid = op > 0;
+        }
         if (!isMigratedFromLegacy && typeof parsedV?.showBottomBar === 'boolean') {
           this.settings.showBottomBar = parsedV.showBottomBar;
         } else {
           this.settings.showBottomBar = false;
         }
-        if (isMigratedFromLegacy) {
+        if (isMigratedFromLegacy && this.linkCable.instanceId !== 2) {
           this.saveViewSettingsToStorage();
         }
       } else {
         // First boot: set platform default (Screen-Only on Windows/macOS, Touch on Android/mobile) and persist it
         this.settings.viewMode = getDefaultViewModeForPlatform();
         this.settings.showBottomBar = false;
-        this.saveViewSettingsToStorage();
+        if (this.linkCable.instanceId !== 2) {
+          this.saveViewSettingsToStorage();
+        }
       }
+      this.lcd.ghosting = this.accuracyFixes.stnGhostingAccurate ? this.settings.ghosting : 0;
+      this.lcd.ghostingPersistence = this.accuracyFixes.stnGhostingAccurate
+        ? this.settings.ghostingPersistence
+        : 0;
+      this.lcd.pixelGrid = this.settings.pixelGrid;
       this.retroAchievements.config.leaderboardPopups = this.settings.showScoreOverlay;
       this.retroAchievements.config.enabled = this.settings.enableRetroAchievements;
       this.applyThemeToDom();
@@ -665,9 +750,11 @@ export class GameComSystem {
           advancedMode: this.settings.advancedMode,
           showScoreOverlay: this.settings.showScoreOverlay,
           enableRetroAchievements: this.settings.enableRetroAchievements,
+          fastBoot: this.settings.fastBoot,
           theme: this.settings.theme
         })
       );
+      this.broadcastScreenSettingsUpdate();
     } catch {
       // Ignore storage errors
     }
@@ -707,9 +794,13 @@ export class GameComSystem {
           touchScaleMode: this.settings.touchScaleMode,
           touchScale: this.settings.touchScale,
           touchControlSize: this.settings.touchControlSize,
+          touchOrientation: this.settings.touchOrientation,
+          pixelGrid: this.settings.pixelGrid,
+          touchGridOpacity: this.settings.touchGridOpacity,
           showBottomBar: this.settings.showBottomBar
         })
       );
+      this.broadcastScreenSettingsUpdate();
     } catch {
       // Ignore storage errors
     }
@@ -746,13 +837,13 @@ export class GameComSystem {
   }
 
   public setTouchScale(scale: number) {
-    this.settings.touchScale = Math.max(1, Math.min(5, Math.round(scale * 100) / 100));
+    this.settings.touchScale = Math.max(1, Math.min(8, Math.round(scale * 100) / 100));
     this.settings.touchScaleMode = 'scale';
     this.settings.viewMode = 'touch';
     this.saveViewSettingsToStorage();
   }
 
-  public setTouchScaleMode(mode: 'auto' | 'scale') {
+  public setTouchScaleMode(mode: 'auto' | 'full' | 'scale') {
     this.settings.touchScaleMode = mode;
     this.settings.viewMode = 'touch';
     this.saveViewSettingsToStorage();
@@ -762,6 +853,24 @@ export class GameComSystem {
     this.settings.touchControlSize = size;
     this.settings.viewMode = 'touch';
     this.saveViewSettingsToStorage();
+  }
+
+  public setTouchOrientation(orientation: 'auto' | 'horizontal' | 'vertical') {
+    this.settings.touchOrientation = orientation;
+    this.settings.viewMode = 'touch';
+    this.saveViewSettingsToStorage();
+  }
+
+  public toggleFastBoot(enabled?: boolean): boolean {
+    const next = enabled !== undefined ? enabled : !this.settings.fastBoot;
+    this.settings.fastBoot = next;
+    if (!next && this.fastBootTarget !== 'NONE') {
+      this.fastBootTarget = 'NONE';
+      this.cpu.stylusPressed = false;
+      this.syncBothCartridgeSlotsToCpu();
+    }
+    this.saveInputSettingsToStorage();
+    return next;
   }
 
   public toggleBottomBar(enabled?: boolean): boolean {
@@ -848,6 +957,7 @@ export class GameComSystem {
           stnGhostingAccurate: this.accuracyFixes.stnGhostingAccurate
         })
       );
+      this.broadcastScreenSettingsUpdate();
     } catch {
       // Ignore storage errors
     }
@@ -1176,7 +1286,7 @@ export class GameComSystem {
       this.slot2 = null;
       this.cpu.loadCartridgeROM(null, 2);
     }
-    this.resetSystem('MAIN_MENU');
+    this.resetSystem(this.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
   }
 
   public async loadRomFromFile(file: File, slot: 1 | 2 = 1): Promise<CartridgeInfo> {
@@ -1198,8 +1308,10 @@ export class GameComSystem {
     }
 
     this.isPoweredOn = true;
-    this.activeApp = 'CARTRIDGE';
-    this.resetSystem(slot === 1 ? 'CART_1' : 'CART_2');
+    this.activeApp = this.settings.fastBoot ? 'CARTRIDGE' : 'OS';
+    this.resetSystem(
+      this.settings.fastBoot ? (slot === 1 ? 'CART_1' : 'CART_2') : 'NONE'
+    );
   }
 
   /**
@@ -1212,34 +1324,34 @@ export class GameComSystem {
     if (this.fastBootTarget !== 'NONE') {
       const appId = this.cpu.m_p_ram[0x0168];
 
-      if (f >= 445 && f <= 460) {
+      if (f >= 360 && f <= 375) {
         // Tap "TOUCH SCREEN TO CONTINUE" after 3D Globe finishes
         this.cpu.stylusPressed = true;
         this.cpu.stylusX = 100;
         this.cpu.stylusY = 80;
       } else if (this.fastBootTarget === 'KEEP_CLEAR_PROMPT') {
         this.cpu.stylusPressed = false;
-        if (f >= 480 || (this.cpu.mmu[2] === 3 && this.cpu.m_PC >= 0x5e40 && this.cpu.m_PC <= 0x5e65)) {
+        if (f >= 410 || (this.cpu.mmu[2] === 3 && this.cpu.m_PC >= 0x5e40 && this.cpu.m_PC <= 0x5e65)) {
           this.fastBootTarget = 'NONE';
         }
       } else if (this.fastBootTarget === 'MAIN_MENU') {
         this.cpu.stylusPressed = false;
-        if (f >= 495 && appId === 0) {
+        if (f >= 400 && appId === 0) {
           this.fastBootTarget = 'NONE';
         }
       } else if (this.fastBootTarget === 'HIGH_SCORE') {
-        if (f >= 500 && f <= 512) {
+        if (f >= 410 && f <= 422) {
           this.cpu.stylusPressed = true;
           this.cpu.stylusX = 100;
           this.cpu.stylusY = 120;
         } else {
           this.cpu.stylusPressed = false;
         }
-        if (f >= 545) {
+        if (f >= 460) {
           this.fastBootTarget = 'NONE';
         }
       } else if (this.fastBootTarget === 'PHONE_BOOK') {
-        if (f >= 500 && f <= 512) {
+        if (f >= 410 && f <= 422) {
           // Tap PHONE BOOK icon on BIOS Main Menu (top-center column)
           this.cpu.stylusPressed = true;
           this.cpu.stylusX = 100;
@@ -1247,18 +1359,18 @@ export class GameComSystem {
         } else {
           this.cpu.stylusPressed = false;
         }
-        if (f >= 550) {
+        if (f >= 465) {
           this.fastBootTarget = 'NONE';
         }
       } else if (this.fastBootTarget === 'CART_1' || this.fastBootTarget === 'CART_2') {
-        if (f >= 500 && f <= 512) {
+        if (f >= 410 && f <= 422) {
           // Tap CARTRIDGE icon on BIOS Main Menu
           this.cpu.stylusPressed = true;
           this.cpu.stylusX = 35;
           this.cpu.stylusY = 35;
         } else if (
-          f >= 545 &&
-          f <= 560 &&
+          f >= 455 &&
+          f <= 470 &&
           (this.cpu.m_p_ram[0x017c] & 0x03) === 0x03
         ) {
           // If both slots are active in the BIOS dual-slot menu ($017C & 0x03 == 0x03),
@@ -1275,7 +1387,7 @@ export class GameComSystem {
           this.cpu.m_PC >= 0x2000 &&
           this.cpu.m_PC < 0xa000 &&
           this.cpu.mmu[this.cpu.m_PC >> 13] >= 0x20;
-        if ((f >= 600 && pcInCart) || f >= 840) {
+        if ((f >= 560 && pcInCart) || f >= 900) {
           this.cpu.stylusPressed = false;
           this.fastBootTarget = 'NONE';
           this.activeApp = 'CARTRIDGE';

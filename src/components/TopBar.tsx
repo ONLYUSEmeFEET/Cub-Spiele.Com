@@ -45,7 +45,8 @@ import {
   StepForward,
   Rewind,
   Gauge,
-  PanelBottom
+  PanelBottom,
+  Zap
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -79,7 +80,7 @@ type SubMenuId =
   | null;
 
 const SCREEN_SCALES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-const TOUCH_SCALES = [1.5, 2, 2.5, 3, 4] as const;
+const TOUCH_SCALES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const SPEED_OPTIONS = [0.5, 1.0, 1.5, 2.0, 3.0] as const;
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -178,6 +179,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   const isAdvanced = system.settings.advancedMode;
   const isFullFit = system.settings.screenFitMode === 'full';
   const isTouchAuto = system.settings.touchScaleMode === 'auto';
+  const isTouchFull = system.settings.touchScaleMode === 'full';
+  const isHardcore = system.retroAchievements.config.hardcoreMode;
+  const touchOrientation = system.settings.touchOrientation || 'auto';
 
   const menuBtnClass = (id: Exclude<MenuId, null>) =>
     `px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
@@ -508,6 +512,23 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  system.toggleFastBoot();
+                  onUpdate();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Fast Boot (Skip BIOS Intro)</span>
+                </span>
+                {system.settings.fastBoot && (
+                  <Check className="w-3.5 h-3.5 text-indigo-500" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   system.frameAdvance();
                   onUpdate();
                 }}
@@ -640,7 +661,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <Cpu className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Cold Boot to BIOS Menu</span>
+                      <span>Fast Boot to BIOS Menu</span>
                     </span>
                   </button>
 
@@ -689,24 +710,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                     )}
                   </button>
 
-                  {system.settings.enableRetroAchievements && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        system.toggleHardcoreMode();
-                        onUpdate();
-                      }}
-                      className={itemClass}
-                    >
-                      <span className="flex items-center gap-2">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Hardcore Mode (No Saves/Rewind)</span>
-                      </span>
-                      {system.retroAchievements.config.hardcoreMode && (
-                        <Check className="w-3.5 h-3.5 text-amber-500" />
-                      )}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      system.toggleHardcoreMode();
+                      onUpdate();
+                    }}
+                    className={itemClass}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ShieldCheck className={`w-3.5 h-3.5 ${isHardcore ? 'text-amber-500' : 'text-zinc-400'}`} />
+                      <span>Hardcore Mode (No Saves/Rewind)</span>
+                    </span>
+                    {isHardcore && (
+                      <Check className="w-3.5 h-3.5 text-amber-500" />
+                    )}
+                  </button>
                 </>
               )}
             </div>
@@ -853,7 +872,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 )}
               </div>
 
-              {/* Touch Mode Scaling & Button Size Submenu */}
+              {/* Touch Screen Size, Layout Orientation & Controls Submenu */}
               <div
                 className="relative"
                 onMouseEnter={() => setOpenSubMenu('view-touch-size')}
@@ -870,57 +889,103 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Touch Layout Size</span>
+                    <span>Touch Screen</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono text-zinc-400 capitalize">
-                      {isTouchAuto ? 'Auto' : `${system.settings.touchScale}×`} ·{' '}
-                      {system.settings.touchControlSize}
+                      {isTouchAuto ? 'Auto' : isTouchFull ? 'Full' : `${system.settings.touchScale}×`} ·{' '}
+                      {touchOrientation === 'auto' ? 'Auto' : touchOrientation === 'horizontal' ? 'Horiz' : 'Vert'}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                   </span>
                 </button>
                 {openSubMenu === 'view-touch-size' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-60 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
-                    <div className={sectionLabelClass}>Touch Screen Scale</div>
+                  <div className="absolute left-full top-0 ml-0.5 w-64 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                    <div className={sectionLabelClass}>Touch Screen Size (200×160)</div>
+                    <div className="px-3 py-1 space-y-1.5">
+                      <div className="grid grid-cols-4 gap-1">
+                        {TOUCH_SCALES.map((scale) => {
+                          const active =
+                            !isTouchAuto &&
+                            !isTouchFull &&
+                            Math.abs(system.settings.touchScale - scale) < 0.05;
+                          return (
+                            <button
+                              key={scale}
+                              type="button"
+                              onClick={() => {
+                                system.setTouchScale(scale);
+                                onUpdate();
+                              }}
+                              className={`py-1 rounded border text-[11px] font-mono transition-colors ${
+                                active
+                                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                                  : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                              }`}
+                            >
+                              {scale}×
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            system.setTouchScaleMode('auto');
+                            onUpdate();
+                          }}
+                          className={`py-1 rounded border text-[11px] font-medium transition-colors ${
+                            isTouchAuto
+                              ? 'bg-indigo-600 border-indigo-600 text-white'
+                              : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                          }`}
+                        >
+                          Auto Fit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            system.setTouchScaleMode(isTouchFull ? 'auto' : 'full');
+                            onUpdate();
+                          }}
+                          className={`py-1 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors ${
+                            isTouchFull
+                              ? 'bg-indigo-600 border-indigo-600 text-white'
+                              : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                          }`}
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          <span>Full</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className={dividerClass} />
+                    <div className={sectionLabelClass}>Touch Orientation</div>
                     <div className="px-3 py-1 grid grid-cols-3 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          system.setTouchScaleMode('auto');
-                          onUpdate();
-                        }}
-                        className={`py-1 rounded border text-[11px] font-medium transition-colors ${
-                          isTouchAuto
-                            ? 'bg-indigo-600 border-indigo-600 text-white'
-                            : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                        }`}
-                      >
-                        Auto
-                      </button>
-                      {TOUCH_SCALES.map((scale) => {
-                        const active =
-                          !isTouchAuto &&
-                          Math.abs(system.settings.touchScale - scale) < 0.05;
+                      {(['auto', 'horizontal', 'vertical'] as const).map((orient) => {
+                        const active = touchOrientation === orient;
                         return (
                           <button
-                            key={scale}
+                            key={orient}
                             type="button"
                             onClick={() => {
-                              system.setTouchScale(scale);
+                              system.setTouchOrientation(orient);
                               onUpdate();
                             }}
-                            className={`py-1 rounded border text-[11px] font-mono transition-colors ${
+                            className={`py-1 rounded border text-[11px] capitalize transition-colors ${
                               active
-                                ? 'bg-indigo-600 border-indigo-600 text-white'
+                                ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
                                 : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                             }`}
                           >
-                            {scale}×
+                            {orient === 'horizontal' ? 'Horiz' : orient === 'vertical' ? 'Vert' : 'Auto'}
                           </button>
                         );
                       })}
                     </div>
+
                     <div className={dividerClass} />
                     <div className={sectionLabelClass}>Touch Control Size</div>
                     <div className="px-3 py-1 grid grid-cols-3 gap-1">
@@ -1536,6 +1601,28 @@ export const TopBar: React.FC<TopBarProps> = ({
           title="Take Screenshot (F9 / F12)"
         >
           <Camera className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Hardcore / Softcore Quick Toggle */}
+        <button
+          type="button"
+          onClick={() => {
+            system.toggleHardcoreMode();
+            onUpdate();
+          }}
+          className={`px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors ${
+            isHardcore
+              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-400 border border-amber-500/40'
+              : 'bg-zinc-200/70 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+          }`}
+          title={
+            isHardcore
+              ? 'Hardcore Mode Active (No Save States/Rewind/Slowdown) — Click to switch to Softcore'
+              : 'Softcore Mode Active — Click to switch to Hardcore Mode (Resets system)'
+          }
+        >
+          <ShieldCheck className={`w-3.5 h-3.5 ${isHardcore ? 'text-amber-500' : 'text-zinc-500 dark:text-zinc-400'}`} />
+          <span className="hidden md:inline">{isHardcore ? 'Hardcore' : 'Softcore'}</span>
         </button>
 
         {/* Screen / Full / Touch quick toggle */}

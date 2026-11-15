@@ -39,44 +39,78 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
     let animationFrameId: number;
     let lastFpsReport = performance.now();
     let lastTickTime = performance.now();
+    let lastAccTime = performance.now();
+    let accumMs = 0;
     let prevVx = system.virtualStylus.x;
     let prevVy = system.virtualStylus.y;
     let prevVVis = system.virtualStylus.visible;
     let prevVDown = system.virtualStylus.isDown;
     let prevVMode = system.virtualStylus.dpadStylusMode;
 
-    const executeFrameStep = (now: number) => {
+    const advanceAccumulator = (now: number, presentToCanvas: boolean) => {
+      const elapsed = Math.min(Math.max(0, now - lastAccTime), 80);
+      lastAccTime = now;
       lastTickTime = now;
-      system.tick();
 
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          system.lcd.renderToCanvas(canvas, ctx);
+      const frameMs = Math.max(4, system.cpu.getHwFrameDurationMs());
+      let didStep = false;
+
+      if (!system.isPoweredOn || system.isPaused) {
+        accumMs = 0;
+        system.tick();
+        didStep = true;
+      } else {
+        accumMs += elapsed;
+        let steps = 0;
+        while (accumMs >= frameMs && steps < 5) {
+          const wasFastBoot = system.fastBootTarget !== 'NONE';
+          system.tick();
+          didStep = true;
+          steps++;
+          accumMs -= frameMs;
+          if (wasFastBoot && system.fastBootTarget === 'NONE') {
+            accumMs = 0;
+            lastAccTime = performance.now();
+            break;
+          }
+        }
+        if (accumMs > frameMs * 4) {
+          accumMs = frameMs;
         }
       }
 
-      const vs = system.virtualStylus;
-      if (
-        vs.x !== prevVx ||
-        vs.y !== prevVy ||
-        vs.visible !== prevVVis ||
-        vs.isDown !== prevVDown ||
-        vs.dpadStylusMode !== prevVMode
-      ) {
-        prevVx = vs.x;
-        prevVy = vs.y;
-        prevVVis = vs.visible;
-        prevVDown = vs.isDown;
-        prevVMode = vs.dpadStylusMode;
-        setVStylusPos({
-          x: vs.x,
-          y: vs.y,
-          visible: vs.visible,
-          isDown: vs.isDown,
-          dpadStylusMode: vs.dpadStylusMode
-        });
+      if (presentToCanvas) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            system.lcd.renderToCanvas(canvas, ctx);
+          }
+        }
+      }
+
+      if (didStep) {
+        const vs = system.virtualStylus;
+        if (
+          vs.x !== prevVx ||
+          vs.y !== prevVy ||
+          vs.visible !== prevVVis ||
+          vs.isDown !== prevVDown ||
+          vs.dpadStylusMode !== prevVMode
+        ) {
+          prevVx = vs.x;
+          prevVy = vs.y;
+          prevVVis = vs.visible;
+          prevVDown = vs.isDown;
+          prevVMode = vs.dpadStylusMode;
+          setVStylusPos({
+            x: vs.x,
+            y: vs.y,
+            visible: vs.visible,
+            isDown: vs.isDown,
+            dpadStylusMode: vs.dpadStylusMode
+          });
+        }
       }
 
       if (now - lastFpsReport > 250) {
@@ -87,18 +121,18 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
     };
 
     const renderLoop = (now: number) => {
-      executeFrameStep(now);
+      advanceAccumulator(now, true);
       animationFrameId = requestAnimationFrame(renderLoop);
     };
 
-    // Unfocused / Background 60Hz fallback timer so dual-instance Compete.Com multiplayer
+    // Unfocused / Background fallback timer so dual-instance Compete.Com multiplayer
     // and background controller play continue running when the window is unfocused
     const bgIntervalId = window.setInterval(() => {
       const now = performance.now();
       const shouldRunInBackground =
         system.settings.backgroundInput || system.linkCable.mode !== 'off';
-      if (shouldRunInBackground && now - lastTickTime >= 24) {
-        executeFrameStep(now);
+      if (shouldRunInBackground && document.hidden && now - lastTickTime >= 14) {
+        advanceAccumulator(now, false);
       }
     }, 16);
 
@@ -337,11 +371,12 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         </div>
       )}
 
-      {/* RetroAchievements Overlays (hidden behind Advanced Mode + opt-in toggle) */}
+      {/* RetroAchievements Overlays (hidden behind Advanced Mode + opt-in toggle + RA Login) */}
       {system.isPoweredOn &&
         system.settings.advancedMode &&
         system.settings.enableRetroAchievements &&
-        system.retroAchievements.config.enabled && (
+        system.retroAchievements.config.enabled &&
+        system.retroAchievements.isLoggedIn() && (
         <>
           {/* Section E: Game Start Mode Notification Banner */}
           {system.retroAchievements.bootBanner.visible && (

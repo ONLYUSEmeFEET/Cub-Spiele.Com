@@ -36,7 +36,7 @@ export const BiosManagerModal: React.FC<BiosManagerModalProps> = ({
 
   const handleResetToOfficial = () => {
     system.bios.initOfficialBios();
-    system.resetSystem('MAIN_MENU');
+    system.resetSystem(system.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
     onBiosUpdated();
   };
 
@@ -141,7 +141,7 @@ export const BiosManagerModal: React.FC<BiosManagerModalProps> = ({
               <button
                 onClick={() => {
                   system.bios.bootTarget = 'auto_cartridge';
-                  system.resetSystem('CART_1');
+                  system.resetSystem(system.settings.fastBoot ? 'CART_1' : 'NONE');
                   onBiosUpdated();
                 }}
                 className={`p-2.5 rounded-lg border text-left cursor-pointer transition-colors ${
@@ -159,7 +159,7 @@ export const BiosManagerModal: React.FC<BiosManagerModalProps> = ({
               <button
                 onClick={() => {
                   system.bios.bootTarget = 'os_menu';
-                  system.resetSystem('MAIN_MENU');
+                  system.resetSystem(system.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
                   onBiosUpdated();
                 }}
                 className={`p-2.5 rounded-lg border text-left cursor-pointer transition-colors ${

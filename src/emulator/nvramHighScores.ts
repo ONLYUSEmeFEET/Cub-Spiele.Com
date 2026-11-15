@@ -28,7 +28,8 @@ import {
 } from './retroAchievements';
 import {
   OnlineLeaderboardManager,
-  OnlineLeaderboardEntry
+  OnlineLeaderboardEntry,
+  isNonScoringUtilitySave
 } from './onlineLeaderboard';
 import { resolveKnownGameByGameIdOrTitle } from './cartridge';
 
@@ -496,11 +497,12 @@ export class NvramHighScoreManager {
 
     const numMatch = scoreText.match(/\d+/);
     const numericScore = numMatch ? parseInt(numMatch[0], 10) : 0;
+    const isUtility = isNonScoringUtilitySave(gameId, title, scoreText, numericScore);
 
     return {
       gameId,
       title,
-      scoreText: scoreText || '0',
+      scoreText: scoreText || (isUtility ? 'Config' : '0'),
       numericScore,
       updatedAt: Date.now(),
       rawSlot: Array.from(cleanSlot)
@@ -623,6 +625,9 @@ export class NvramHighScoreManager {
 
   private publishVerifiedRecord(rec: HighScoreRecord) {
     if (!rec.verification) return;
+    if (isNonScoringUtilitySave(rec.gameId, rec.title, rec.scoreText, rec.numericScore)) {
+      return;
+    }
     const known = resolveKnownGameByGameIdOrTitle(rec.gameId, rec.title);
     const lbEntry: OnlineLeaderboardEntry = {
       id: `lb_${rec.gameId.toString(16)}_${rec.verification.userFingerprint}_${Date.now()}`,
@@ -656,6 +661,9 @@ export class NvramHighScoreManager {
     for (const prof of this.profiles) {
       for (const rec of prof.records) {
         if (!rec || !rec.gameId) continue;
+        if (isNonScoringUtilitySave(rec.gameId, rec.title, rec.scoreText, rec.numericScore)) {
+          continue;
+        }
         const proof = rec.verification;
         if (!proof) continue;
         const known = resolveKnownGameByGameIdOrTitle(rec.gameId, rec.title);

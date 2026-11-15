@@ -63,14 +63,14 @@ export const AccuracyFixesModal: React.FC<AccuracyFixesModalProps> = ({
     },
     {
       key: 'correctClockSpeed',
-      title: 'SM8521 CPU Clock & Scanline Cycle Calibration',
-      subtitle: '4.9152 MHz Quartz Crystal Oscillator (411 Cycles / Scanline)',
+      title: 'SM8521 CPU Clock & LCH/LCV VBlank Timing',
+      subtitle: '4.9152 MHz Crystal Oscillator (320 Cycles × 207 Lines @ 74.20 Hz)',
       icon: <Clock className="w-5 h-5 text-emerald-400" />,
       technicalProblem:
-        'Running the Sharp SM8521 above its 4.9152 MHz crystal frequency causes audio pitch drift and breaks tight VBLANK polling loops.',
+        'Running the Sharp SM8521 above its 4.9152 MHz crystal frequency or omitting LCV VBlank lines causes audio pitch drift and screen tearing in VBlank ISRs.',
       ourFix:
-        'Locks execution to 411 CPU cycles per scanline across 200 vertical scanlines at 59.732 Hz (~82,200 cycles/frame).',
-      impact: 'Hardware-accurate game speed, timer cadence, and voice DAC playback pitch.'
+        'Locks execution to SM8521 LCH/LCV registers: 320 CPU cycles per column across 200 active + 7 VBlank columns (66,240 cycles/frame at 74.2029 Hz).',
+      impact: 'Hardware-accurate game speed, VBlank tear reduction, timer cadence, and DAC pitch.'
     },
     {
       key: 'dualCartridgeSlotFix',

@@ -640,6 +640,13 @@ export class RetroAchievementsEngine {
     return identity;
   }
 
+  /**
+   * Returns true only when the user has signed in to a RetroAchievements account.
+   */
+  public isLoggedIn(): boolean {
+    return Boolean(this.config.username?.trim() && this.config.connectToken?.trim());
+  }
+
   public getUserFingerprint(): string {
     return this.identity.fingerprint;
   }
@@ -786,8 +793,11 @@ export class RetroAchievementsEngine {
       this.unlocks.some((u) => u.achievementId === a.id && (u.hardcore || !this.config.hardcoreMode))
     );
 
+    const showRaBootBanner =
+      this.isLoggedIn() && this.config.enabled && this.config.announcePopups;
+
     this.bootBanner = {
-      visible: true,
+      visible: showRaBootBanner,
       mode: this.config.hardcoreMode ? 'HARDCORE' : 'CASUAL',
       gameTitle,
       romMd5,
@@ -1154,7 +1164,7 @@ export class RetroAchievementsEngine {
    */
   public stepFrame(cpu: SM8521CPU, activeCart: CartridgeInfo | null, playerName: string) {
     this.session.framesExecuted++;
-    this.session.cpuCyclesExecuted += 82200; // 411 cycles/scanline * 200 scanlines
+    this.session.cpuCyclesExecuted += cpu.lastFrameCycles || 66240;
 
     if (this.raDll.memoryBanks.size === 0) {
       this.raDll.installSM8521MemoryBanks(cpu, () => this.config.hardcoreMode);
@@ -1237,6 +1247,7 @@ export class RetroAchievementsEngine {
             clampedCur > 0 &&
             clampedCur < ach.measuredTarget &&
             this.session.inputEventCount > 0 &&
+            this.isLoggedIn() &&
             this.config.measuredProgressPopups
           ) {
             this.lastAnnouncedMeasuredValue[ach.id] = clampedCur;
@@ -1253,7 +1264,7 @@ export class RetroAchievementsEngine {
         if (alreadyUnlocked) continue;
 
         // 2. Evaluate `T:` Trigger / Primed Challenge Indicator
-        if (ach.triggerPrimerCond && this.config.challengeIndicatorsEnabled) {
+        if (ach.triggerPrimerCond && this.isLoggedIn() && this.config.challengeIndicatorsEnabled) {
           if (this.evaluateConditionGroup(cpu, ach.triggerPrimerCond)) {
             newlyPrimed.push(ach);
           }
@@ -1369,7 +1380,7 @@ export class RetroAchievementsEngine {
     this.unlocks.unshift(unlock);
     this.saveUnlocks();
 
-    if (this.config.announcePopups && this.onNotification) {
+    if (this.isLoggedIn() && this.config.announcePopups && this.onNotification) {
       this.onNotification(
         `Achievement Unlocked: ${ach.title} (${ach.points} pts)`,
         `${hardcore ? 'HARDCORE' : 'Casual'} • ${ach.description}`

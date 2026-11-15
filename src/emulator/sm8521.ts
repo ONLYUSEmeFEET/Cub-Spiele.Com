@@ -162,6 +162,8 @@ export class SM8521CPU {
   public latchedCartSlot: 1 | 2 = 1;
   public dualCartridgeSlotFix: boolean = true;
   public correctClockSpeed: boolean = true;
+  public lastFrameCycles: number = 66240;
+  public lastHwBaseFrameCycles: number = 66240;
 
   // MMU Bank values for Banks 1..4 ($2000-$9FFF)
   public mmu: Uint8Array = new Uint8Array(5);
@@ -1351,10 +1353,10 @@ export class SM8521CPU {
     }
 
     // 1Hz Sub-Clock / Watch Timer (CK_INT $1016):
-    // Driven continuously by the 32.768 kHz crystal divider (1.000s = 60 frames = 4,932,000 cycles at 4.9152 MHz).
+    // Driven continuously by the 32.768 kHz crystal divider (1.000s = 4,915,200 phi0 cycles at 4.9152 MHz).
     // Enabled via IE1 bit 4 ($0011 & 0x10). Required by the BIOS PDA Clock/Calendar and built-in Solitaire TIMER.
     this.clockTimerAccumCycles += cycles;
-    const oneSecondCycles = this.correctClockSpeed ? (411 * 200 * 60) : (462 * 200 * 60);
+    const oneSecondCycles = this.correctClockSpeed ? 4915200 : 5529600;
     while (this.clockTimerAccumCycles >= oneSecondCycles) {
       this.clockTimerAccumCycles -= oneSecondCycles;
       if (this.m_p_ram[SM8521_IE1] & 0x10) {
@@ -2912,9 +2914,19 @@ default:
   }
 
   /**
-   * Executes one full video frame at original hardware speed:
-   * - 4.9152 MHz oscillator / 59.732155 Hz / 200 scanlines = 411 cycles per scanline (~82,285 cycles/frame)
-   * - 5.5296 MHz MAME clock / 59.732155 Hz / 200 scanlines = 462 cycles per scanline (~92,573 cycles/frame)
+   * Returns nominal native frame duration in milliseconds derived from LCH/LCV at 4.9152 MHz
+   * (e.g., LCH=$07, LCV=$27 -> 320 * 207 = 66,240 cycles -> 13.4765625 ms / ~74.20 Hz).
+   */
+  public getHwFrameDurationMs(): number {
+    const hz = this.correctClockSpeed ? 4915200 : 5529600;
+    return (this.lastHwBaseFrameCycles * 1000) / hz;
+  }
+
+  /**
+   * Executes one full SM8521 LCD hardware frame:
+   * - Horizontal period from LCH ($0031): (LCH.5 ? 50 : 40) * ((LCH & 0x1F) + 1) -> 320 cycles at LCH=$07
+   * - 200 active scanline columns + (LCV & 0x0F) VBlank columns -> 207 lines at LCV=$27 (66,240 cycles / ~74.20 Hz)
+   * - Asserts LCDC_INT at VBlank entry (column 200), before executing the VBlank scanlines.
    */
   public runFrame(speedMultiplier: number = 1.0) {
     this.linkFrameHadWait = false;
@@ -2926,8 +2938,23 @@ default:
       this.mmu[2] >= 0x20 ||
       this.mmu[3] >= 0x20 ||
       this.mmu[4] >= 0x20;
-    const baseScanlineCycles = this.correctClockSpeed ? 411 : 462;
+
+    const lcdEnabled = (this.m_p_ram[SM8521_LCDC] & 0x80) !== 0;
+    const lch = this.m_p_ram[SM8521_LCH];
+    const lcv = this.m_p_ram[SM8521_LCV];
+    const hwScanlineCycles =
+      lch === 0 && !lcdEnabled
+        ? 320
+        : Math.max(200, ((lch & 0x20) !== 0 ? 50 : 40) * ((lch & 0x1f) + 1));
+    const vblankLines = this.correctClockSpeed
+      ? lcv === 0 && !lcdEnabled
+        ? 7
+        : Math.max(1, lcv & 0x0f)
+      : 0;
+
+    const baseScanlineCycles = this.correctClockSpeed ? hwScanlineCycles : 462;
     const cyclesPerScanline = Math.max(64, Math.floor(baseScanlineCycles * speedMultiplier));
+
     for (let line = 0; line < 200; line++) {
       let lineCycles = 0;
       this.linkYieldScanline = false;
@@ -2944,6 +2971,32 @@ default:
       this.renderScanline();
     }
     this.committedVramValid = false;
+
+    // Assert VBlank interrupt (LCDC_INT) at VBlank entry (column 200), when LCD display is enabled (LCC bit 7)
+    if (lcdEnabled) {
+      this.set_input_line(LCDC_INT, true);
+    }
+
+    // Execute SM8521 VBlank columns (LCV & 0x0F = 7 columns = 2,240 cycles at 1.0x) without active scanout
+    for (let vline = 0; vline < vblankLines; vline++) {
+      let lineCycles = 0;
+      this.linkYieldScanline = false;
+      if (!this.linkYieldFrame) {
+        while (lineCycles < cyclesPerScanline) {
+          lineCycles += this.step();
+          if (this.linkYieldScanline) {
+            break;
+          }
+        }
+      } else {
+        this.gamecom_update_timers(cyclesPerScanline);
+      }
+    }
+
+    const totalLines = 200 + vblankLines;
+    this.lastHwBaseFrameCycles = totalLines * baseScanlineCycles;
+    this.lastFrameCycles = totalLines * cyclesPerScanline;
+
     if (this.linkConnected) {
       if (this.linkFrameHadWait) {
         this.linkWaitFrames++;
@@ -2951,10 +3004,6 @@ default:
         this.linkWaitFrames = 0;
       }
       this.onLinkPoll?.();
-    }
-    // Assert VBLANK interrupt (LCDC_INT) only when LCD display is enabled (LCC bit 7)
-    if ((this.m_p_ram[SM8521_LCDC] & 0x80) !== 0) {
-      this.set_input_line(LCDC_INT, true);
     }
     this.onAudioFrameEnd?.(this.cycles);
   }

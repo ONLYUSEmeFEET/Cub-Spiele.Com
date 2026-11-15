@@ -291,9 +291,10 @@ export interface EmulatorSettings {
   screenScale: number;
   screenFitMode: 'scale' | 'full';
   integerScaling: boolean;
-  touchScaleMode: 'auto' | 'scale';
+  touchScaleMode: 'auto' | 'full' | 'scale';
   touchScale: number;
   touchControlSize: 'compact' | 'standard' | 'large';
+  touchOrientation: 'auto' | 'horizontal' | 'vertical';
   showBottomBar: boolean;
   contrast: number;
   volume: number;
@@ -316,6 +317,8 @@ export interface EmulatorSettings {
   showScoreOverlay: boolean;
   /** Opt-in toggle for RetroAchievements components, overlays, and RAIntegration tab (defaults to false / hidden) */
   enableRetroAchievements: boolean;
+  /** Skip BIOS 3D globe/splash intro via accelerated scripted stylus taps (false = authentic normal boot default) */
+  fastBoot: boolean;
 }
 
 export interface CPURegisters {

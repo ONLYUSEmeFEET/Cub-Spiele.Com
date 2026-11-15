@@ -33,6 +33,30 @@ export interface OnlineLeaderboardEntry {
 const ONLINE_LB_CACHE_KEY = 'cub_spiele_online_leaderboard_cache_v1';
 const ONLINE_LB_ENDPOINT_KEY = 'cub_spiele_online_lb_endpoint_v1';
 
+/**
+ * Utility / modem / settings cartridges (such as Internet $0313 and Tiger Web Link $0208)
+ * share the $FC60-$FEDF BIOS NVRAM slot table to persist phone numbers/baud rate or transfer metadata
+ * with a blank space score byte (which decodes to 0). Keep those raw slots in NVRAM, but exclude
+ * them from Competitive Score Leaderboards so they never pollute rankings with "0" entries.
+ */
+export function isNonScoringUtilitySave(
+  gameId: number,
+  title: string = '',
+  scoreText: string = '',
+  numericScore: number = 0
+): boolean {
+  const norm = title.trim().toUpperCase();
+  if (gameId === 0x0313 || norm === 'INTERNET') {
+    return true;
+  }
+  const cleanScore = scoreText.trim();
+  const hasZeroScore = numericScore <= 0 && (!cleanScore || cleanScore === '0');
+  if ((gameId === 0x0208 || norm === 'WEB LINK' || norm === 'TIGER WEB LINK') && hasZeroScore) {
+    return true;
+  }
+  return false;
+}
+
 export class OnlineLeaderboardManager {
   public entries: OnlineLeaderboardEntry[] = [];
   public customEndpointUrl: string = '';
@@ -79,7 +103,18 @@ export class OnlineLeaderboardManager {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          this.entries = parsed.filter((e) => e && typeof e.gameId === 'number' && e.verification);
+          this.entries = parsed.filter(
+            (e) =>
+              e &&
+              typeof e.gameId === 'number' &&
+              e.verification &&
+              !isNonScoringUtilitySave(
+                e.gameId,
+                e.biosTitle || e.gameTitle || '',
+                e.scoreText || '',
+                e.numericScore || 0
+              )
+          );
         }
       }
     } catch {
@@ -108,6 +143,21 @@ export class OnlineLeaderboardManager {
     entry: OnlineLeaderboardEntry,
     broadcast: boolean = true
   ): { accepted: boolean; reason: string; isNewPersonalBest: boolean } {
+    if (
+      isNonScoringUtilitySave(
+        entry.gameId,
+        entry.biosTitle || entry.gameTitle || '',
+        entry.scoreText || '',
+        entry.numericScore || 0
+      )
+    ) {
+      return {
+        accepted: false,
+        reason: 'Utility / configuration NVRAM save slot does not participate in score leaderboards.',
+        isNewPersonalBest: false
+      };
+    }
+
     const check = RetroAchievementsEngine.verifyScoreProof(
       entry.gameId,
       entry.numericScore,

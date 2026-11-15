@@ -85,10 +85,20 @@ export function App() {
     };
 
     system.retroAchievements.setNotificationHandler((title, subtitle) => {
-      if (!system.settings.advancedMode || !system.settings.enableRetroAchievements) return;
+      if (
+        !system.settings.advancedMode ||
+        !system.settings.enableRetroAchievements ||
+        !system.retroAchievements.isLoggedIn()
+      ) {
+        return;
+      }
       showToast(`${title} — ${subtitle}`);
       forceUpdate();
     });
+
+    system.onScreenSettingsSynced = () => {
+      forceUpdate();
+    };
 
     const desktop = (window as any).gamecomDesktop;
     if (desktop && typeof desktop.onMenuAction === 'function') {
@@ -220,7 +230,7 @@ export function App() {
 
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyR') {
         e.preventDefault();
-        system.resetSystem('MAIN_MENU');
+        system.resetSystem(system.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
         showToast('System Reset');
         forceUpdate();
         return;
@@ -322,7 +332,7 @@ export function App() {
 
       if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        system.resetSystem('MAIN_MENU');
+        system.resetSystem(system.settings.fastBoot ? 'MAIN_MENU' : 'NONE');
         forceUpdate();
         return;
       }
@@ -646,7 +656,11 @@ export function App() {
         onWebLinkSync={() => {
           showToast('Connecting to Tiger Web Link...');
           void system.webLink.pullHighScores().then((res) => {
-            showToast(res.message);
+            showToast(
+              res.ok
+                ? `${res.message} Viewable in Tools → High Scores & Leaderboards.`
+                : res.message
+            );
             forceUpdate();
           });
         }}

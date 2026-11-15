@@ -121,8 +121,14 @@ export const TouchView: React.FC<TouchViewProps> = ({
   const sizeKey = system.settings.touchControlSize || 'standard';
   const sz = TOUCH_SIZE_PRESETS[sizeKey] || TOUCH_SIZE_PRESETS.standard;
 
-  // Use horizontal Game.Com layout on desktop/landscape and vertical Game Boy / Analogue Pocket layout on portrait/narrow screens
-  const isHorizontal = viewport.w >= 1024 || (viewport.w > viewport.h && viewport.w >= 720);
+  // Use manual Touch Orientation if set; otherwise responsive horizontal/vertical split
+  const touchOrientation = system.settings.touchOrientation || 'auto';
+  const isHorizontal =
+    touchOrientation === 'horizontal'
+      ? true
+      : touchOrientation === 'vertical'
+        ? false
+        : viewport.w >= 1024 || (viewport.w > viewport.h && viewport.w >= 720);
   const bottomReserve = system.settings.showBottomBar ? 24 : 0;
   const maxWidthBudget = isHorizontal ? viewport.w - sz.horizBudgetW : viewport.w - sz.vertBudgetW;
   const maxHeightBudget = isHorizontal
@@ -136,15 +142,19 @@ export const TouchView: React.FC<TouchViewProps> = ({
   const requestedScale =
     scale !== undefined
       ? scale
-      : system.settings.touchScaleMode === 'scale'
-        ? system.settings.touchScale || 2.5
-        : Math.min(2.6, maxFitScale);
+      : system.settings.touchScaleMode === 'full'
+        ? maxFitScale
+        : system.settings.touchScaleMode === 'scale'
+          ? system.settings.touchScale || 2.5
+          : Math.min(2.6, maxFitScale);
 
   const clampedScale = Math.max(1.0, Math.min(requestedScale, maxFitScale));
   const effectiveScale =
     system.settings.touchScaleMode === 'auto' && system.settings.integerScaling
       ? Math.max(1, Math.min(clampedScale, Math.floor(clampedScale) >= 1 ? Math.floor(clampedScale) : clampedScale))
-      : clampedScale;
+      : system.settings.touchScaleMode === 'scale' && system.settings.integerScaling
+        ? Math.max(1, Math.floor(clampedScale))
+        : clampedScale;
 
   const handleBtnPress = (btn: keyof GameComButtons) => {
     setPressedButtons((prev) => ({ ...prev, [btn]: true }));
