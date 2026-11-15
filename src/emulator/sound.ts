@@ -23,10 +23,38 @@ export class SoundEngine {
 
   private volume: number = 0.2;
   private isMuted: boolean = false;
-  private lastCh0Time: number = 0;
-  private lastCh1Time: number = 0;
-  private lastCh2Time: number = 0;
   private activeClipSource: AudioBufferSourceNode | null = null;
+
+  // Cycle-accurate SM8521 SG0/SG1 32-step wavetable + SG2 15-bit LFSR noise synthesizer
+  private toneSgc: number = 0;
+  private toneSg0l: number = 0;
+  private toneSg1l: number = 0;
+  private toneSg2l: number = 0;
+  private toneSg0t: number = 0;
+  private toneSg1t: number = 0;
+  private toneSg2t: number = 0;
+  private toneSg0w: Uint8Array = new Uint8Array(16);
+  private toneSg1w: Uint8Array = new Uint8Array(16);
+  private sg0Run: boolean = false;
+  private sg0Index: number = 0;
+  private sg0Div: number = 0;
+  private sg0Sample: number = 0;
+  private sg1Run: boolean = false;
+  private sg1Index: number = 0;
+  private sg1Div: number = 0;
+  private sg1Sample: number = 0;
+  private sg2Run: boolean = false;
+  private sg2Div: number = 0;
+  private sg2Lfsr: number = 0x7fff;
+  private sg2Sample: number = 0;
+  private lastToneCycle: number = 0;
+  private toneCycleAccum: number = 0;
+  private toneFrameSamples: number[] = [];
+  private toneDcPrevX: number = 0;
+  private toneDcPrevY: number = 0;
+  private nextTonePlayTime: number = 0;
+  private scheduledToneSources: AudioBufferSourceNode[] = [];
+  private suppressToneOutput: boolean = false;
 
   // Hardware SGDA ($004E) 8-bit DAC streaming & sample-rate conversion state
   private dacSampleQueue: number[] = [];
@@ -237,6 +265,43 @@ export class SoundEngine {
     if (this.ctx) {
       this.nextDacPlayTime = this.ctx.currentTime;
     }
+    this.resetToneSynthesizer();
+  }
+
+  public resetToneSynthesizer() {
+    this.toneSgc = 0;
+    this.toneSg0l = 0;
+    this.toneSg1l = 0;
+    this.toneSg2l = 0;
+    this.toneSg0t = 0;
+    this.toneSg1t = 0;
+    this.toneSg2t = 0;
+    this.toneSg0w.fill(0);
+    this.toneSg1w.fill(0);
+    this.sg0Run = false;
+    this.sg0Index = 0;
+    this.sg0Div = 0;
+    this.sg0Sample = 0;
+    this.sg1Run = false;
+    this.sg1Index = 0;
+    this.sg1Div = 0;
+    this.sg1Sample = 0;
+    this.sg2Run = false;
+    this.sg2Div = 0;
+    this.sg2Lfsr = 0x7fff;
+    this.sg2Sample = 0;
+    this.lastToneCycle = 0;
+    this.toneCycleAccum = 0;
+    this.toneFrameSamples.length = 0;
+    this.toneDcPrevX = 0;
+    this.toneDcPrevY = 0;
+    this.nextTonePlayTime = 0;
+    for (const src of this.scheduledToneSources) {
+      try {
+        src.stop();
+      } catch {}
+    }
+    this.scheduledToneSources.length = 0;
   }
 
   /**
@@ -475,53 +540,288 @@ export class SoundEngine {
     }
   }
 
+  private readSignedWaveSample(wave: Uint8Array, step: number): number {
+    const byte = wave[(step >> 1) & 0x0f] || 0;
+    const nib = (step & 1) === 0 ? byte & 0x0f : (byte >> 4) & 0x0f;
+    return nib >= 8 ? nib - 16 : nib;
+  }
+
+  private integrateWaveChannel(
+    ch: 0 | 1,
+    period: number,
+    cyclesWindow: number
+  ): number {
+    const wave = ch === 0 ? this.toneSg0w : this.toneSg1w;
+    let div = ch === 0 ? this.sg0Div : this.sg1Div;
+    let index = ch === 0 ? this.sg0Index : this.sg1Index;
+    let sample = ch === 0 ? this.sg0Sample : this.sg1Sample;
+    let sum = 0;
+    let left = cyclesWindow;
+
+    while (left > 0) {
+      const stepSpan = div + 1;
+      if (stepSpan > left) {
+        sum += sample * left;
+        div -= left;
+        left = 0;
+      } else {
+        sum += sample * stepSpan;
+        left -= stepSpan;
+        div = period;
+        sample = this.readSignedWaveSample(wave, index);
+        index = index === 31 ? 0 : index + 1;
+      }
+    }
+
+    if (ch === 0) {
+      this.sg0Div = div;
+      this.sg0Index = index;
+      this.sg0Sample = sample;
+    } else {
+      this.sg1Div = div;
+      this.sg1Index = index;
+      this.sg1Sample = sample;
+    }
+    return sum / cyclesWindow;
+  }
+
+  private integrateNoiseChannel(period: number, cyclesWindow: number): number {
+    let div = this.sg2Div;
+    let lfsr = this.sg2Lfsr;
+    let sample = this.sg2Sample;
+    let sum = 0;
+    let left = cyclesWindow;
+
+    while (left > 0) {
+      const stepSpan = div + 1;
+      if (stepSpan > left) {
+        sum += sample * left;
+        div -= left;
+        left = 0;
+      } else {
+        sum += sample * stepSpan;
+        left -= stepSpan;
+        div = period;
+        const nextBit = (lfsr ^ (lfsr >> 1)) & 1;
+        const shifted = ((lfsr >> 1) | (nextBit << 14)) & 0x7fff;
+        lfsr = shifted === 0 ? 0x7fff : shifted;
+        sample = (lfsr & 1) === 0 ? 7 : -8;
+      }
+    }
+
+    this.sg2Div = div;
+    this.sg2Lfsr = lfsr;
+    this.sg2Sample = sample;
+    return sum / cyclesWindow;
+  }
+
+  private advanceToneSamples(targetCycles: number) {
+    const deltaCycles = targetCycles - this.lastToneCycle;
+    if (deltaCycles < 0) {
+      this.lastToneCycle = targetCycles;
+      this.toneCycleAccum = 0;
+      return;
+    }
+    if (deltaCycles === 0) return;
+    this.lastToneCycle = targetCycles;
+
+    if (this.suppressToneOutput || !this.ctx || !this.speakerInput || this.isMuted || this.ctx.state !== 'running') {
+      return;
+    }
+
+    const sgc = this.toneSgc;
+    const p0 = this.toneSg0t & 0x0fff;
+    const p1 = this.toneSg1t & 0x0fff;
+    const p2 = this.toneSg2t & 0x0fff;
+    const ch0Active = (sgc & 0x80) !== 0 && (sgc & 0x01) !== 0 && p0 > 1;
+    const ch1Active = (sgc & 0x80) !== 0 && (sgc & 0x02) !== 0 && p1 > 1;
+    const ch2Active = (sgc & 0x80) !== 0 && (sgc & 0x04) !== 0 && p2 > 1;
+    const anyChannelOn =
+      (sgc & 0x80) !== 0 && ((sgc & 0x01) !== 0 || (sgc & 0x02) !== 0 || (sgc & 0x04) !== 0);
+
+    // Fast path: skip silent or pure direct-DAC segments when no frame audio is pending
+    if (!anyChannelOn && this.toneFrameSamples.length === 0) {
+      return;
+    }
+
+    const targetRate = this.ctx.sampleRate || 44100;
+    const cyclesPerSample = 4915200 / targetRate;
+    this.toneCycleAccum += deltaCycles;
+
+    const l0 = (this.toneSg0l & 0x1f) / (32 * 16);
+    const l1 = (this.toneSg1l & 0x1f) / (32 * 16);
+    const l2 = (this.toneSg2l & 0x1f) / (32 * 16);
+
+    while (this.toneCycleAccum >= cyclesPerSample) {
+      this.toneCycleAccum -= cyclesPerSample;
+
+      let mix = 0;
+      if (ch0Active) {
+        mix += this.integrateWaveChannel(0, p0, cyclesPerSample) * l0;
+      } else if ((sgc & 0x80) !== 0 && (sgc & 0x01) !== 0) {
+        mix += this.sg0Sample * l0;
+      }
+
+      if (ch1Active) {
+        mix += this.integrateWaveChannel(1, p1, cyclesPerSample) * l1;
+      } else if ((sgc & 0x80) !== 0 && (sgc & 0x02) !== 0) {
+        mix += this.sg1Sample * l1;
+      }
+
+      if (ch2Active) {
+        mix += this.integrateNoiseChannel(p2, cyclesPerSample) * l2;
+      } else if ((sgc & 0x80) !== 0 && (sgc & 0x04) !== 0) {
+        mix += this.sg2Sample * l2;
+      }
+
+      if (mix > 1) mix = 1;
+      else if (mix < -1) mix = -1;
+
+      const dcFree = mix - this.toneDcPrevX + 0.996 * this.toneDcPrevY;
+      this.toneDcPrevX = mix;
+      this.toneDcPrevY = dcFree;
+      this.toneFrameSamples.push(Math.max(-1, Math.min(1, dcFree * 0.72)));
+    }
+  }
+
   /**
-   * Hardware Sound Generator (SM8521 $0040-$004E: SGC, SG0, SG1, SG2)
-   * Note table at $4095 in Bank 5 uses 262144 / period (e.g. Middle C4 = $03EC = 1004 -> 261.1 Hz).
+   * Hardware Sound Generator (SM8521 $0040-$004E, $0060-$007F):
+   * - SG0 / SG1: 32-step signed 4-bit wavetable channels (SG0W / SG1W, low nibble first)
+   * - SG2: 15-bit LFSR noise channel (bit0 ^ bit1 -> bit14, reload $7FFF on zero)
+   * - 12-bit period registers (SGxTH[3:0]:SGxTL, active for period > 1, N+1 phi0 ticks)
+   * - SGC channel bits pause without resetting phase; period <= 1 resets generator state
    */
-  public updateFromHardwareRegisters(sound: {
-    sgc: number;
-    sg0l: number;
-    sg1l: number;
-    sg2l: number;
-    sg0t: number;
-    sg1t: number;
-    sg2t: number;
-  }) {
-    this.initContext();
-    if (!this.ctx || !this.masterGain || this.isMuted) return;
-    if ((sound.sgc & 0x80) === 0) return;
-
-    const now = this.ctx.currentTime;
-
-    // Channel 0 programmable tone / wave
-    if ((sound.sgc & 0x01) && sound.sg0t > 8 && (sound.sg0l & 0x1f) > 0) {
-      if (now - this.lastCh0Time >= 0.025) {
-        this.lastCh0Time = now;
-        const freq = Math.min(4500, Math.max(55, 262144 / (sound.sg0t + 1)));
-        const gain = ((sound.sg0l & 0x1f) / 31) * 0.16;
-        this.playTone(freq, 0.055, 'square', gain);
-      }
+  public updateFromHardwareRegisters(
+    sound: {
+      sgc: number;
+      sg0l: number;
+      sg1l: number;
+      sg2l: number;
+      sg0t: number;
+      sg1t: number;
+      sg2t: number;
+      sg0w?: Uint8Array;
+      sg1w?: Uint8Array;
+    },
+    currentCycles?: number
+  ) {
+    if (currentCycles !== undefined) {
+      this.advanceToneSamples(currentCycles);
     }
 
-    // Channel 1 programmable tone / wave
-    if ((sound.sgc & 0x02) && sound.sg1t > 8 && (sound.sg1l & 0x1f) > 0) {
-      if (now - this.lastCh1Time >= 0.025) {
-        this.lastCh1Time = now;
-        const freq = Math.min(4500, Math.max(55, 262144 / (sound.sg1t + 1)));
-        const gain = ((sound.sg1l & 0x1f) / 31) * 0.16;
-        this.playTone(freq, 0.055, 'triangle', gain);
+    this.toneSgc = sound.sgc & 0xff;
+    this.toneSg0l = sound.sg0l & 0xff;
+    this.toneSg1l = sound.sg1l & 0xff;
+    this.toneSg2l = sound.sg2l & 0xff;
+    this.toneSg0t = sound.sg0t & 0xffff;
+    this.toneSg1t = sound.sg1t & 0xffff;
+    this.toneSg2t = sound.sg2t & 0xffff;
+    if (sound.sg0w) this.toneSg0w.set(sound.sg0w);
+    if (sound.sg1w) this.toneSg1w.set(sound.sg1w);
+
+    const p0 = this.toneSg0t & 0x0fff;
+    const p1 = this.toneSg1t & 0x0fff;
+    const p2 = this.toneSg2t & 0x0fff;
+    const globalOn = (this.toneSgc & 0x80) !== 0;
+
+    if (globalOn && (this.toneSgc & 0x01) !== 0 && p0 > 1) {
+      if (!this.sg0Run) {
+        this.sg0Run = true;
+        this.sg0Index = 1;
+        this.sg0Div = p0;
+        this.sg0Sample = this.readSignedWaveSample(this.toneSg0w, 0);
       }
+    } else if (p0 <= 1) {
+      this.sg0Run = false;
+      this.sg0Index = 0;
+      this.sg0Div = 0;
+      this.sg0Sample = 0;
     }
 
-    // Channel 2 programmable tone / noise
-    if ((sound.sgc & 0x04) && sound.sg2t > 8 && (sound.sg2l & 0x1f) > 0) {
-      if (now - this.lastCh2Time >= 0.025) {
-        this.lastCh2Time = now;
-        const freq = Math.min(4500, Math.max(55, 262144 / (sound.sg2t + 1)));
-        const gain = ((sound.sg2l & 0x1f) / 31) * 0.13;
-        this.playTone(freq, 0.05, 'sawtooth', gain);
+    if (globalOn && (this.toneSgc & 0x02) !== 0 && p1 > 1) {
+      if (!this.sg1Run) {
+        this.sg1Run = true;
+        this.sg1Index = 1;
+        this.sg1Div = p1;
+        this.sg1Sample = this.readSignedWaveSample(this.toneSg1w, 0);
       }
+    } else if (p1 <= 1) {
+      this.sg1Run = false;
+      this.sg1Index = 0;
+      this.sg1Div = 0;
+      this.sg1Sample = 0;
+    }
+
+    if (globalOn && (this.toneSgc & 0x04) !== 0 && p2 > 1) {
+      if (!this.sg2Run) {
+        this.sg2Run = true;
+        this.sg2Div = p2;
+        this.sg2Lfsr = 0x7fff;
+        this.sg2Sample = 0;
+      }
+    } else if (p2 <= 1) {
+      this.sg2Run = false;
+      this.sg2Div = 0;
+      this.sg2Lfsr = 0x7fff;
+      this.sg2Sample = 0;
+    }
+  }
+
+  public setSuppressToneOutput(suppress: boolean) {
+    this.suppressToneOutput = suppress;
+    if (suppress) {
+      this.toneFrameSamples.length = 0;
+      this.nextTonePlayTime = 0;
+    }
+  }
+
+  public endToneFrame(currentCycles: number, suppress: boolean = false) {
+    this.suppressToneOutput = suppress;
+    this.advanceToneSamples(currentCycles);
+
+    if (
+      suppress ||
+      !this.ctx ||
+      !this.speakerInput ||
+      this.isMuted ||
+      this.ctx.state !== 'running'
+    ) {
+      this.toneFrameSamples.length = 0;
+      this.nextTonePlayTime = 0;
+      return;
+    }
+
+    if (this.toneFrameSamples.length === 0) {
+      return;
+    }
+
+    try {
+      const targetRate = this.ctx.sampleRate;
+      const buf = this.ctx.createBuffer(1, this.toneFrameSamples.length, targetRate);
+      buf.getChannelData(0).set(this.toneFrameSamples);
+      this.toneFrameSamples.length = 0;
+
+      const source = this.ctx.createBufferSource();
+      source.buffer = buf;
+      source.connect(this.speakerInput);
+
+      const now = this.ctx.currentTime;
+      if (this.nextTonePlayTime < now + 0.005 || this.nextTonePlayTime > now + 0.09) {
+        this.nextTonePlayTime = now + 0.015;
+      }
+
+      source.start(this.nextTonePlayTime);
+      this.nextTonePlayTime += buf.length / targetRate;
+
+      this.scheduledToneSources.push(source);
+      source.onended = () => {
+        const idx = this.scheduledToneSources.indexOf(source);
+        if (idx !== -1) {
+          this.scheduledToneSources.splice(idx, 1);
+        }
+      };
+    } catch {
+      this.toneFrameSamples.length = 0;
     }
   }
 }

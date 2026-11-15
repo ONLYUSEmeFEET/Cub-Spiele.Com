@@ -190,7 +190,8 @@ export class SM8521CPU {
   };
   public onDacSample?: (val: number, sampleRate: number) => void;
   public onDacStreamStart?: () => void;
-  public onSoundRegWrite?: (sound: GameComAudioState) => void;
+  public onSoundRegWrite?: (sound: GameComAudioState, cycles: number) => void;
+  public onAudioFrameEnd?: (cycles: number) => void;
   public onBiosAudioClip?: (samples: Uint8Array, bank: number, addr: number) => void;
   public onNvramWrite?: (addr: number, data: number) => void;
   public allowDataFoundPrompt: boolean = false;
@@ -284,6 +285,17 @@ export class SM8521CPU {
 
     this.m_timer[0] = { enabled: false, upcounter_max: 0, prescale_max: 1, prescale_count: 0 };
     this.m_timer[1] = { enabled: false, upcounter_max: 0, prescale_max: 1, prescale_count: 0 };
+
+    this.m_sound.sgc = 0;
+    this.m_sound.sg0l = 0;
+    this.m_sound.sg1l = 0;
+    this.m_sound.sg2l = 0;
+    this.m_sound.sg0t = 0;
+    this.m_sound.sg1t = 0;
+    this.m_sound.sg2t = 0;
+    this.m_sound.sgda = 0;
+    this.m_sound.sg0w.fill(0);
+    this.m_sound.sg1w.fill(0);
 
     // MAME sm8500_cpu_device::device_reset writes
     this.mem_writeword(0x10, 0x0000); // IE0, IE1
@@ -607,6 +619,7 @@ export class SM8521CPU {
   }
 
   private take_interrupt(vector: number) {
+    this.m_halted = 0;
     this.get_sp();
     this.m_SYS = this.m_p_ram[0x19];
     this.m_PS1 = this.m_p_ram[0x1f];
@@ -639,10 +652,12 @@ export class SM8521CPU {
       this.m_PS1 = this.m_p_ram[0x1f];
 
       const nmiMask = (1 << WDT_INT) | (1 << ILL_INT) | (1 << NMI_INT);
+      const dmaArmed = (this.m_p_ram[SM8521_DMC] & 0x80) !== 0;
       if (
-        (this.m_IFLAGS & nmiMask) !== 0 ||
-        (this.m_IR0 & this.m_IE0) !== 0 ||
-        (this.m_IR1 & this.m_IE1) !== 0
+        !dmaArmed &&
+        ((this.m_IFLAGS & nmiMask) !== 0 ||
+          (this.m_IR0 & this.m_IE0) !== 0 ||
+          (this.m_IR1 & this.m_IE1) !== 0)
       ) {
         this.m_halted = 0;
       }
@@ -1021,48 +1036,48 @@ export class SM8521CPU {
             break;
           case SM8521_SGC:
             this.m_sound.sgc = data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG0L:
             this.m_sound.sg0l = data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG1L:
             this.m_sound.sg1l = data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG0TH:
             this.m_sound.sg0t = (this.m_sound.sg0t & 0xff) | (data << 8);
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG0TL:
             this.m_sound.sg0t = (this.m_sound.sg0t & 0xff00) | data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG1TH:
             this.m_sound.sg1t = (this.m_sound.sg1t & 0xff) | (data << 8);
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG1TL:
             this.m_sound.sg1t = (this.m_sound.sg1t & 0xff00) | data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG2L:
             this.m_sound.sg2l = data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG2TH:
             this.m_sound.sg2t = (this.m_sound.sg2t & 0xff) | (data << 8);
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SG2TL:
             this.m_sound.sg2t = (this.m_sound.sg2t & 0xff00) | data;
-            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound);
+            if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             break;
           case SM8521_SGDA: {
             const prevSgda = this.m_sound.sgda;
             this.m_sound.sgda = data;
-            if ((this.m_sound.sgc & 0x88) === 0x88 && this.onDacSample) {
+            if ((this.m_sound.sgc & 0x8f) === 0x88 && this.onDacSample) {
               const deltaCycles = this.cycles - this.lastDacCycle;
               this.lastDacCycle = this.cycles;
               // Filter out the 18-cycle DC anti-pop ramp loops ($56E7 and $56F7) which occur < 64 cycles apart
@@ -1087,8 +1102,10 @@ export class SM8521CPU {
           default:
             if (addr >= SM8521_SG0W0 && addr < SM8521_SG0W0 + 16) {
               this.m_sound.sg0w[addr - SM8521_SG0W0] = data;
+              if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             } else if (addr >= SM8521_SG1W0 && addr < SM8521_SG1W0 + 16) {
               this.m_sound.sg1w[addr - SM8521_SG1W0] = data;
+              if (this.onSoundRegWrite) this.onSoundRegWrite(this.m_sound, this.cycles);
             }
             break;
         }
@@ -1416,17 +1433,19 @@ export class SM8521CPU {
     const x = this.m_scanline;
     const lcdc = this.m_p_ram[SM8521_LCDC];
     const base_address = (lcdc & 0x40) ? 0x2000 : 0x0000;
+    const normalBlack = (lcdc & 0x01) !== 0;
 
     if (!(lcdc & 0x80)) {
+      const restShade = normalBlack ? 3 : 0;
       for (let y = 0; y < 160; y++) {
-        this.displayBuffer[y * 200 + x] = 0;
+        this.displayBuffer[y * 200 + x] = restShade;
       }
     } else {
       // Map raw 2-bit VRAM pixel to 0..3 shade (0 = lightest LCD background, 1 = light-mid, 2 = dark-mid, 3 = darkest black).
-      // Note: On Sharp SM8521 hardware, LCDC ($0020) bits 5..4 (0x30) configure the 4-level STN gray-scale bias/duty clock
+      // Note: On Sharp SM8521 hardware, LCDC ($0030) bits 5..4 (0x30) configure the 4-level STN gray-scale bias/duty clock
       // (set to 0x30 in $B0/$F0 by the Game.com BIOS, Castlevania: SOTN, Monopoly, etc.). All four 2-bpp shades (0..3)
       // must remain distinct so Shade 1 backgrounds and Shade 2 text (e.g. Castlevania SOTN "PASSWORD" & Monopoly Options)
-      // are never collapsed into the same shade.
+      // are never collapsed into the same shade. Bit 0 (0x01) selects normal-black display inversion.
       const useSnapshot = this.committedVramValid && (lcdc & 0x40) === this.lastLcdcPageBit;
       const vramSource = useSnapshot ? this.committedVramPage : this.videoram;
       const lineOffset = (useSnapshot ? 0 : base_address) + 40 * x;
@@ -1434,10 +1453,20 @@ export class SM8521CPU {
       for (let i = 0; i < 40; i++) {
         const p = vramSource[lineOffset + i];
         const yBase = i * 4;
-        this.displayBuffer[(yBase + 0) * 200 + x] = (p >> 6) & 3;
-        this.displayBuffer[(yBase + 1) * 200 + x] = (p >> 4) & 3;
-        this.displayBuffer[(yBase + 2) * 200 + x] = (p >> 2) & 3;
-        this.displayBuffer[(yBase + 3) * 200 + x] = p & 3;
+        let s0 = (p >> 6) & 3;
+        let s1 = (p >> 4) & 3;
+        let s2 = (p >> 2) & 3;
+        let s3 = p & 3;
+        if (normalBlack) {
+          s0 = 3 - s0;
+          s1 = 3 - s1;
+          s2 = 3 - s2;
+          s3 = 3 - s3;
+        }
+        this.displayBuffer[(yBase + 0) * 200 + x] = s0;
+        this.displayBuffer[(yBase + 1) * 200 + x] = s1;
+        this.displayBuffer[(yBase + 2) * 200 + x] = s2;
+        this.displayBuffer[(yBase + 3) * 200 + x] = s3;
       }
     }
 
@@ -2923,8 +2952,11 @@ default:
       }
       this.onLinkPoll?.();
     }
-    // Assert VBLANK interrupt (LCDC_INT)
-    this.set_input_line(LCDC_INT, true);
+    // Assert VBLANK interrupt (LCDC_INT) only when LCD display is enabled (LCC bit 7)
+    if ((this.m_p_ram[SM8521_LCDC] & 0x80) !== 0) {
+      this.set_input_line(LCDC_INT, true);
+    }
+    this.onAudioFrameEnd?.(this.cycles);
   }
 
   public getVRAMPixel(x: number, y: number): number {

@@ -14,6 +14,7 @@ import { BiosManagerModal } from './components/BiosManagerModal';
 import { WindowsReleaseModal } from './components/WindowsReleaseModal';
 import { ColorCustomizerModal } from './components/ColorCustomizerModal';
 import { CompeteLinkModal } from './components/CompeteLinkModal';
+import { VirtualModemModal } from './components/VirtualModemModal';
 import { AboutModal } from './components/AboutModal';
 import { GameComButtons } from './emulator/types';
 
@@ -35,6 +36,7 @@ export function App() {
   const [isWindowsReleaseOpen, setIsWindowsReleaseOpen] = useState(false);
   const [isColorCustomizerOpen, setIsColorCustomizerOpen] = useState(false);
   const [isLinkCableOpen, setIsLinkCableOpen] = useState(false);
+  const [isVirtualModemOpen, setIsVirtualModemOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Drag & Drop ROM overlay state
@@ -641,6 +643,14 @@ export function App() {
         }}
         onOpenPhoneBook={() => setIsPhoneBookOpen(true)}
         onOpenLinkCable={() => setIsLinkCableOpen(true)}
+        onWebLinkSync={() => {
+          showToast('Connecting to Tiger Web Link...');
+          void system.webLink.pullHighScores().then((res) => {
+            showToast(res.message);
+            forceUpdate();
+          });
+        }}
+        onOpenVirtualModem={() => setIsVirtualModemOpen(true)}
         onOpenBios={() => setIsBiosOpen(true)}
         onOpenWindowsRelease={() => setIsWindowsReleaseOpen(true)}
         onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
@@ -799,6 +809,14 @@ export function App() {
         <CompeteLinkModal
           system={system}
           onClose={() => setIsLinkCableOpen(false)}
+          onUpdate={forceUpdate}
+        />
+      )}
+
+      {isVirtualModemOpen && (
+        <VirtualModemModal
+          system={system}
+          onClose={() => setIsVirtualModemOpen(false)}
           onUpdate={forceUpdate}
         />
       )}

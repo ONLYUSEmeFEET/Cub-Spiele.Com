@@ -2,6 +2,9 @@
 
 **Cub Spiele.Com** (`v0.0.10`) is a cycle-accurate standalone handheld emulator for the 1997 **Tiger Electronics Game.Com** console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + internal speaker band-pass audio engine, dual cartridge bays with hardware `P3` chip-select isolation, and a competitive **Multi-Player High Score Vault, Online Leaderboards & Hardcore Mode Ecosystem**.
 
+## Play Online (Latest Web Version)
+- **Web Emulator (GitHub Pages)**: [https://onlyusemefeet.github.io/Cub-Spiele.Com/](https://onlyusemefeet.github.io/Cub-Spiele.Com/) — automatically built and deployed from `main`.
+
 ## Supported Platforms (`v0.0.10`)
 - **Windows 10 / 11 (x64)**: Self-Contained Single-File 64-bit PE32+ GUI executable (`CubSpieleCom.exe`, embedding the offline emulator bundle and BIOS) and Portable Archive (`CubSpieleCom-v0.0.10-win64.zip`)
 - **macOS 11+ (Universal)**: Native macOS Application Bundle (`Cub Spiele.Com.app` inside `CubSpieleCom-v0.0.10-macos-universal.zip`) with Universal Mach-O (`Apple Silicon ARM64` + `Intel x86_64`) support

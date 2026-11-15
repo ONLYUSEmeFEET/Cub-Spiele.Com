@@ -13,6 +13,8 @@ import { SM8521CPU } from './sm8521';
 import { NvramHighScoreManager } from './nvramHighScores';
 import { NvramPhoneBookManager } from './nvramPhoneBook';
 import { CompeteComLinkManager } from './linkCable';
+import { TigerWebLinkManager } from './tigerWebLink';
+import { VirtualModemManager } from './virtualModem';
 import { RetroAchievementsEngine } from './retroAchievements';
 import { OnlineLeaderboardManager } from './onlineLeaderboard';
 import {
@@ -106,6 +108,8 @@ export class GameComSystem {
   public highScores: NvramHighScoreManager;
   public phoneBook: NvramPhoneBookManager;
   public linkCable: CompeteComLinkManager;
+  public webLink: TigerWebLinkManager;
+  public virtualModem: VirtualModemManager;
   public retroAchievements: RetroAchievementsEngine;
   public onlineLeaderboard: OnlineLeaderboardManager;
   public onHardcoreViolation?: (reason: string) => void;
@@ -246,6 +250,24 @@ export class GameComSystem {
     this.linkCable = new CompeteComLinkManager(this.cpu);
     this.retroAchievements = new RetroAchievementsEngine();
     this.onlineLeaderboard = new OnlineLeaderboardManager();
+    this.webLink = new TigerWebLinkManager(this.cpu, this.highScores, this.onlineLeaderboard);
+    this.virtualModem = new VirtualModemManager(
+      this.cpu,
+      this.highScores,
+      this.phoneBook,
+      this.onlineLeaderboard
+    );
+
+    // Route UART TX between Tiger Web Link, 2-Player Compete.Com Link Cable, and Virtual Hayes AT Modem
+    this.cpu.onUartTxByte = (byte: number) => {
+      if (this.webLink.isTransferActive()) {
+        this.webLink.handleCpuUartTx(byte);
+      } else if (this.linkCable.mode !== 'off') {
+        this.linkCable.handleCpuUartTx(byte);
+      } else if (this.virtualModem.enabled) {
+        this.virtualModem.handleCpuUartTx(byte);
+      }
+    };
 
     // Enforce Softcore (Casual) Mode on Instance #2 and whenever Compete.Com Link Cable multiplayer is active
     if (this.linkCable.instanceId === 2) {
@@ -292,8 +314,11 @@ export class GameComSystem {
     });
 
     // Wire hardware sound generator, 8-bit SGDA ($004E) DAC streamer, & BIOS digitized waveform callbacks
-    this.cpu.onSoundRegWrite = (audioState) => {
-      this.sound.updateFromHardwareRegisters(audioState);
+    this.cpu.onSoundRegWrite = (audioState, cycles) => {
+      this.sound.updateFromHardwareRegisters(audioState, cycles);
+    };
+    this.cpu.onAudioFrameEnd = (cycles) => {
+      this.sound.endToneFrame(cycles, this.fastBootTarget !== 'NONE');
     };
     this.cpu.onDacStreamStart = () => {
       const isSkippingGlobeForCart =
@@ -1288,7 +1313,10 @@ export class GameComSystem {
       this.retroAchievements.taintSession('slowdown');
     }
 
+    this.sound.setSuppressToneOutput(this.fastBootTarget !== 'NONE');
     this.cpu.runFrame(speedMult);
+    this.webLink.onFrameTick();
+    this.virtualModem.onFrameTick();
     this.sound.endFrameDacCheck();
 
     // Check all 4 MMU banks, frame cartridge execution flag, and BIOS appId ($0168 == 4) with hysteresis

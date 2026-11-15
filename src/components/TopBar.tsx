@@ -31,6 +31,8 @@ import {
   Palette,
   BookUser,
   Cable,
+  Globe,
+  Radio,
   ExternalLink,
   Crosshair,
   Camera,
@@ -56,6 +58,8 @@ interface TopBarProps {
   onOpenAchievements?: () => void;
   onOpenPhoneBook: () => void;
   onOpenLinkCable: () => void;
+  onWebLinkSync: () => void;
+  onOpenVirtualModem: () => void;
   onOpenBios: () => void;
   onOpenWindowsRelease: () => void;
   onOpenColorCustomizer: () => void;
@@ -88,6 +92,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenAchievements,
   onOpenPhoneBook,
   onOpenLinkCable,
+  onWebLinkSync,
+  onOpenVirtualModem,
   onOpenBios,
   onOpenWindowsRelease,
   onOpenColorCustomizer,
@@ -588,6 +594,34 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <span className="flex items-center gap-2">
                   <Cable className="w-3.5 h-3.5 text-zinc-400" />
                   <span>2-Player Link Cable...</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onWebLinkSync();
+                  closeMenus();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Tiger Web Link Sync</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenVirtualModem();
+                  closeMenus();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <Radio className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Virtual Hayes Modem...</span>
                 </span>
               </button>
 

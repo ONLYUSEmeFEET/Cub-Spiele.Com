@@ -480,7 +480,7 @@ export class CompeteComLinkManager {
     }
   }
 
-  private handleCpuUartTx(byte: number) {
+  public handleCpuUartTx(byte: number) {
     if (this.mode === 'off') return;
 
     const cleanByte = byte & 0xff;
