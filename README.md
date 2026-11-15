@@ -1,4 +1,4 @@
-# Cub Spiele.Com — Cycle-Accurate Sharp SM8521 (Tiger Game.Com) Handheld Emulator (Windows, macOS, Android & Web)
+# Cub Spiele.Com Sharp SM8521 Tiger Game.Com Handheld Emulator
 
 **Cub Spiele.Com** (`v0.0.10`) is a cycle-accurate standalone handheld emulator for the 1997 **Tiger Electronics Game.Com** console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + internal speaker band-pass audio engine, dual cartridge bays with hardware `P3` chip-select isolation, and a competitive **Multi-Player High Score Vault, Online Leaderboards & Hardcore Mode Ecosystem**.
 
