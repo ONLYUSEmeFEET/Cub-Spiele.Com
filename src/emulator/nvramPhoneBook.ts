@@ -57,10 +57,12 @@ export const PHONEBOOK_PARTITION_BYTES = 0xf3fb - 0xe000; // 5,115 usable chain 
 export const PHONEBOOK_ENTRIES_PER_BANK = 50;
 
 const PHONEBOOK_VAULT_STORAGE_KEY = 'cub_spiele_phonebook_vault_v1';
+const HARDCORE_PHONEBOOK_VAULT_KEY = 'cub_spiele_phonebook_vault_hardcore_v1';
 
 export class NvramPhoneBookManager {
   public readonly isSecondaryInstance: boolean;
-  private readonly storageKey: string;
+  public isHardcorePartition: boolean = false;
+  private storageKey: string;
   public banks: PhoneBookEntry[][] = [[]];
   public activeBank: number = 0;
 
@@ -68,9 +70,31 @@ export class NvramPhoneBookManager {
     this.isSecondaryInstance =
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).get('instance') === '2';
-    this.storageKey = this.isSecondaryInstance
-      ? 'cub_spiele_phonebook_vault_instance2_v1'
-      : PHONEBOOK_VAULT_STORAGE_KEY;
+    this.storageKey = this.resolveStorageKey(false);
+    this.loadVault();
+  }
+
+  private resolveStorageKey(hardcore: boolean): string {
+    if (this.isSecondaryInstance) {
+      return 'cub_spiele_phonebook_vault_instance2_v1';
+    }
+    return hardcore ? HARDCORE_PHONEBOOK_VAULT_KEY : PHONEBOOK_VAULT_STORAGE_KEY;
+  }
+
+  /**
+   * Switches the Phone Book vault between Softcore (Casual) and Hardcore storage partitions
+   * without leaking or overwriting entries across modes.
+   */
+  public setModePartition(hardcore: boolean, saveOutgoing: boolean = true) {
+    const nextHardcore = !this.isSecondaryInstance && Boolean(hardcore);
+    if (this.isHardcorePartition === nextHardcore) return;
+    if (saveOutgoing) {
+      this.saveVault();
+    }
+    this.isHardcorePartition = nextHardcore;
+    this.storageKey = this.resolveStorageKey(nextHardcore);
+    this.banks = [[]];
+    this.activeBank = 0;
     this.loadVault();
   }
 

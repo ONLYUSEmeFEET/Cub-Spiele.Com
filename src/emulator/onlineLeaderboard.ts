@@ -13,7 +13,7 @@ import {
   RetroAchievementsEngine,
   ScoreVerificationProof
 } from './retroAchievements';
-import { resolveKnownGameByGameIdOrTitle } from './cartridge';
+import { calculateMd5Hex, resolveKnownGameByGameIdOrTitle } from './cartridge';
 
 export interface OnlineLeaderboardEntry {
   id: string;
@@ -30,8 +30,17 @@ export interface OnlineLeaderboardEntry {
   rawSlot?: number[];
 }
 
+interface LeaderboardAdminLocalConfig {
+  username: string;
+  passwordHash: string;
+  isDefaultPassword: boolean;
+}
+
 const ONLINE_LB_CACHE_KEY = 'cub_spiele_online_leaderboard_cache_v1';
 const ONLINE_LB_ENDPOINT_KEY = 'cub_spiele_online_lb_endpoint_v1';
+const ONLINE_LB_ADMIN_CONFIG_KEY = 'cub_spiele_lb_admin_config_v1';
+const DEFAULT_ADMIN_USERNAME = 'admin';
+const DEFAULT_ADMIN_PASSWORD = 'cubspiele-admin';
 
 /**
  * Utility / modem / settings cartridges (such as Internet $0313 and Tiger Web Link $0208)
@@ -62,6 +71,9 @@ export class OnlineLeaderboardManager {
   public customEndpointUrl: string = '';
   public lastSyncAt: number = 0;
   public syncStatus: 'idle' | 'syncing' | 'online' | 'local_only' = 'idle';
+  public adminLoggedIn: boolean = false;
+  public adminUsername: string = DEFAULT_ADMIN_USERNAME;
+  public adminSessionToken: string = '';
   private broadcastChannel: BroadcastChannel | null = null;
   private onUpdateCallback?: () => void;
 
@@ -70,6 +82,59 @@ export class OnlineLeaderboardManager {
     this.loadCache();
     this.initBroadcastChannel();
     this.syncWithServer().catch(() => {});
+  }
+
+  private getRelayEndpoints(): string[] {
+    const endpoints = ['/api/leaderboards', 'http://localhost:3197/api/leaderboards'];
+    if (this.customEndpointUrl.trim()) {
+      endpoints.unshift(this.customEndpointUrl.trim().replace(/\/+$/, ''));
+    }
+    return endpoints;
+  }
+
+  private static hashLocalAdminPassword(password: string): string {
+    return calculateMd5Hex(`CUB_SPIELE_LOCAL_ADMIN_V1:${password}`).toUpperCase();
+  }
+
+  private loadOrInitLocalAdminConfig(): LeaderboardAdminLocalConfig {
+    try {
+      const raw = localStorage.getItem(ONLINE_LB_ADMIN_CONFIG_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.username && parsed.passwordHash) {
+          return {
+            username: String(parsed.username),
+            passwordHash: String(parsed.passwordHash),
+            isDefaultPassword: Boolean(parsed.isDefaultPassword)
+          };
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+    const initCfg: LeaderboardAdminLocalConfig = {
+      username: DEFAULT_ADMIN_USERNAME,
+      passwordHash: OnlineLeaderboardManager.hashLocalAdminPassword(DEFAULT_ADMIN_PASSWORD),
+      isDefaultPassword: true
+    };
+    this.saveLocalAdminConfig(initCfg);
+    return initCfg;
+  }
+
+  private saveLocalAdminConfig(cfg: LeaderboardAdminLocalConfig) {
+    try {
+      localStorage.setItem(ONLINE_LB_ADMIN_CONFIG_KEY, JSON.stringify(cfg));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  public isUsingDefaultAdminPassword(): boolean {
+    return this.loadOrInitLocalAdminConfig().isDefaultPassword;
+  }
+
+  public getConfiguredAdminUsername(): string {
+    return this.loadOrInitLocalAdminConfig().username;
   }
 
   public setOnUpdate(cb: () => void) {
@@ -82,8 +147,17 @@ export class OnlineLeaderboardManager {
         this.broadcastChannel = new BroadcastChannel('cub_spiele_online_leaderboard_v1');
         this.broadcastChannel.onmessage = (ev) => {
           const data = ev.data;
-          if (data && data.type === 'NEW_VERIFIED_SCORE' && data.entry) {
+          if (!data) return;
+          if (data.type === 'NEW_VERIFIED_SCORE' && data.entry) {
             this.ingestEntry(data.entry, false);
+            this.onUpdateCallback?.();
+          } else if (data.type === 'ADMIN_DELETE_ENTRY' && data.entryId) {
+            this.entries = this.entries.filter((e) => e.id !== data.entryId);
+            this.saveCache();
+            this.onUpdateCallback?.();
+          } else if (data.type === 'ADMIN_RESET') {
+            this.applyLocalResetFilter(data.scope || 'all', data.gameId);
+            this.saveCache();
             this.onUpdateCallback?.();
           }
         };
@@ -107,6 +181,9 @@ export class OnlineLeaderboardManager {
             (e) =>
               e &&
               typeof e.gameId === 'number' &&
+              typeof e.numericScore === 'number' &&
+              Number.isFinite(e.numericScore) &&
+              e.numericScore > 0 &&
               e.verification &&
               !isNonScoringUtilitySave(
                 e.gameId,
@@ -143,6 +220,18 @@ export class OnlineLeaderboardManager {
     entry: OnlineLeaderboardEntry,
     broadcast: boolean = true
   ): { accepted: boolean; reason: string; isNewPersonalBest: boolean } {
+    if (
+      typeof entry.numericScore !== 'number' ||
+      !Number.isFinite(entry.numericScore) ||
+      entry.numericScore <= 0
+    ) {
+      return {
+        accepted: false,
+        reason: 'Scores of 0 or less are not accepted on leaderboards.',
+        isNewPersonalBest: false
+      };
+    }
+
     if (
       isNonScoringUtilitySave(
         entry.gameId,
@@ -249,10 +338,7 @@ export class OnlineLeaderboardManager {
       return { syncedOnline: false, message: localRes.reason };
     }
 
-    const endpoints = ['/api/leaderboards', 'http://localhost:3197/api/leaderboards'];
-    if (this.customEndpointUrl.trim()) {
-      endpoints.unshift(this.customEndpointUrl.trim());
-    }
+    const endpoints = this.getRelayEndpoints();
 
     for (const url of endpoints) {
       try {
@@ -293,10 +379,7 @@ export class OnlineLeaderboardManager {
    */
   public async syncWithServer(): Promise<{ ok: boolean; count: number }> {
     this.syncStatus = 'syncing';
-    const endpoints = ['/api/leaderboards', 'http://localhost:3197/api/leaderboards'];
-    if (this.customEndpointUrl.trim()) {
-      endpoints.unshift(this.customEndpointUrl.trim());
-    }
+    const endpoints = this.getRelayEndpoints();
 
     for (const url of endpoints) {
       try {
@@ -477,5 +560,314 @@ export class OnlineLeaderboardManager {
       }
     }
     return Array.from(bestMap.values()).sort((a, b) => a.gameTitle.localeCompare(b.gameTitle));
+  }
+
+  /**
+   * Authenticates an administrator for leaderboard score moderation, deletion, and resets.
+   * Validates against the active Leaderboard Relay server when reachable, or local admin credentials offline.
+   */
+  public async loginAdmin(
+    username: string,
+    password: string
+  ): Promise<{ ok: boolean; message: string; syncedServer: boolean }> {
+    const cleanUser = username.trim();
+    if (!cleanUser || !password) {
+      return { ok: false, message: 'Enter both admin username and password.', syncedServer: false };
+    }
+
+    for (const base of this.getRelayEndpoints()) {
+      try {
+        const res = await fetch(`${base}/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUser, password })
+        });
+        if (res.status === 401 || res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          return {
+            ok: false,
+            message: errData?.error || 'Invalid leaderboard admin credentials.',
+            syncedServer: true
+          };
+        }
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.ok && data?.token) {
+            this.adminLoggedIn = true;
+            this.adminUsername = String(data.username || cleanUser);
+            this.adminSessionToken = String(data.token);
+            this.saveLocalAdminConfig({
+              username: this.adminUsername,
+              passwordHash: OnlineLeaderboardManager.hashLocalAdminPassword(password),
+              isDefaultPassword: Boolean(data.isDefaultPassword)
+            });
+            this.onUpdateCallback?.();
+            return {
+              ok: true,
+              message: `Signed in to Leaderboard Admin Console as "${this.adminUsername}".`,
+              syncedServer: true
+            };
+          }
+        }
+      } catch {
+        // Relay endpoint unreachable — try next or fall back to local verification
+      }
+    }
+
+    const localCfg = this.loadOrInitLocalAdminConfig();
+    const userMatch = cleanUser.toLowerCase() === localCfg.username.toLowerCase();
+    const passMatch =
+      OnlineLeaderboardManager.hashLocalAdminPassword(password) === localCfg.passwordHash;
+    if (!userMatch || !passMatch) {
+      return {
+        ok: false,
+        message: 'Invalid leaderboard admin username or password.',
+        syncedServer: false
+      };
+    }
+
+    this.adminLoggedIn = true;
+    this.adminUsername = localCfg.username;
+    this.adminSessionToken = `LOCAL-${calculateMd5Hex(`${localCfg.username}:${Date.now()}`).toUpperCase()}`;
+    this.onUpdateCallback?.();
+    return {
+      ok: true,
+      message: `Signed in to Local Admin Console as "${this.adminUsername}".`,
+      syncedServer: false
+    };
+  }
+
+  public logoutAdmin() {
+    this.adminLoggedIn = false;
+    this.adminSessionToken = '';
+    this.onUpdateCallback?.();
+  }
+
+  public async changeAdminCredentials(
+    currentPassword: string,
+    newUsername: string,
+    newPassword: string
+  ): Promise<{ ok: boolean; message: string; syncedServer: boolean }> {
+    if (!this.adminLoggedIn) {
+      return { ok: false, message: 'Admin authentication required.', syncedServer: false };
+    }
+    const cleanNewUser = newUsername.trim() || this.adminUsername;
+    if (!newPassword || newPassword.length < 4) {
+      return {
+        ok: false,
+        message: 'New password must be at least 4 characters.',
+        syncedServer: false
+      };
+    }
+
+    const localCfg = this.loadOrInitLocalAdminConfig();
+    let syncedServer = false;
+
+    for (const base of this.getRelayEndpoints()) {
+      try {
+        const res = await fetch(`${base}/admin/password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': this.adminSessionToken,
+            Authorization: `Bearer ${this.adminSessionToken}`
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newUsername: cleanNewUser,
+            newPassword
+          })
+        });
+        if (res.status === 401 || res.status === 403 || res.status === 400) {
+          const errData = await res.json().catch(() => ({}));
+          return {
+            ok: false,
+            message: errData?.error || 'Could not update admin password on relay.',
+            syncedServer: true
+          };
+        }
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.ok) {
+            if (data.token) this.adminSessionToken = String(data.token);
+            syncedServer = true;
+            break;
+          }
+        }
+      } catch {
+        // Offline / relay unavailable
+      }
+    }
+
+    if (
+      !syncedServer &&
+      OnlineLeaderboardManager.hashLocalAdminPassword(currentPassword) !== localCfg.passwordHash
+    ) {
+      return { ok: false, message: 'Current admin password is incorrect.', syncedServer: false };
+    }
+
+    this.adminUsername = cleanNewUser;
+    this.saveLocalAdminConfig({
+      username: cleanNewUser,
+      passwordHash: OnlineLeaderboardManager.hashLocalAdminPassword(newPassword),
+      isDefaultPassword: false
+    });
+    this.onUpdateCallback?.();
+    return {
+      ok: true,
+      message: `Updated admin credentials for "${cleanNewUser}".`,
+      syncedServer
+    };
+  }
+
+  private applyLocalResetFilter(
+    scope: 'all' | 'softcore' | 'hardcore' | 'game' | 'zero',
+    gameId?: number
+  ): number {
+    const before = this.entries.length;
+    if (scope === 'all') {
+      this.entries = [];
+    } else if (scope === 'softcore') {
+      this.entries = this.entries.filter((e) => Boolean(e.verification?.hardcoreVerified));
+    } else if (scope === 'hardcore') {
+      this.entries = this.entries.filter((e) => !e.verification?.hardcoreVerified);
+    } else if (scope === 'zero') {
+      this.entries = this.entries.filter(
+        (e) => typeof e.numericScore === 'number' && Number.isFinite(e.numericScore) && e.numericScore > 0
+      );
+    } else if (scope === 'game' && typeof gameId === 'number') {
+      this.entries = this.entries.filter((e) => e.gameId !== gameId);
+    }
+    return before - this.entries.length;
+  }
+
+  /**
+   * Deletes an individual score entry from both the local leaderboard cache and connected relays.
+   */
+  public async adminDeleteEntry(
+    entryId: string
+  ): Promise<{ ok: boolean; removedCount: number; syncedServer: boolean; message: string }> {
+    if (!this.adminLoggedIn) {
+      return {
+        ok: false,
+        removedCount: 0,
+        syncedServer: false,
+        message: 'Admin sign-in is required to delete scores.'
+      };
+    }
+
+    const target = this.entries.find((e) => e.id === entryId);
+    const before = this.entries.length;
+    this.entries = this.entries.filter((e) => e.id !== entryId);
+    const removedLocal = before - this.entries.length;
+    this.saveCache();
+
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({ type: 'ADMIN_DELETE_ENTRY', entryId });
+      } catch {}
+    }
+
+    let syncedServer = false;
+    for (const base of this.getRelayEndpoints()) {
+      try {
+        const res = await fetch(`${base}/admin/delete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': this.adminSessionToken,
+            Authorization: `Bearer ${this.adminSessionToken}`
+          },
+          body: JSON.stringify({
+            id: entryId,
+            gameId: target?.gameId,
+            playerName: target?.playerName,
+            numericScore: target?.numericScore,
+            signature: target?.verification?.signature
+          })
+        });
+        if (res.ok) {
+          syncedServer = true;
+          break;
+        }
+      } catch {
+        // Relay offline
+      }
+    }
+
+    this.onUpdateCallback?.();
+    return {
+      ok: true,
+      removedCount: removedLocal,
+      syncedServer,
+      message: target
+        ? `Deleted ${target.playerName}'s ${target.gameTitle} score (${target.scoreText}).`
+        : 'Score entry deleted.'
+    };
+  }
+
+  /**
+   * Resets leaderboard scores for the chosen scope ('all' | 'softcore' | 'hardcore' | 'game' | 'zero').
+   */
+  public async adminResetLeaderboard(
+    scope: 'all' | 'softcore' | 'hardcore' | 'game' | 'zero',
+    gameId?: number
+  ): Promise<{ ok: boolean; removedCount: number; syncedServer: boolean; message: string }> {
+    if (!this.adminLoggedIn) {
+      return {
+        ok: false,
+        removedCount: 0,
+        syncedServer: false,
+        message: 'Admin sign-in is required to reset leaderboard scores.'
+      };
+    }
+
+    const removedLocal = this.applyLocalResetFilter(scope, gameId);
+    this.saveCache();
+
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({ type: 'ADMIN_RESET', scope, gameId });
+      } catch {}
+    }
+
+    let syncedServer = false;
+    for (const base of this.getRelayEndpoints()) {
+      try {
+        const res = await fetch(`${base}/admin/reset`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': this.adminSessionToken,
+            Authorization: `Bearer ${this.adminSessionToken}`
+          },
+          body: JSON.stringify({ scope, gameId })
+        });
+        if (res.ok) {
+          syncedServer = true;
+          break;
+        }
+      } catch {
+        // Relay offline
+      }
+    }
+
+    this.onUpdateCallback?.();
+    const label =
+      scope === 'all'
+        ? 'all leaderboard scores'
+        : scope === 'softcore'
+          ? 'Softcore leaderboard scores'
+          : scope === 'hardcore'
+            ? 'Hardcore leaderboard scores'
+            : scope === 'zero'
+              ? 'zero/non-positive scores'
+              : `scores for game $${(gameId ?? 0).toString(16).toUpperCase().padStart(4, '0')}`;
+    return {
+      ok: true,
+      removedCount: removedLocal,
+      syncedServer,
+      message: `Reset ${label} (removed ${removedLocal} local entry/entries${syncedServer ? ' + synced server relay' : ''}).`
+    };
   }
 }

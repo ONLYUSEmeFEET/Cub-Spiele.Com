@@ -1298,6 +1298,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                 )}
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  system.toggleVsync();
+                  onUpdate();
+                }}
+                className={itemClass}
+                title="Default OFF for authentic scanline-by-scanline LCD tearing. Turn ON to latch a tear-free frame at VBlank."
+              >
+                <span className="flex items-center gap-2">
+                  <Monitor className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>V-Sync (Tear-Free Frame Latch)</span>
+                </span>
+                {system.settings.vsync && (
+                  <Check className="w-3.5 h-3.5 text-indigo-500" />
+                )}
+              </button>
+
               <div className={dividerClass} />
 
               <button

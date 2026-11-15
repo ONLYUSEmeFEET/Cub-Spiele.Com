@@ -60,14 +60,18 @@ export interface PlayerProfile {
 const NVRAM_RAW_STORAGE_KEY = 'gamecom_nvram_8k_v3';
 const HIGH_SCORE_VAULT_KEY = 'gamecom_unlimited_highscores_v3';
 const MULTI_PLAYER_PROFILES_KEY = 'cub_spiele_player_profiles_v1';
+const HARDCORE_NVRAM_RAW_STORAGE_KEY = 'gamecom_nvram_8k_hardcore_v1';
+const HARDCORE_HIGH_SCORE_VAULT_KEY = 'gamecom_unlimited_highscores_hardcore_v1';
+const HARDCORE_PROFILES_KEY = 'cub_spiele_player_profiles_hardcore_v1';
 
 export const DEFAULT_HIGH_SCORE_RECORDS: HighScoreRecord[] = [];
 
 export class NvramHighScoreManager {
   public readonly isSecondaryInstance: boolean;
-  private readonly nvramRawKey: string;
-  private readonly profilesKey: string;
-  private readonly vaultKey: string;
+  public isHardcorePartition: boolean = false;
+  private nvramRawKey: string;
+  private profilesKey: string;
+  private vaultKey: string;
   public profiles: PlayerProfile[] = [];
   public activeProfileId: string = 'player_1';
   public records: HighScoreRecord[] = [];
@@ -86,21 +90,76 @@ export class NvramHighScoreManager {
     this.isSecondaryInstance =
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).get('instance') === '2';
-    this.nvramRawKey = this.isSecondaryInstance
-      ? 'gamecom_nvram_8k_instance2_v3'
-      : NVRAM_RAW_STORAGE_KEY;
-    this.profilesKey = this.isSecondaryInstance
-      ? 'cub_spiele_player_profiles_instance2_v1'
-      : MULTI_PLAYER_PROFILES_KEY;
-    this.vaultKey = this.isSecondaryInstance
-      ? 'gamecom_unlimited_highscores_instance2_v3'
-      : HIGH_SCORE_VAULT_KEY;
+    const keys = this.resolvePartitionKeys(false);
+    this.nvramRawKey = keys.nvramRawKey;
+    this.profilesKey = keys.profilesKey;
+    this.vaultKey = keys.vaultKey;
     this.activeProfileId = this.isSecondaryInstance ? 'player_2' : 'player_1';
 
     this.raEngine = raEngine;
     this.onlineLeaderboard = this.isSecondaryInstance ? undefined : onlineLeaderboard;
     this.onScoreRecordedCallback = this.isSecondaryInstance ? undefined : onScoreRecorded;
     this.loadVault();
+  }
+
+  private resolvePartitionKeys(hardcore: boolean): {
+    nvramRawKey: string;
+    profilesKey: string;
+    vaultKey: string;
+  } {
+    if (this.isSecondaryInstance) {
+      return {
+        nvramRawKey: 'gamecom_nvram_8k_instance2_v3',
+        profilesKey: 'cub_spiele_player_profiles_instance2_v1',
+        vaultKey: 'gamecom_unlimited_highscores_instance2_v3'
+      };
+    }
+    if (hardcore) {
+      return {
+        nvramRawKey: HARDCORE_NVRAM_RAW_STORAGE_KEY,
+        profilesKey: HARDCORE_PROFILES_KEY,
+        vaultKey: HARDCORE_HIGH_SCORE_VAULT_KEY
+      };
+    }
+    return {
+      nvramRawKey: NVRAM_RAW_STORAGE_KEY,
+      profilesKey: MULTI_PLAYER_PROFILES_KEY,
+      vaultKey: HIGH_SCORE_VAULT_KEY
+    };
+  }
+
+  /**
+   * Switches NVRAM, Profiles, and Vault storage between isolated Softcore and Hardcore partitions.
+   * Ensures Softcore saves/scores never leak or duplicate into Hardcore NVRAM or leaderboards.
+   */
+  public setModePartition(
+    hardcore: boolean,
+    cpuNvram?: Uint8Array,
+    syncBankToCpu: boolean = false,
+    saveOutgoing: boolean = true
+  ) {
+    const nextHardcore = !this.isSecondaryInstance && Boolean(hardcore);
+    if (this.isHardcorePartition !== nextHardcore) {
+      if (saveOutgoing) {
+        if (cpuNvram) {
+          this.saveRawNvram(cpuNvram);
+        }
+        this.saveVault();
+      }
+      this.isHardcorePartition = nextHardcore;
+      const keys = this.resolvePartitionKeys(nextHardcore);
+      this.nvramRawKey = keys.nvramRawKey;
+      this.profilesKey = keys.profilesKey;
+      this.vaultKey = keys.vaultKey;
+      this.records = [];
+      this.solitaireScore = 0;
+      this.activeBank = 0;
+      this.loadVault();
+    }
+    if (cpuNvram && syncBankToCpu) {
+      cpuNvram.fill(0);
+      this.initializeNvramSignatures(cpuNvram);
+    }
   }
 
   public attachCompetitiveEngines(
@@ -625,6 +684,9 @@ export class NvramHighScoreManager {
 
   private publishVerifiedRecord(rec: HighScoreRecord) {
     if (!rec.verification) return;
+    if (!rec.numericScore || !Number.isFinite(rec.numericScore) || rec.numericScore <= 0) {
+      return;
+    }
     if (isNonScoringUtilitySave(rec.gameId, rec.title, rec.scoreText, rec.numericScore)) {
       return;
     }
@@ -661,6 +723,9 @@ export class NvramHighScoreManager {
     for (const prof of this.profiles) {
       for (const rec of prof.records) {
         if (!rec || !rec.gameId) continue;
+        if (!rec.numericScore || !Number.isFinite(rec.numericScore) || rec.numericScore <= 0) {
+          continue;
+        }
         if (isNonScoringUtilitySave(rec.gameId, rec.title, rec.scoreText, rec.numericScore)) {
           continue;
         }
@@ -776,6 +841,81 @@ export class NvramHighScoreManager {
     this.syncActiveFieldsToProfile();
     this.saveVault();
     this.syncBankToNvram(nvram, 0);
+  }
+
+  /**
+   * Admin Vault Helper: removes matching score record(s) across all profiles in the active partition
+   * so deleted leaderboard scores do not resurrect on subsequent NVRAM syncs.
+   */
+  public adminPruneVaultScores(
+    options: {
+      scope: 'entry' | 'all' | 'softcore' | 'hardcore' | 'game' | 'zero';
+      gameId?: number;
+      playerName?: string;
+      numericScore?: number;
+      entryHardcore?: boolean;
+    },
+    nvram: Uint8Array
+  ): number {
+    // Only touch the matching partition for mode-scoped resets
+    if (options.scope === 'softcore' && this.isHardcorePartition) return 0;
+    if (options.scope === 'hardcore' && !this.isHardcorePartition) return 0;
+    if (
+      options.scope === 'entry' &&
+      typeof options.entryHardcore === 'boolean' &&
+      options.entryHardcore !== this.isHardcorePartition
+    ) {
+      return 0;
+    }
+
+    let removed = 0;
+    for (const prof of this.profiles) {
+      const before = prof.records.length;
+      if (options.scope === 'all' || options.scope === 'softcore' || options.scope === 'hardcore') {
+        prof.records = [];
+        if (prof.solitaireScore > 0) removed++;
+        prof.solitaireScore = 0;
+        prof.solitaireVerification = undefined;
+      } else if (options.scope === 'game' && typeof options.gameId === 'number') {
+        prof.records = prof.records.filter((r) => r.gameId !== options.gameId);
+        if (options.gameId === 0xfee0 && prof.solitaireScore > 0) {
+          prof.solitaireScore = 0;
+          prof.solitaireVerification = undefined;
+          removed++;
+        }
+      } else if (options.scope === 'zero') {
+        prof.records = prof.records.filter((r) => r.numericScore > 0);
+      } else if (options.scope === 'entry') {
+        const targetPlayer = options.playerName?.trim().toLowerCase();
+        prof.records = prof.records.filter((r) => {
+          const sameGame = options.gameId === undefined || r.gameId === options.gameId;
+          const sameScore =
+            options.numericScore === undefined || r.numericScore === options.numericScore;
+          const samePlayer =
+            !targetPlayer ||
+            (r.playerName || prof.name || '').trim().toLowerCase() === targetPlayer;
+          return !(sameGame && sameScore && samePlayer);
+        });
+        if (
+          options.gameId === 0xfee0 &&
+          prof.solitaireScore === options.numericScore &&
+          (!targetPlayer || prof.name.trim().toLowerCase() === targetPlayer)
+        ) {
+          prof.solitaireScore = 0;
+          prof.solitaireVerification = undefined;
+          removed++;
+        }
+      }
+      removed += before - prof.records.length;
+    }
+
+    if (removed > 0) {
+      this.syncActiveFieldsFromProfile();
+      this.activeBank = 0;
+      this.saveVault();
+      this.syncBankToNvram(nvram, 0);
+    }
+    return removed;
   }
 
   /**
@@ -1093,8 +1233,11 @@ export class NvramHighScoreManager {
         }
       }
 
-      // Migrate legacy single-profile vault if present (Instance #1 only)
-      const rawLegacy = !this.isSecondaryInstance ? localStorage.getItem(this.vaultKey) : null;
+      // Migrate legacy single-profile vault if present (Instance #1 Softcore only)
+      const rawLegacy =
+        !this.isSecondaryInstance && !this.isHardcorePartition
+          ? localStorage.getItem(this.vaultKey)
+          : null;
       if (rawLegacy) {
         const parsed = JSON.parse(rawLegacy);
         if (Array.isArray(parsed.records)) {

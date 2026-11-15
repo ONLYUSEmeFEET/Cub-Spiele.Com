@@ -212,6 +212,7 @@ export class GameComSystem {
     ghosting: 0.42,
     ghostingPersistence: 0.65,
     pixelGrid: true,
+    vsync: false,
     showTouchGrid: false,
     touchGridOpacity: 0.0,
     viewMode: getDefaultViewModeForPlatform(),
@@ -279,8 +280,20 @@ export class GameComSystem {
       this.retroAchievements.config.hardcoreMode = false;
       this.retroAchievements.session.hardcoreActive = false;
     }
+
+    // Bind NVRAM Vault & Phone Book to isolated Softcore or Hardcore storage partition before loading scores
+    const initialHardcore =
+      this.retroAchievements.config.hardcoreMode && this.linkCable.instanceId !== 2;
+    this.highScores.setModePartition(initialHardcore, undefined, false, false);
+    this.phoneBook.setModePartition(initialHardcore, false);
+
+    this.retroAchievements.onHardcoreDisabled = () => {
+      this.switchNvramModePartition(false, true);
+    };
+
     this.linkCable.onLinkActivated = () => {
       if (this.retroAchievements.config.hardcoreMode) {
+        this.switchNvramModePartition(false, true);
         this.retroAchievements.config.hardcoreMode = false;
         this.retroAchievements.session.hardcoreActive = false;
         this.retroAchievements.saveConfig();
@@ -434,6 +447,27 @@ export class GameComSystem {
   }
 
   /**
+   * Flushes outgoing Softcore/Hardcore NVRAM + Vault state and switches cpu.nvram
+   * onto the requested mode's completely isolated storage partition.
+   */
+  private switchNvramModePartition(hardcore: boolean, syncCpuNvram: boolean) {
+    const nextHardcore = this.linkCable.instanceId !== 2 && hardcore;
+    const changing =
+      this.highScores.isHardcorePartition !== nextHardcore ||
+      this.phoneBook.isHardcorePartition !== nextHardcore;
+    if (changing) {
+      this.highScores.syncFromNvram(this.cpu.nvram);
+      this.phoneBook.syncFromNvram(this.cpu.nvram);
+    }
+    this.highScores.setModePartition(nextHardcore, this.cpu.nvram, syncCpuNvram, false);
+    this.phoneBook.setModePartition(nextHardcore, false);
+    if (syncCpuNvram) {
+      this.phoneBook.syncBankToNvram(this.cpu.nvram, this.phoneBook.activeBank);
+      this.highScores.saveRawNvram(this.cpu.nvram);
+    }
+  }
+
+  /**
    * Toggles Competitive / RetroAchievements Hardcore Mode.
    * Section B Compliance:
    * - Switching from Casual (Softcore) Mode to Hardcore Mode forces a full cold hardware reset of the game.
@@ -445,6 +479,7 @@ export class GameComSystem {
     const nextState =
       enabled !== undefined ? enabled : !this.retroAchievements.config.hardcoreMode;
     if (nextState && (this.linkCable.mode !== 'off' || this.linkCable.instanceId === 2)) {
+      this.switchNvramModePartition(false, true);
       this.retroAchievements.config.hardcoreMode = false;
       this.retroAchievements.session.hardcoreActive = false;
       this.onHardcoreViolation?.(
@@ -452,6 +487,10 @@ export class GameComSystem {
       );
       return false;
     }
+
+    // Isolate Softcore and Hardcore NVRAM + High Score Vault + Phone Book partitions cleanly
+    this.switchNvramModePartition(nextState, true);
+
     this.retroAchievements.config.hardcoreMode = nextState;
     this.retroAchievements.saveConfig();
     if (nextState) {
@@ -703,6 +742,10 @@ export class GameComSystem {
           this.settings.pixelGrid = parsedV.pixelGrid;
           this.lcd.pixelGrid = parsedV.pixelGrid;
         }
+        if (typeof parsedV?.vsync === 'boolean') {
+          this.settings.vsync = parsedV.vsync;
+          this.cpu.vsyncEnabled = parsedV.vsync;
+        }
         if (typeof parsedV?.touchGridOpacity === 'number') {
           const op = Math.max(0, Math.min(1, parsedV.touchGridOpacity));
           this.settings.touchGridOpacity = op;
@@ -796,6 +839,7 @@ export class GameComSystem {
           touchControlSize: this.settings.touchControlSize,
           touchOrientation: this.settings.touchOrientation,
           pixelGrid: this.settings.pixelGrid,
+          vsync: this.settings.vsync,
           touchGridOpacity: this.settings.touchGridOpacity,
           showBottomBar: this.settings.showBottomBar
         })
@@ -832,6 +876,14 @@ export class GameComSystem {
   public toggleIntegerScaling(enabled?: boolean): boolean {
     const next = enabled !== undefined ? enabled : !this.settings.integerScaling;
     this.settings.integerScaling = next;
+    this.saveViewSettingsToStorage();
+    return next;
+  }
+
+  public toggleVsync(enabled?: boolean): boolean {
+    const next = enabled !== undefined ? enabled : !this.settings.vsync;
+    this.settings.vsync = next;
+    this.cpu.vsyncEnabled = next;
     this.saveViewSettingsToStorage();
     return next;
   }
@@ -1503,6 +1555,7 @@ export class GameComSystem {
     this.lcd.pixelGrid = this.settings.pixelGrid;
     this.cpu.correctClockSpeed = this.accuracyFixes.correctClockSpeed;
     this.cpu.dualCartridgeSlotFix = this.accuracyFixes.dualCartridgeSlotFix;
+    this.cpu.vsyncEnabled = this.settings.vsync;
 
     if (!this.isPoweredOn) {
       this.lcd.clear(0);

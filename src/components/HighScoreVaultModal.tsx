@@ -83,6 +83,23 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
   const [editingEntryKey, setEditingEntryKey] = useState<string | null>(null);
   const [editingEntryName, setEditingEntryName] = useState<string>('');
 
+  // Leaderboard Admin Console state
+  const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
+  const [adminLoginUser, setAdminLoginUser] = useState<string>(() =>
+    system.onlineLeaderboard.getConfiguredAdminUsername()
+  );
+  const [adminLoginPass, setAdminLoginPass] = useState<string>('');
+  const [adminAuthBusy, setAdminAuthBusy] = useState<boolean>(false);
+  const [adminAuthError, setAdminAuthError] = useState<string>('');
+  const [adminAlsoPruneLocal, setAdminAlsoPruneLocal] = useState<boolean>(true);
+  const [confirmResetAll, setConfirmResetAll] = useState<boolean>(false);
+  const [showChangeAdminCreds, setShowChangeAdminCreds] = useState<boolean>(false);
+  const [currentAdminPass, setCurrentAdminPass] = useState<string>('');
+  const [newAdminUser, setNewAdminUser] = useState<string>(() =>
+    system.onlineLeaderboard.getConfiguredAdminUsername()
+  );
+  const [newAdminPass, setNewAdminPass] = useState<string>('');
+
   // Profiles & Import tab state
   const [newProfileName, setNewProfileName] = useState<string>('');
   const [renamingProfileId, setRenamingProfileId] = useState<string | null>(null);
@@ -287,6 +304,111 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
       );
     } else {
       onNotify?.('Certificate Verification Failed', res.message, 'error');
+    }
+  };
+
+  const handleAdminLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setAdminAuthBusy(true);
+    setAdminAuthError('');
+    try {
+      const res = await lb.loginAdmin(adminLoginUser, adminLoginPass);
+      if (res.ok) {
+        setAdminLoginPass('');
+        setNewAdminUser(lb.adminUsername);
+        onUpdated();
+        onNotify?.('Leaderboard Admin Console Unlocked', res.message, 'success');
+      } else {
+        setAdminAuthError(res.message);
+      }
+    } finally {
+      setAdminAuthBusy(false);
+    }
+  };
+
+  const handleAdminLogout = () => {
+    lb.logoutAdmin();
+    setConfirmResetAll(false);
+    setShowChangeAdminCreds(false);
+    setAdminAuthError('');
+    onUpdated();
+    onNotify?.('Admin Console Locked', 'Signed out of Leaderboard Admin Console.', 'info');
+  };
+
+  const handleAdminDeleteScore = async (entry: OnlineLeaderboardEntry) => {
+    const res = await lb.adminDeleteEntry(entry.id);
+    if (res.ok) {
+      let localPruned = 0;
+      if (adminAlsoPruneLocal) {
+        localPruned = hs.adminPruneVaultScores(
+          {
+            scope: 'entry',
+            gameId: entry.gameId,
+            playerName: entry.playerName,
+            numericScore: entry.numericScore,
+            entryHardcore: Boolean(entry.verification?.hardcoreVerified)
+          },
+          system.cpu.nvram
+        );
+      }
+      onUpdated();
+      onNotify?.(
+        'Score Deleted (Admin)',
+        `${res.message}${localPruned > 0 ? ` · Pruned ${localPruned} local NVRAM record(s)` : ''}`,
+        'info'
+      );
+    } else {
+      onNotify?.('Admin Delete Failed', res.message, 'error');
+    }
+  };
+
+  const handleAdminReset = async (scope: 'all' | 'softcore' | 'hardcore' | 'game' | 'zero') => {
+    if (scope === 'all' && !confirmResetAll) {
+      setConfirmResetAll(true);
+      return;
+    }
+    setConfirmResetAll(false);
+    const targetGameId = scope === 'game' && selectedGameFilter !== 'ALL' ? selectedGameFilter : undefined;
+    const res = await lb.adminResetLeaderboard(scope, targetGameId);
+    if (res.ok) {
+      let localPruned = 0;
+      if (adminAlsoPruneLocal) {
+        localPruned = hs.adminPruneVaultScores(
+          {
+            scope,
+            gameId: targetGameId
+          },
+          system.cpu.nvram
+        );
+      }
+      onUpdated();
+      onNotify?.(
+        'Leaderboard Reset Complete (Admin)',
+        `${res.message}${localPruned > 0 ? ` · Pruned ${localPruned} local vault score(s)` : ''}`,
+        'info'
+      );
+    } else {
+      onNotify?.('Admin Reset Failed', res.message, 'error');
+    }
+  };
+
+  const handleAdminChangeCreds = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setAdminAuthBusy(true);
+    setAdminAuthError('');
+    try {
+      const res = await lb.changeAdminCredentials(currentAdminPass, newAdminUser, newAdminPass);
+      if (res.ok) {
+        setCurrentAdminPass('');
+        setNewAdminPass('');
+        setShowChangeAdminCreds(false);
+        onUpdated();
+        onNotify?.('Admin Credentials Updated', res.message, 'success');
+      } else {
+        setAdminAuthError(res.message);
+      }
+    } finally {
+      setAdminAuthBusy(false);
     }
   };
 
@@ -602,6 +724,24 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                       <Upload className="w-3.5 h-3.5" />
                       <span>Import Other Player Scores</span>
                     </button>
+                    <button
+                      onClick={() => setShowAdminPanel(!showAdminPanel)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition cursor-pointer ${
+                        lb.adminLoggedIn
+                          ? 'bg-amber-500/15 dark:bg-amber-950/70 border-amber-500 text-amber-800 dark:text-amber-300'
+                          : showAdminPanel
+                            ? 'bg-zinc-200 dark:bg-zinc-800 border-zinc-400 dark:border-zinc-600 text-zinc-900 dark:text-white'
+                            : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white'
+                      }`}
+                      title="Open Leaderboard Admin Console Login to delete or reset scores"
+                    >
+                      {lb.adminLoggedIn ? (
+                        <Unlock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                      )}
+                      <span>{lb.adminLoggedIn ? `Admin Console (${lb.adminUsername})` : 'Admin Login'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -640,6 +780,189 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Collapsible Leaderboard Admin Console (Login + Score Reset/Deletion) */}
+                {(showAdminPanel || lb.adminLoggedIn) && (
+                  <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800/80 space-y-3">
+                    {!lb.adminLoggedIn ? (
+                      <form
+                        onSubmit={handleAdminLogin}
+                        className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white">
+                            <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                            <span>Leaderboard Admin Console Login</span>
+                          </div>
+                          {lb.isUsingDefaultAdminPassword() && (
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-400/50">
+                              Default: admin / cubspiele-admin
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <input
+                            type="text"
+                            value={adminLoginUser}
+                            onChange={(e) => setAdminLoginUser(e.target.value)}
+                            placeholder="Admin Username"
+                            autoComplete="username"
+                            className="w-40 px-2.5 py-1.5 bg-[#f6f7f3] dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white font-mono"
+                          />
+                          <input
+                            type="password"
+                            value={adminLoginPass}
+                            onChange={(e) => setAdminLoginPass(e.target.value)}
+                            placeholder="Admin Password"
+                            autoComplete="current-password"
+                            className="flex-1 min-w-[180px] px-2.5 py-1.5 bg-[#f6f7f3] dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white font-mono"
+                          />
+                          <button
+                            type="submit"
+                            disabled={adminAuthBusy}
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold rounded-lg cursor-pointer"
+                          >
+                            {adminAuthBusy ? 'Signing In...' : 'Sign In'}
+                          </button>
+                        </div>
+                        {adminAuthError && (
+                          <div className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                            {adminAuthError}
+                          </div>
+                        )}
+                      </form>
+                    ) : (
+                      <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-500/40 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+                            <Unlock className="w-3.5 h-3.5" />
+                            <span>
+                              Admin Console Active ({lb.adminUsername}) — Click trash icon on any row to delete individual scores
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowChangeAdminCreds(!showChangeAdminCreds)}
+                              className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              {showChangeAdminCreds ? 'Hide Password Settings' : 'Change Password'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAdminLogout}
+                              className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-700 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Lock className="w-3 h-3" />
+                              <span>Lock</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <label className="flex items-center gap-2 text-[11px] text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={adminAlsoPruneLocal}
+                              onChange={(e) => setAdminAlsoPruneLocal(e.target.checked)}
+                              className="accent-amber-600 rounded"
+                            />
+                            <span>Also remove matching score(s) from active local NVRAM Vault</span>
+                          </label>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleAdminReset('zero')}
+                              className="px-2.5 py-1 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-md text-[11px] font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer"
+                            >
+                              Purge 0 / Invalid
+                            </button>
+                            {selectedGameFilter !== 'ALL' && (
+                              <button
+                                type="button"
+                                onClick={() => handleAdminReset('game')}
+                                className="px-2.5 py-1 bg-white dark:bg-zinc-900 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-400/60 rounded-md text-[11px] font-semibold text-rose-700 dark:text-rose-300 cursor-pointer"
+                              >
+                                Reset Selected Game
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleAdminReset('softcore')}
+                              className="px-2.5 py-1 bg-white dark:bg-zinc-900 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-400/60 rounded-md text-[11px] font-semibold text-rose-700 dark:text-rose-300 cursor-pointer"
+                            >
+                              Reset Softcore
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAdminReset('hardcore')}
+                              className="px-2.5 py-1 bg-white dark:bg-zinc-900 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-400/60 rounded-md text-[11px] font-semibold text-rose-700 dark:text-rose-300 cursor-pointer"
+                            >
+                              Reset Hardcore
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAdminReset('all')}
+                              onBlur={() => setConfirmResetAll(false)}
+                              className={`px-3 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
+                                confirmResetAll
+                                  ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                                  : 'bg-rose-600/15 hover:bg-rose-600/25 border border-rose-500/60 text-rose-700 dark:text-rose-300'
+                              }`}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>
+                                {confirmResetAll ? 'Click Again to Confirm Reset ALL' : 'Reset All Scores'}
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {showChangeAdminCreds && (
+                          <form
+                            onSubmit={handleAdminChangeCreds}
+                            className="pt-2 border-t border-amber-500/30 flex flex-wrap items-center gap-2 text-xs"
+                          >
+                            <input
+                              type="text"
+                              value={newAdminUser}
+                              onChange={(e) => setNewAdminUser(e.target.value)}
+                              placeholder="New Admin Username"
+                              className="w-36 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white font-mono"
+                            />
+                            <input
+                              type="password"
+                              value={currentAdminPass}
+                              onChange={(e) => setCurrentAdminPass(e.target.value)}
+                              placeholder="Current Password"
+                              className="w-36 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white font-mono"
+                            />
+                            <input
+                              type="password"
+                              value={newAdminPass}
+                              onChange={(e) => setNewAdminPass(e.target.value)}
+                              placeholder="New Password (min 4 chars)"
+                              className="flex-1 min-w-[160px] px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-white font-mono"
+                            />
+                            <button
+                              type="submit"
+                              disabled={adminAuthBusy}
+                              className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded cursor-pointer"
+                            >
+                              Save Credentials
+                            </button>
+                            {adminAuthError && (
+                              <span className="w-full text-[11px] text-rose-600 dark:text-rose-400">
+                                {adminAuthError}
+                              </span>
+                            )}
+                          </form>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Best Score for Each Game Summary Grid */}
@@ -722,7 +1045,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                   <div className="col-span-3">Player</div>
                   <div className="col-span-2">Score</div>
                   <div className="col-span-2">Legitimacy Seal</div>
-                  <div className="col-span-1 text-right">Share</div>
+                  <div className="col-span-1 text-right">{lb.adminLoggedIn ? 'Actions' : 'Share'}</div>
                 </div>
 
                 {filteredLeaderboardEntries.length === 0 ? (
@@ -836,7 +1159,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                             )}
                           </div>
 
-                          <div className="col-span-1 text-right">
+                          <div className="col-span-1 flex items-center justify-end gap-1">
                             <button
                               onClick={() => handleCopyCertificate(entry)}
                               className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-[#7a1f5c] dark:hover:text-amber-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition cursor-pointer"
@@ -844,6 +1167,15 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                             >
                               <Copy className="w-3.5 h-3.5 inline" />
                             </button>
+                            {lb.adminLoggedIn && (
+                              <button
+                                onClick={() => handleAdminDeleteScore(entry)}
+                                className="p-1.5 text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/60 rounded transition cursor-pointer"
+                                title="Delete this score from Leaderboard (Admin)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 inline" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       );

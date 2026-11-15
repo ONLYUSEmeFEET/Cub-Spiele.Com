@@ -284,6 +284,8 @@ export interface EmulatorSettings {
   /** STN LCD ghosting persistence / decay time constant (0.0 to 1.0) */
   ghostingPersistence: number;
   pixelGrid: boolean;
+  /** Opt-in V-Sync frame latch at VBlank to eliminate mid-frame LCD tearing (false = scanline-accurate default) */
+  vsync: boolean;
   showTouchGrid: boolean;
   touchGridOpacity: number;
   viewMode: 'screen-only' | 'touch';

@@ -500,6 +500,7 @@ export class RetroAchievementsEngine {
   public offlineQueue: RAOfflineQueueItem[] = [];
   public customAchievements: RAAchievementDefinition[] = [];
   public customLeaderboards: RALeaderboardDefinition[] = [];
+  public onHardcoreDisabled?: () => void;
 
   // Runtime Hit Counts, Measured (`M:`) Progress, Trigger (`T:`) Challenge Indicators & Active Leaderboards
   public hitCounts: Record<number, number> = {};
@@ -850,8 +851,11 @@ export class RetroAchievementsEngine {
     if (reason === 'debugger') this.session.debuggerUsed = true;
     if (reason === 'quick_resume') {
       this.session.quickResumeUsed = true;
-      this.config.hardcoreMode = false;
-      this.saveConfig();
+      if (this.config.hardcoreMode) {
+        this.config.hardcoreMode = false;
+        this.saveConfig();
+        this.onHardcoreDisabled?.();
+      }
     }
     if (reason === 'accuracy_bypass') this.session.accuracyBypassed = true;
     this.session.hardcoreActive = false;
@@ -884,9 +888,13 @@ export class RetroAchievementsEngine {
    * without resetting the game.
    */
   public disableHardcoreMidSession(reasonMsg?: string) {
+    const wasHardcore = this.config.hardcoreMode;
     this.config.hardcoreMode = false;
     this.session.hardcoreActive = false;
     this.saveConfig();
+    if (wasHardcore) {
+      this.onHardcoreDisabled?.();
+    }
     if (reasonMsg && this.onNotification) {
       this.onNotification('Switched to Casual Mode', reasonMsg);
     }
@@ -1617,6 +1625,14 @@ export class RetroAchievementsEngine {
     gameId: number,
     numericScore: number
   ): Promise<{ submitted: boolean; lbId?: number; message: string }> {
+    if (!Number.isFinite(numericScore) || numericScore <= 0) {
+      return {
+        submitted: false,
+        lbId: 0,
+        message: 'Skipped RA Leaderboard submit: Scores of 0 or less are not submitted.'
+      };
+    }
+
     if (!this.isSessionHardcoreClean()) {
       return {
         submitted: false,

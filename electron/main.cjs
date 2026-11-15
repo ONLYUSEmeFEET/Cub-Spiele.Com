@@ -401,6 +401,53 @@ function startLanRelayServer() {
   }
 
   const lbDbPath = path.join(app.getPath('userData'), 'leaderboards-db.json');
+  const lbAdminPath = path.join(app.getPath('userData'), 'leaderboards-admin.json');
+  function hashAdminPassword(password) {
+    return crypto
+      .createHash('sha256')
+      .update(`CUB_SPIELE_ADMIN_V1:${String(password)}`)
+      .digest('hex');
+  }
+  function loadOrInitAdminConfig() {
+    const envPass = process.env.CUB_LB_ADMIN_PASSWORD || '';
+    try {
+      if (fs.existsSync(lbAdminPath)) {
+        const parsed = JSON.parse(fs.readFileSync(lbAdminPath, 'utf8'));
+        if (parsed && parsed.username && parsed.passwordHash && parsed.token) {
+          if (envPass) {
+            parsed.passwordHash = hashAdminPassword(envPass);
+            parsed.isDefaultPassword = false;
+          }
+          return parsed;
+        }
+      }
+    } catch {}
+    const defaultPass = envPass || 'cubspiele-admin';
+    const cfg = {
+      username: 'admin',
+      passwordHash: hashAdminPassword(defaultPass),
+      token: crypto.randomBytes(24).toString('hex'),
+      isDefaultPassword: !envPass
+    };
+    try {
+      fs.writeFileSync(lbAdminPath, JSON.stringify(cfg, null, 2), 'utf8');
+    } catch {}
+    return cfg;
+  }
+  function saveAdminConfig(cfg) {
+    try {
+      fs.writeFileSync(lbAdminPath, JSON.stringify(cfg, null, 2), 'utf8');
+    } catch {}
+  }
+  function extractAdminToken(req) {
+    const headerTok = req.headers['x-admin-token'];
+    if (typeof headerTok === 'string' && headerTok.trim()) return headerTok.trim();
+    const auth = req.headers.authorization;
+    if (typeof auth === 'string' && auth.toLowerCase().startsWith('bearer ')) {
+      return auth.slice(7).trim();
+    }
+    return '';
+  }
   function loadLbDb() {
     try {
       if (fs.existsSync(lbDbPath)) {
@@ -418,14 +465,16 @@ function startLanRelayServer() {
 
   const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
       return;
     }
-    if ((req.url || '').startsWith('/api/leaderboards')) {
+    const reqPath = (req.url || '/').split('?')[0];
+    if (reqPath.startsWith('/api/leaderboards')) {
+      const subPath = reqPath.slice('/api/leaderboards'.length) || '/';
       if (req.method === 'GET') {
         const entries = loadLbDb();
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -438,14 +487,170 @@ function startLanRelayServer() {
         );
         return;
       }
-      if (req.method === 'POST') {
+      if (req.method === 'POST' || req.method === 'DELETE') {
         let body = '';
         req.on('data', (chunk) => {
           body += chunk.toString();
         });
         req.on('end', () => {
           try {
-            const parsedBody = JSON.parse(body);
+            const parsedBody = body.trim() ? JSON.parse(body) : {};
+            if (subPath === '/admin/login' && req.method === 'POST') {
+              const cfg = loadOrInitAdminConfig();
+              const u = String(parsedBody?.username || '').trim().toLowerCase();
+              const p = String(parsedBody?.password || '');
+              const validUser = u === cfg.username.toLowerCase();
+              const validPass =
+                p.length > 0 &&
+                (hashAdminPassword(p) === cfg.passwordHash || p === cfg.token);
+              if (!validUser || !validPass) {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Invalid admin credentials' }));
+                return;
+              }
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  token: cfg.token,
+                  username: cfg.username,
+                  isDefaultPassword: cfg.isDefaultPassword
+                })
+              );
+              return;
+            }
+            if (subPath === '/admin/password' && req.method === 'POST') {
+              const cfg = loadOrInitAdminConfig();
+              const tok = extractAdminToken(req);
+              if (!tok || tok !== cfg.token) {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Admin authentication required' }));
+                return;
+              }
+              const currentPassword = String(parsedBody?.currentPassword || '');
+              const newPassword = String(parsedBody?.newPassword || '');
+              const newUsername = String(parsedBody?.newUsername || cfg.username).trim();
+              if (currentPassword && hashAdminPassword(currentPassword) !== cfg.passwordHash) {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Current password is incorrect' }));
+                return;
+              }
+              if (!newPassword || newPassword.length < 4) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'New password must be at least 4 characters' }));
+                return;
+              }
+              cfg.username = newUsername || cfg.username;
+              cfg.passwordHash = hashAdminPassword(newPassword);
+              cfg.token = crypto.randomBytes(24).toString('hex');
+              cfg.isDefaultPassword = false;
+              saveAdminConfig(cfg);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  token: cfg.token,
+                  username: cfg.username,
+                  isDefaultPassword: false
+                })
+              );
+              return;
+            }
+            if ((subPath === '/admin/delete' && req.method === 'POST') || req.method === 'DELETE') {
+              const cfg = loadOrInitAdminConfig();
+              const tok = extractAdminToken(req);
+              if (!tok || tok !== cfg.token) {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Admin authentication required' }));
+                return;
+              }
+              const entries = loadLbDb();
+              const targetId = parsedBody?.id;
+              const targetGameId = parsedBody?.gameId;
+              const targetPlayer = parsedBody?.playerName
+                ? String(parsedBody.playerName).toLowerCase()
+                : null;
+              const targetScore = parsedBody?.numericScore;
+              const targetSig = parsedBody?.signature;
+              const purgeZero = Boolean(parsedBody?.purgeZeroScores);
+              const nextEntries = entries.filter((e) => {
+                const eScore =
+                  typeof e.numericScore === 'number' ? e.numericScore : Number(e.score || 0);
+                if (purgeZero && (!Number.isFinite(eScore) || eScore <= 0)) return false;
+                if (targetId && e.id === targetId) return false;
+                if (targetSig && (e.verification?.signature || e.proof?.signature) === targetSig) {
+                  return false;
+                }
+                if (
+                  targetId &&
+                  typeof targetGameId === 'number' &&
+                  e.gameId === targetGameId &&
+                  targetPlayer !== null &&
+                  String(e.playerName || '').toLowerCase() === targetPlayer &&
+                  typeof targetScore === 'number' &&
+                  eScore === targetScore
+                ) {
+                  return false;
+                }
+                if (!targetId && typeof targetGameId === 'number' && e.gameId === targetGameId) {
+                  return false;
+                }
+                return true;
+              });
+              const removedCount = entries.length - nextEntries.length;
+              saveLbDb(nextEntries);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  removedCount,
+                  count: nextEntries.length,
+                  entries: nextEntries
+                })
+              );
+              return;
+            }
+            if (subPath === '/admin/reset' && req.method === 'POST') {
+              const cfg = loadOrInitAdminConfig();
+              const tok = extractAdminToken(req);
+              if (!tok || tok !== cfg.token) {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Admin authentication required' }));
+                return;
+              }
+              const entries = loadLbDb();
+              const scope = String(parsedBody?.scope || 'all');
+              const scopeGameId = parsedBody?.gameId;
+              let nextEntries = entries;
+              if (scope === 'all') {
+                nextEntries = [];
+              } else if (scope === 'softcore') {
+                nextEntries = entries.filter((e) => Boolean(e.verification?.hardcoreVerified));
+              } else if (scope === 'hardcore') {
+                nextEntries = entries.filter((e) => !e.verification?.hardcoreVerified);
+              } else if (scope === 'zero') {
+                nextEntries = entries.filter((e) => {
+                  const s =
+                    typeof e.numericScore === 'number' ? e.numericScore : Number(e.score || 0);
+                  return Number.isFinite(s) && s > 0;
+                });
+              } else if (scope === 'game' && typeof scopeGameId === 'number') {
+                nextEntries = entries.filter((e) => e.gameId !== scopeGameId);
+              }
+              const removedCount = entries.length - nextEntries.length;
+              saveLbDb(nextEntries);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  removedCount,
+                  count: nextEntries.length,
+                  entries: nextEntries
+                })
+              );
+              return;
+            }
+
             const entry = parsedBody?.entry || parsedBody;
             const proof = entry?.verification || entry?.proof;
             const sigHex = proof?.signature || proof?.signatureHex;

@@ -1319,8 +1319,19 @@ def main():
     os.makedirs(RELEASES_DIR, exist_ok=True)
     os.makedirs(ASSETS_DIR, exist_ok=True)
 
-    # Sequential 0.0.x release history starting from v0.0.1 up to current package.json version
+    # Sequential release history starting from v0.0.1 up to current package.json version
     release_specs = [
+        {
+            "tag": "v0.1.2",
+            "title": "Cub Spiele.Com v0.1.2 — Isolated Softcore/Hardcore NVRAM, Zero-Score Filtering, Opt-In V-Sync & Admin Console",
+            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "highlights": [
+                "Isolated Softcore and Hardcore NVRAM, High Score Vault, Player Profiles, and Phone Book storage onto separate partitions so switching modes never duplicates Softcore scores into Hardcore rankings",
+                "Rejected scores <= 0 across OnlineLeaderboardManager, NvramHighScoreManager, and RetroAchievements submissions and purged existing zero-score cache entries",
+                "Added opt-in V-Sync (Tear-Free Frame Latch) toggle under the Display menu (default OFF to preserve authentic SM8521 scanline timing and tearing)",
+                "Added Leaderboard Admin Console login across the UI, Electron LAN relay, and Vite dev relay for individual score deletion, scoped leaderboard resets, and credential management"
+            ],
+        },
         {
             "tag": "v0.0.10",
             "title": "Cub Spiele.Com v0.0.10 — Dedicated Display Menu, Compact View Submenus, LCD Sliders & Tools Reorganization",

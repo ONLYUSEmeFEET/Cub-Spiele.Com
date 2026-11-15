@@ -230,6 +230,7 @@ export class SM8521CPU {
   public m_scanline: number = 0;
   public displayBuffer: Uint8Array = new Uint8Array(200 * 160);
   public cartridgeExecutedThisFrame: boolean = false;
+  public vsyncEnabled: boolean = false;
   private committedVramPage: Uint8Array = new Uint8Array(0x2000);
   private committedVramValid: boolean = false;
   private lastLcdcPageBit: number = 0x00;
@@ -972,13 +973,15 @@ export class SM8521CPU {
           case SM8521_MMU4: this.mmu[4] = data; if (data >= 0x20) this.cartridgeExecutedThisFrame = true; break;
           case SM8521_LCDC: {
             const newPageBit = data & 0x40;
-            if (newPageBit !== this.lastLcdcPageBit) {
+            if (!this.vsyncEnabled && newPageBit !== this.lastLcdcPageBit) {
               // Double-buffered games (e.g. Castlevania: Symphony of the Night via BIOS $5B60 XOR LCDC, #$40)
               // flip LCDC bit 6 as soon as a backbuffer page is completed and immediately start clearing the
               // other VRAM page. Snapshot the newly selected completed 8KB VRAM page for tear-free display.
               const pageOffset = newPageBit ? 0x2000 : 0x0000;
               this.committedVramPage.set(this.videoram.subarray(pageOffset, pageOffset + 0x2000));
               this.committedVramValid = true;
+              this.lastLcdcPageBit = newPageBit;
+            } else {
               this.lastLcdcPageBit = newPageBit;
             }
             break;
@@ -2968,9 +2971,21 @@ default:
       } else {
         this.gamecom_update_timers(cyclesPerScanline);
       }
-      this.renderScanline();
+      if (!this.vsyncEnabled) {
+        this.renderScanline();
+      }
     }
     this.committedVramValid = false;
+
+    // Opt-in V-Sync: latch all 200 LCD columns coherently right at VBlank entry (before the VBlank ISR
+    // clears/draws the next frame) so single-buffered and double-buffered games present a tear-free frame
+    // while keeping scanline CPU, IRQ, and audio cycle timing identical to hardware.
+    if (this.vsyncEnabled) {
+      this.m_scanline = 0;
+      for (let line = 0; line < 200; line++) {
+        this.renderScanline();
+      }
+    }
 
     // Assert VBlank interrupt (LCDC_INT) at VBlank entry (column 200), when LCD display is enabled (LCC bit 7)
     if (lcdEnabled) {
