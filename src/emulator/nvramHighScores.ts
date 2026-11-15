@@ -30,7 +30,8 @@ import {
   OnlineLeaderboardManager,
   OnlineLeaderboardEntry,
   isNonScoringUtilitySave,
-  isDefaultPlayerProfileName
+  isDefaultPlayerProfileName,
+  normalizeLeaderboardGameTitle
 } from './onlineLeaderboard';
 import { resolveKnownGameByGameIdOrTitle } from './cartridge';
 
@@ -663,7 +664,8 @@ export class NvramHighScoreManager {
     NvramHighScoreManager.sanitizeSlot64(cleanSlot);
 
     let title = '';
-    let scoreText = '';
+    const scoreSegments: string[] = [];
+    let currentSegment = '';
     let inScore = false;
 
     for (let i = 3; i < 0x40; i++) {
@@ -672,6 +674,10 @@ export class NvramHighScoreManager {
         break;
       }
       if (b === 0x01) {
+        if (inScore && currentSegment.trim()) {
+          scoreSegments.push(currentSegment.trim());
+          currentSegment = '';
+        }
         inScore = true;
         continue;
       }
@@ -679,17 +685,38 @@ export class NvramHighScoreManager {
         if (!inScore) {
           title += String.fromCharCode(b);
         } else {
-          scoreText += String.fromCharCode(b);
+          currentSegment += String.fromCharCode(b);
+        }
+      } else if (inScore && currentSegment.trim()) {
+        // Control bytes (< 32) between score values act as boundaries, never concatenate digits across them
+        scoreSegments.push(currentSegment.trim());
+        currentSegment = '';
+      }
+    }
+    if (inScore && currentSegment.trim()) {
+      scoreSegments.push(currentSegment.trim());
+    }
+
+    title = title.trim();
+    if (!title) return null;
+
+    let bestScoreText = scoreSegments[0] || '';
+    let bestNumericScore = 0;
+    for (const seg of scoreSegments) {
+      const matches = seg.match(/\d[\d,]*/g);
+      if (matches) {
+        for (const m of matches) {
+          const val = parseInt(m.replace(/,/g, ''), 10);
+          if (Number.isFinite(val) && val > bestNumericScore) {
+            bestNumericScore = val;
+            bestScoreText = seg;
+          }
         }
       }
     }
 
-    title = title.trim();
-    scoreText = scoreText.trim();
-    if (!title) return null;
-
-    const numMatch = scoreText.match(/\d+/);
-    const numericScore = numMatch ? parseInt(numMatch[0], 10) : 0;
+    const scoreText = bestScoreText;
+    const numericScore = bestNumericScore;
     const isUtility = isNonScoringUtilitySave(gameId, title, scoreText, numericScore);
 
     return {
@@ -846,7 +873,7 @@ export class NvramHighScoreManager {
     const lbEntry: OnlineLeaderboardEntry = {
       id: `lb_${rec.gameId.toString(16)}_${rec.verification.userFingerprint}_${Date.now()}`,
       gameId: rec.gameId,
-      gameTitle: known ? known.title : rec.title,
+      gameTitle: normalizeLeaderboardGameTitle(known ? known.title : rec.title, rec.title),
       biosTitle: rec.title.slice(0, 11),
       playerName: rec.playerName || prof.name,
       userFingerprint: rec.verification.userFingerprint,

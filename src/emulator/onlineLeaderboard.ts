@@ -56,6 +56,18 @@ export function isDefaultPlayerProfileName(name: string = ''): boolean {
   return !norm || norm === 'player 1' || norm === 'player 2' || norm === 'admin';
 }
 
+export function normalizeLeaderboardGameTitle(title: string = '', biosTitle: string = ''): string {
+  const check = (val: string) => {
+    const norm = val.toUpperCase().replace(/\s+/g, ' ').trim();
+    const compact = norm.replace(/\s+/g, '');
+    return /^SONIC\s*3(?:\b|$)/.test(norm) || compact === 'SONIC3';
+  };
+  if (check(biosTitle) || check(title)) {
+    return 'SONIC 3';
+  }
+  return title || biosTitle || 'Game.Com';
+}
+
 /**
  * Utility / modem / settings cartridges (such as Internet $0313 and Tiger Web Link $0208)
  * share the $FC60-$FEDF BIOS NVRAM slot table to persist phone numbers/baud rate or transfer metadata
@@ -213,7 +225,11 @@ export class OnlineLeaderboardManager {
                 e.gameId,
                 e.biosTitle || e.gameTitle
               );
-              return known ? { ...e, gameTitle: known.title } : e;
+              const rawTitle = known ? known.title : e.gameTitle;
+              return {
+                ...e,
+                gameTitle: normalizeLeaderboardGameTitle(rawTitle, e.biosTitle)
+              };
             });
         }
       }
@@ -313,7 +329,10 @@ export class OnlineLeaderboardManager {
     const known = resolveKnownGameByGameIdOrTitle(entry.gameId, entry.biosTitle || entry.gameTitle);
     const normalizedEntry: OnlineLeaderboardEntry = {
       ...entry,
-      gameTitle: known ? known.title : entry.gameTitle || entry.biosTitle,
+      gameTitle: normalizeLeaderboardGameTitle(
+        known ? known.title : entry.gameTitle || entry.biosTitle,
+        entry.biosTitle
+      ),
       biosTitle: (entry.biosTitle || entry.gameTitle || 'Game.Com').slice(0, 11),
       playerName: (entry.playerName || 'Player 1').trim().slice(0, 24),
       verification: {

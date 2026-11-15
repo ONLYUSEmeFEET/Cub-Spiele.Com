@@ -65,6 +65,8 @@ interface TopBarProps {
   onOpenWindowsRelease: () => void;
   onOpenColorCustomizer: () => void;
   onOpenAbout: () => void;
+  onOpenSaveStates: () => void;
+  onShowToast?: (message: string) => void;
   onTakeScreenshot?: () => void;
   onUpdate: () => void;
 }
@@ -72,6 +74,7 @@ interface TopBarProps {
 type MenuId = 'file' | 'emulation' | 'view' | 'display' | 'settings' | 'tools' | null;
 type SubMenuId =
   | 'recent'
+  | 'save-slots'
   | 'speed'
   | 'presets'
   | 'view-screen-size'
@@ -99,6 +102,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenWindowsRelease,
   onOpenColorCustomizer,
   onOpenAbout,
+  onOpenSaveStates,
+  onShowToast,
   onTakeScreenshot,
   onUpdate
 }) => {
@@ -382,16 +387,17 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  system.saveState(0);
+                  const res = system.saveState(system.activeSaveSlot);
+                  onShowToast?.(res.message);
                   closeMenus();
                   onUpdate();
                 }}
-                disabled={!system.isPoweredOn}
+                disabled={!system.isPoweredOn || !system.slot1}
                 className={itemClass}
               >
                 <span className="flex items-center gap-2">
                   <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Save State</span>
+                  <span>Save State (Slot {system.activeSaveSlot})</span>
                 </span>
                 <span className="text-[10px] font-mono text-zinc-400">F5</span>
               </button>
@@ -399,18 +405,96 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  system.loadState(0);
+                  const res = system.loadState(system.activeSaveSlot);
+                  onShowToast?.(res.message);
                   closeMenus();
                   onUpdate();
                 }}
-                disabled={!system.isPoweredOn}
+                disabled={!system.isPoweredOn || !system.slot1}
                 className={itemClass}
               >
                 <span className="flex items-center gap-2">
                   <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Load State</span>
+                  <span>Load State (Slot {system.activeSaveSlot})</span>
                 </span>
                 <span className="text-[10px] font-mono text-zinc-400">F8</span>
+              </button>
+
+              {/* Select Active Save Slot submenu */}
+              <div
+                className="relative"
+                onMouseEnter={() => setOpenSubMenu('save-slots')}
+                onMouseLeave={() => setOpenSubMenu((prev) => (prev === 'save-slots' ? null : prev))}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenSubMenu(openSubMenu === 'save-slots' ? null : 'save-slots')}
+                  className={itemClass}
+                >
+                  <span className="flex items-center gap-2">
+                    <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Save State Slot</span>
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] font-mono text-zinc-400">
+                    <span>#{system.activeSaveSlot}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+
+                {openSubMenu === 'save-slots' && (
+                  <div
+                    className={`absolute left-full top-0 ml-1 w-56 rounded-lg shadow-xl border py-1 z-50 ${
+                      isDark
+                        ? 'bg-zinc-900 border-zinc-700 text-zinc-200'
+                        : 'bg-white border-zinc-300 text-zinc-800'
+                    }`}
+                  >
+                    {system.getSaveStateSlots().map((slotInfo) => (
+                      <button
+                        key={slotInfo.slotIndex}
+                        type="button"
+                        onClick={() => {
+                          system.setActiveSaveSlot(slotInfo.slotIndex);
+                          onShowToast?.(`Active Save Slot set to Slot ${slotInfo.slotIndex}`);
+                          closeMenus();
+                          onUpdate();
+                        }}
+                        className={itemClass}
+                      >
+                        <span className="flex items-center gap-2">
+                          {system.activeSaveSlot === slotInfo.slotIndex ? (
+                            <Check className="w-3.5 h-3.5 text-[#7a1f5c] dark:text-[#eab5d8]" />
+                          ) : (
+                            <span className="w-3.5" />
+                          )}
+                          <span>Slot {slotInfo.slotIndex}</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400">
+                          {slotInfo.exists && slotInfo.timestamp
+                            ? new Date(slotInfo.timestamp).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Empty'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenSaveStates();
+                  closeMenus();
+                }}
+                className={itemClass}
+              >
+                <span className="flex items-center gap-2">
+                  <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Save State Manager (Import/Export)...</span>
+                </span>
               </button>
 
               <button

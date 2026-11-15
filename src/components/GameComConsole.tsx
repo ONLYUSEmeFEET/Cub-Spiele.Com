@@ -3,7 +3,7 @@ import { GameComSystem } from '../emulator/gamecomSystem';
 import { GameComButtons } from '../emulator/types';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../emulator/lcd';
 import { LCDScreen } from './LCDScreen';
-import { Power, Menu, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { Power, Menu, Pause, Volume2, VolumeX } from 'lucide-react';
 
 interface TouchViewProps {
   system: GameComSystem;
@@ -244,29 +244,25 @@ export const TouchView: React.FC<TouchViewProps> = ({
         <span>Sound</span>
       </button>
 
-      {/* Pause */}
+      {/* Pause (Hardware PAUSE button) */}
       <button
-        onClick={() => {
-          system.pauseToggle();
-          onStateChange?.();
-        }}
+        onPointerDown={() => handleBtnPress('pause')}
+        onPointerUp={() => handleBtnRelease('pause')}
+        onPointerCancel={() => handleBtnRelease('pause')}
+        onPointerLeave={() => pressedButtons.pause && handleBtnRelease('pause')}
         className={`${
           variant === 'horizontal-corner'
             ? `${sz.sysPillHoriz} rounded-full flex-col gap-0.5`
             : `${sz.sysPillVert} rounded-full gap-1.5`
-        } border font-semibold tracking-wide flex items-center justify-center transition active:scale-95 cursor-pointer select-none touch-none ${
-          system.isPaused
-            ? 'bg-amber-600 text-white border-amber-700'
+        } border font-semibold tracking-wide flex items-center justify-center transition cursor-pointer select-none touch-none ${
+          pressedButtons.pause
+            ? 'scale-95 bg-[#7a1f5c] text-white border-[#561340]'
             : 'bg-[#d9dcd2] hover:bg-[#cdd1c4] text-zinc-900 border-zinc-400/70 dark:bg-[#262a34] dark:hover:bg-[#313643] dark:text-zinc-100 dark:border-zinc-700'
         }`}
-        title="Pause / Resume (P)"
+        title="Hardware PAUSE Button (P)"
       >
-        {system.isPaused ? (
-          <Play className="w-3 h-3 shrink-0" />
-        ) : (
-          <Pause className="w-3 h-3 shrink-0" />
-        )}
-        <span>{system.isPaused ? 'Play' : 'Pause'}</span>
+        <Pause className="w-3 h-3 shrink-0" />
+        <span>Pause</span>
       </button>
     </div>
   );

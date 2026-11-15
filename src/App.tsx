@@ -16,6 +16,7 @@ import { ColorCustomizerModal } from './components/ColorCustomizerModal';
 import { CompeteLinkModal } from './components/CompeteLinkModal';
 import { VirtualModemModal } from './components/VirtualModemModal';
 import { AboutModal } from './components/AboutModal';
+import { SaveStatesModal } from './components/SaveStatesModal';
 import { GameComButtons } from './emulator/types';
 
 export function App() {
@@ -37,6 +38,7 @@ export function App() {
   const [isColorCustomizerOpen, setIsColorCustomizerOpen] = useState(false);
   const [isLinkCableOpen, setIsLinkCableOpen] = useState(false);
   const [isVirtualModemOpen, setIsVirtualModemOpen] = useState(false);
+  const [isSaveStatesOpen, setIsSaveStatesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Drag & Drop ROM overlay state
@@ -220,6 +222,7 @@ export function App() {
       if (hasKey('buttonC', code)) return 'c';
       if (hasKey('buttonD', code)) return 'd';
       if (hasKey('menu', code)) return 'menu';
+      if (hasKey('pause', code)) return 'pause';
       if (hasKey('sound', code)) return 'sound';
       return null;
     };
@@ -269,21 +272,18 @@ export function App() {
 
       if (!e.ctrlKey && !e.metaKey && hasKey('saveState', e.code)) {
         e.preventDefault();
-        system.saveState(0);
-        showToast('Saved State (Slot 0)');
+        const res = system.saveState(system.activeSaveSlot);
+        showToast(res.message);
         forceUpdate();
         return;
       }
 
       if (!e.ctrlKey && !e.metaKey && hasKey('loadState', e.code)) {
         e.preventDefault();
-        if (system.retroAchievements.config.hardcoreMode) {
-          system.loadState(0);
-          forceUpdate();
-          return;
+        const res = system.loadState(system.activeSaveSlot);
+        if (!system.retroAchievements.config.hardcoreMode || res.ok) {
+          showToast(res.message);
         }
-        const loaded = system.loadState(0);
-        showToast(loaded ? 'Loaded State (Slot 0)' : 'No Save State Found');
         forceUpdate();
         return;
       }
@@ -309,13 +309,6 @@ export function App() {
         } else {
           document.exitFullscreen().catch(() => {});
         }
-        return;
-      }
-
-      if (!e.ctrlKey && !e.metaKey && hasKey('pause', e.code)) {
-        e.preventDefault();
-        system.pauseToggle();
-        forceUpdate();
         return;
       }
 
@@ -683,6 +676,8 @@ export function App() {
         onOpenBios={() => setIsBiosOpen(true)}
         onOpenWindowsRelease={() => setIsWindowsReleaseOpen(true)}
         onOpenColorCustomizer={() => setIsColorCustomizerOpen(true)}
+        onOpenSaveStates={() => setIsSaveStatesOpen(true)}
+        onShowToast={showToast}
         onOpenAbout={() => setIsAboutOpen(true)}
         onTakeScreenshot={handleTakeScreenshot}
         onUpdate={forceUpdate}
@@ -896,6 +891,14 @@ export function App() {
           onUpdate={forceUpdate}
         />
       )}
+
+      <SaveStatesModal
+        isOpen={isSaveStatesOpen}
+        onClose={() => setIsSaveStatesOpen(false)}
+        system={system}
+        onUpdate={forceUpdate}
+        onShowToast={showToast}
+      />
 
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
     </div>

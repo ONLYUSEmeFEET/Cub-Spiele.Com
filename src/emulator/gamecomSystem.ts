@@ -34,6 +34,22 @@ import {
   InputBindingsConfig
 } from './types';
 import { PRELOADED_CARTRIDGES, loadCartridgeFromFile } from './cartridge';
+import {
+  ACTIVE_SAVE_SLOT_STORAGE_KEY,
+  SaveStateActionResult,
+  SaveStateSlotSummary,
+  applySaveStateToCpu,
+  buildSaveStatePayload,
+  deleteSlotState,
+  getSaveStateExportFilename,
+  getSlot1Identity,
+  listSlotSummaries,
+  normalizeSlotIndex,
+  parseAndValidateSaveState,
+  readSlotState,
+  verifySlot1IdentityMatch,
+  writeSlotState
+} from './saveStates';
 
 export function createDefaultInputBindings(): InputBindingsConfig {
   return {
@@ -1842,78 +1858,211 @@ export class GameComSystem {
     return this.cpu.getRegisters();
   }
 
-  public saveState(slotIndex: number = 0) {
-    this.highScores.syncFromNvram(this.cpu.nvram);
-    this.phoneBook.syncFromNvram(this.cpu.nvram);
-    const stateData = {
-      timestamp: Date.now(),
-      slotIndex,
-      pc: this.cpu.m_PC,
-      sp: this.cpu.m_SP,
-      ps0: this.cpu.m_PS0,
-      ps1: this.cpu.m_PS1,
-      sys: this.cpu.m_SYS,
-      ie0: this.cpu.m_IE0,
-      ie1: this.cpu.m_IE1,
-      ir0: this.cpu.m_IR0,
-      ir1: this.cpu.m_IR1,
-      mmu: Array.from(this.cpu.mmu),
-      regRam: Array.from(this.cpu.m_register_ram),
-      internalRam: Array.from(this.cpu.m_p_ram),
-      vram: Array.from(this.cpu.videoram),
-      nvram: Array.from(this.cpu.nvram),
-      // Section A Compliance: Save state hit storage (RA_CaptureState)
-      raRuntimeState: this.retroAchievements.captureRuntimeState()
-    };
+  public activeSaveSlot: number = (() => {
     try {
-      localStorage.setItem(`gamecom_hw_save_state_${slotIndex}`, JSON.stringify(stateData));
+      const raw = localStorage.getItem(ACTIVE_SAVE_SLOT_STORAGE_KEY);
+      if (raw) return normalizeSlotIndex(parseInt(raw, 10));
     } catch {
-      // Ignore storage quota error
+      // Ignore storage errors
     }
+    return 1;
+  })();
+
+  public setActiveSaveSlot(slotIndex: number): number {
+    const normalized = normalizeSlotIndex(slotIndex);
+    this.activeSaveSlot = normalized;
+    try {
+      localStorage.setItem(ACTIVE_SAVE_SLOT_STORAGE_KEY, String(normalized));
+    } catch {
+      // Ignore storage errors
+    }
+    return normalized;
   }
 
-  public loadState(slotIndex: number = 0): boolean {
+  public getSaveStateSlots(): SaveStateSlotSummary[] {
+    return listSlotSummaries(this.slot1);
+  }
+
+  public saveState(slotIndex: number = this.activeSaveSlot): SaveStateActionResult {
+    const slot = normalizeSlotIndex(slotIndex);
+    if (!this.isPoweredOn) {
+      return { ok: false, slotIndex: slot, message: 'Power on the console before saving a state.' };
+    }
+    const identity = getSlot1Identity(this.slot1);
+    if (!identity) {
+      return { ok: false, slotIndex: slot, message: 'Load a cartridge in Slot 1 before saving a state.' };
+    }
+
+    // Keep NVRAM managers synced from live hardware, without embedding NVRAM as restorable state
+    this.highScores.syncFromNvram(this.cpu.nvram);
+    this.phoneBook.syncFromNvram(this.cpu.nvram);
+
+    const payload = buildSaveStatePayload(
+      this.cpu,
+      identity,
+      slot,
+      // Section A Compliance: Save state hit storage (RA_CaptureState)
+      this.retroAchievements.captureRuntimeState()
+    );
+
+    const saved = writeSlotState(this.slot1, slot, payload);
+    if (!saved) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: `Failed to save state to Slot ${slot} (storage quota exceeded).`
+      };
+    }
+
+    return {
+      ok: true,
+      slotIndex: slot,
+      message: `Saved State to Slot ${slot} (${identity.slot1Title})`
+    };
+  }
+
+  public loadState(slotIndex: number = this.activeSaveSlot): SaveStateActionResult {
+    const slot = normalizeSlotIndex(slotIndex);
     if (this.retroAchievements.config.hardcoreMode) {
-      this.onHardcoreViolation?.('Save State loading is disabled in Hardcore Mode.');
-      return false;
+      const msg = 'Save State loading is disabled in Hardcore Mode.';
+      this.onHardcoreViolation?.(msg);
+      return { ok: false, slotIndex: slot, message: msg };
+    }
+    if (!this.isPoweredOn) {
+      return { ok: false, slotIndex: slot, message: 'Power on the console before loading a state.' };
+    }
+    const currentIdentity = getSlot1Identity(this.slot1);
+    if (!currentIdentity) {
+      return { ok: false, slotIndex: slot, message: 'Load a cartridge in Slot 1 before loading a state.' };
     }
 
-    try {
-      const raw = localStorage.getItem(`gamecom_hw_save_state_${slotIndex}`);
-      if (!raw) return false;
-      const stateData = JSON.parse(raw);
-      if (!stateData || typeof stateData.pc !== 'number') return false;
-
-      // Loading a save state taints the current session for Hardcore leaderboard attestation
-      this.retroAchievements.taintSession('save_state');
-
-      this.fastBootTarget = 'NONE';
-      this.cpu.m_PC = stateData.pc;
-      this.cpu.m_SP = stateData.sp;
-      this.cpu.m_PS0 = stateData.ps0;
-      this.cpu.m_PS1 = stateData.ps1;
-      this.cpu.m_SYS = stateData.sys;
-      this.cpu.m_IE0 = stateData.ie0;
-      this.cpu.m_IE1 = stateData.ie1;
-      this.cpu.m_IR0 = stateData.ir0;
-      this.cpu.m_IR1 = stateData.ir1;
-      if (Array.isArray(stateData.mmu)) this.cpu.mmu.set(stateData.mmu);
-      if (Array.isArray(stateData.regRam)) this.cpu.m_register_ram.set(stateData.regRam);
-      if (Array.isArray(stateData.internalRam)) this.cpu.m_p_ram.set(stateData.internalRam);
-      if (Array.isArray(stateData.vram)) this.cpu.videoram.set(stateData.vram);
-      if (Array.isArray(stateData.nvram)) {
-        this.cpu.nvram.set(stateData.nvram);
-        this.highScores.syncFromNvram(this.cpu.nvram);
-        this.phoneBook.syncFromNvram(this.cpu.nvram);
-      }
-      // Restore achievement hit counts & delta RAM buffers (`RA_RestoreState`)
-      if (stateData.raRuntimeState) {
-        this.retroAchievements.restoreRuntimeState(stateData.raRuntimeState);
-      }
-      this.lcd.currentBuffer.set(this.cpu.displayBuffer);
-      return true;
-    } catch {
-      return false;
+    const stateData = readSlotState(this.slot1, slot);
+    if (!stateData) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: `No Save State found in Slot ${slot} for "${currentIdentity.slot1Title}".`
+      };
     }
+
+    const match = verifySlot1IdentityMatch(currentIdentity, stateData.game);
+    if (!match.ok) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: match.error || 'Slot 1 title mismatch.'
+      };
+    }
+
+    // Loading a save state taints the current session for Hardcore leaderboard attestation
+    this.retroAchievements.taintSession('save_state');
+    this.fastBootTarget = 'NONE';
+
+    // Restore CPU/MMU/RAM/VRAM/Timers/Sound while keeping Battery NVRAM locked & protected
+    applySaveStateToCpu(this.cpu, stateData);
+
+    // Restore achievement hit counts & delta RAM buffers (`RA_RestoreState`)
+    if (stateData.raRuntimeState) {
+      this.retroAchievements.restoreRuntimeState(stateData.raRuntimeState);
+    }
+    this.lcd.currentBuffer.set(this.cpu.displayBuffer);
+
+    return {
+      ok: true,
+      slotIndex: slot,
+      message: `Loaded Slot ${slot} (${currentIdentity.slot1Title}) · NVRAM Protected`
+    };
+  }
+
+  public deleteSaveState(slotIndex: number): SaveStateActionResult {
+    const slot = normalizeSlotIndex(slotIndex);
+    if (!this.slot1) {
+      return { ok: false, slotIndex: slot, message: 'No cartridge loaded in Slot 1.' };
+    }
+    const ok = deleteSlotState(this.slot1, slot);
+    return {
+      ok,
+      slotIndex: slot,
+      message: ok ? `Deleted Save State in Slot ${slot}` : `Could not delete Slot ${slot}`
+    };
+  }
+
+  public exportSaveState(slotIndex: number): {
+    ok: boolean;
+    filename?: string;
+    content?: string;
+    message: string;
+  } {
+    const slot = normalizeSlotIndex(slotIndex);
+    const identity = getSlot1Identity(this.slot1);
+    if (!identity) {
+      return { ok: false, message: 'Load a cartridge in Slot 1 before exporting a save state.' };
+    }
+    const stateData = readSlotState(this.slot1, slot);
+    if (!stateData) {
+      return {
+        ok: false,
+        message: `Slot ${slot} is empty for "${identity.slot1Title}".`
+      };
+    }
+    return {
+      ok: true,
+      filename: getSaveStateExportFilename(identity.slot1Title, slot),
+      content: JSON.stringify(stateData, null, 2),
+      message: `Exported Slot ${slot} (${identity.slot1Title})`
+    };
+  }
+
+  public importSaveState(
+    rawJson: string,
+    targetSlot: number = this.activeSaveSlot,
+    loadImmediately: boolean = false
+  ): SaveStateActionResult {
+    const slot = normalizeSlotIndex(targetSlot);
+    const currentIdentity = getSlot1Identity(this.slot1);
+    if (!currentIdentity) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: 'Load the matching cartridge in Slot 1 before importing a save state.'
+      };
+    }
+
+    const parsed = parseAndValidateSaveState(rawJson);
+    if (!parsed.ok || !parsed.data) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: parsed.error || 'Invalid save state file.'
+      };
+    }
+
+    const match = verifySlot1IdentityMatch(currentIdentity, parsed.data.game);
+    if (!match.ok) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: match.error || 'Save state does not match the exact title in Slot 1.'
+      };
+    }
+
+    const written = writeSlotState(this.slot1, slot, parsed.data);
+    if (!written) {
+      return {
+        ok: false,
+        slotIndex: slot,
+        message: `Failed to store imported state in Slot ${slot} (storage quota exceeded).`
+      };
+    }
+
+    if (loadImmediately) {
+      return this.loadState(slot);
+    }
+
+    return {
+      ok: true,
+      slotIndex: slot,
+      message: `Imported "${currentIdentity.slot1Title}" state into Slot ${slot}`
+    };
   }
 }
