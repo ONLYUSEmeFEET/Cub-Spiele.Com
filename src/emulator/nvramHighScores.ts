@@ -29,7 +29,8 @@ import {
 import {
   OnlineLeaderboardManager,
   OnlineLeaderboardEntry,
-  isNonScoringUtilitySave
+  isNonScoringUtilitySave,
+  isDefaultPlayerProfileName
 } from './onlineLeaderboard';
 import { resolveKnownGameByGameIdOrTitle } from './cartridge';
 
@@ -48,6 +49,8 @@ export interface HighScoreRecord {
 export interface PlayerProfile {
   id: string;
   name: string;
+  hasCustomName?: boolean;
+  accountToken?: string;
   createdAt: number;
   isImportedProfile?: boolean;
   importedFromFingerprint?: string;
@@ -215,12 +218,25 @@ export class NvramHighScoreManager {
   }
 
   /**
+   * Returns true only after the user has changed their profile name from the default
+   * placeholder ('Player 1' / 'Player 2') so default profiles do not submit to leaderboards.
+   */
+  public isProfileLeaderboardEligible(profile: PlayerProfile = this.getActiveProfile()): boolean {
+    if (!profile || profile.isImportedProfile) return false;
+    return (
+      (Boolean(profile.hasCustomName) || !isDefaultPlayerProfileName(profile.name)) &&
+      !isDefaultPlayerProfileName(profile.name)
+    );
+  }
+
+  /**
    * Creates a new named Player Profile and optionally switches to it.
    */
   public createProfile(
     name: string,
     nvram?: Uint8Array,
-    switchToNew: boolean = true
+    switchToNew: boolean = true,
+    accountToken?: string
   ): PlayerProfile {
     const cleanName = name.trim().slice(0, 24) || `Player ${this.profiles.length + 1}`;
     this.syncActiveFieldsToProfile();
@@ -228,6 +244,8 @@ export class NvramHighScoreManager {
     const newProfile: PlayerProfile = {
       id: `prof_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: cleanName,
+      hasCustomName: !isDefaultPlayerProfileName(cleanName),
+      accountToken,
       createdAt: Date.now(),
       activeBank: 0,
       solitaireScore: 0,
@@ -247,6 +265,70 @@ export class NvramHighScoreManager {
   }
 
   /**
+   * Claims/verifies a custom player username with an account password and creates or renames a profile.
+   */
+  public async claimAndCreateProfile(
+    name: string,
+    password: string,
+    nvram?: Uint8Array,
+    switchToNew: boolean = true
+  ): Promise<{ ok: boolean; profile?: PlayerProfile; message: string }> {
+    const cleanName = name.trim().slice(0, 24);
+    const fp = this.raEngine?.getUserFingerprint() || 'CSC-LOCAL';
+    if (this.onlineLeaderboard) {
+      const claim = await this.onlineLeaderboard.claimPlayerAccount(cleanName, password, fp);
+      if (!claim.ok) {
+        return { ok: false, message: claim.message };
+      }
+      const created = this.createProfile(claim.username, nvram, switchToNew, claim.token);
+      return { ok: true, profile: created, message: claim.message };
+    }
+    if (isDefaultPlayerProfileName(cleanName) || cleanName.length < 2) {
+      return {
+        ok: false,
+        message: 'Choose a custom player name (at least 2 characters, not Player 1 / Player 2).'
+      };
+    }
+    const created = this.createProfile(cleanName, nvram, switchToNew);
+    return { ok: true, profile: created, message: `Created player profile "${created.name}".` };
+  }
+
+  /**
+   * Claims/verifies a custom player username with an account password and renames an existing profile.
+   */
+  public async claimAndRenameProfile(
+    profileId: string,
+    newName: string,
+    password: string
+  ): Promise<{ ok: boolean; message: string }> {
+    const cleanName = newName.trim().slice(0, 24);
+    const prof = this.profiles.find((p) => p.id === profileId);
+    if (!prof) {
+      return { ok: false, message: 'Player profile not found.' };
+    }
+    const fp = this.raEngine?.getUserFingerprint() || 'CSC-LOCAL';
+    if (this.onlineLeaderboard) {
+      const claim = await this.onlineLeaderboard.claimPlayerAccount(cleanName, password, fp);
+      if (!claim.ok) {
+        return { ok: false, message: claim.message };
+      }
+      prof.accountToken = claim.token;
+      prof.hasCustomName = true;
+      this.renameProfile(profileId, claim.username);
+      return { ok: true, message: claim.message };
+    }
+    if (isDefaultPlayerProfileName(cleanName) || cleanName.length < 2) {
+      return {
+        ok: false,
+        message: 'Choose a custom player name (at least 2 characters, not Player 1 / Player 2).'
+      };
+    }
+    prof.hasCustomName = true;
+    this.renameProfile(profileId, cleanName);
+    return { ok: true, message: `Updated player name to "${cleanName}".` };
+  }
+
+  /**
    * Renames an existing Player Profile and updates all associated records & leaderboard entries.
    */
   public renameProfile(profileId: string, newName: string): boolean {
@@ -257,11 +339,54 @@ export class NvramHighScoreManager {
 
     const oldName = prof.name;
     prof.name = cleanName;
+    if (!isDefaultPlayerProfileName(cleanName)) {
+      prof.hasCustomName = true;
+    }
+
+    const resignProof = (
+      gameId: number,
+      numericScore: number,
+      scoreText: string,
+      prev: ScoreVerificationProof
+    ): ScoreVerificationProof => {
+      if (!this.raEngine) return prev;
+      const savedSession = { ...this.raEngine.session };
+      this.raEngine.session = {
+        ...this.raEngine.session,
+        sessionId: prev.sessionId,
+        hardcoreActive: prev.hardcoreVerified,
+        saveStateLoaded: prev.saveStateUsed,
+        slowdownUsed: prev.slowdownUsed,
+        debuggerUsed: prev.debuggerUsed,
+        framesExecuted: prev.sessionFrames,
+        inputEventCount: prev.inputCount,
+        inputRollingHash: parseInt(prev.inputHash, 16) || 0x811c9dc5,
+        activeRomMd5: prev.romMd5,
+        activeRomCrc32: prev.romCrc32
+      };
+      const reSigned = this.raEngine.createScoreProof(gameId, numericScore, scoreText, cleanName);
+      this.raEngine.session = savedSession;
+      return reSigned;
+    };
+
     for (const rec of prof.records) {
       rec.playerName = cleanName;
       if (rec.verification && !prof.isImportedProfile && this.raEngine) {
-        rec.verification.playerName = cleanName;
+        rec.verification = resignProof(
+          rec.gameId,
+          rec.numericScore,
+          rec.scoreText,
+          rec.verification
+        );
       }
+    }
+    if (prof.solitaireVerification && !prof.isImportedProfile && this.raEngine) {
+      prof.solitaireVerification = resignProof(
+        0xfee0,
+        prof.solitaireScore,
+        String(prof.solitaireScore),
+        prof.solitaireVerification
+      );
     }
 
     if (!prof.isImportedProfile && this.raEngine && this.onlineLeaderboard) {
@@ -690,13 +815,18 @@ export class NvramHighScoreManager {
     if (isNonScoringUtilitySave(rec.gameId, rec.title, rec.scoreText, rec.numericScore)) {
       return;
     }
+    const prof =
+      this.profiles.find((p) => p.id === rec.playerId) || this.getActiveProfile();
+    if (!this.isProfileLeaderboardEligible(prof) || isDefaultPlayerProfileName(rec.playerName || '')) {
+      return;
+    }
     const known = resolveKnownGameByGameIdOrTitle(rec.gameId, rec.title);
     const lbEntry: OnlineLeaderboardEntry = {
       id: `lb_${rec.gameId.toString(16)}_${rec.verification.userFingerprint}_${Date.now()}`,
       gameId: rec.gameId,
       gameTitle: known ? known.title : rec.title,
       biosTitle: rec.title.slice(0, 11),
-      playerName: rec.playerName || 'Player 1',
+      playerName: rec.playerName || prof.name,
       userFingerprint: rec.verification.userFingerprint,
       scoreText: rec.scoreText,
       numericScore: rec.numericScore,
@@ -707,7 +837,7 @@ export class NvramHighScoreManager {
     };
 
     if (this.onlineLeaderboard) {
-      this.onlineLeaderboard.submitScoreOnline(lbEntry).catch(() => {});
+      this.onlineLeaderboard.submitScoreOnline(lbEntry, prof.accountToken).catch(() => {});
     }
     if (this.raEngine && rec.verification.hardcoreVerified) {
       this.raEngine.submitLeaderboardEntryToRA(rec.gameId, rec.numericScore).catch(() => {});
@@ -721,6 +851,9 @@ export class NvramHighScoreManager {
   public syncAllProfileScoresToLeaderboard() {
     if (!this.onlineLeaderboard) return;
     for (const prof of this.profiles) {
+      if (!prof.isImportedProfile && !this.isProfileLeaderboardEligible(prof)) {
+        continue;
+      }
       for (const rec of prof.records) {
         if (!rec || !rec.gameId) continue;
         if (!rec.numericScore || !Number.isFinite(rec.numericScore) || rec.numericScore <= 0) {

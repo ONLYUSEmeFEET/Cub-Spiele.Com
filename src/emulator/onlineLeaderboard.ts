@@ -39,8 +39,22 @@ interface LeaderboardAdminLocalConfig {
 const ONLINE_LB_CACHE_KEY = 'cub_spiele_online_leaderboard_cache_v1';
 const ONLINE_LB_ENDPOINT_KEY = 'cub_spiele_online_lb_endpoint_v1';
 const ONLINE_LB_ADMIN_CONFIG_KEY = 'cub_spiele_lb_admin_config_v1';
+const ONLINE_LB_USER_ACCOUNTS_KEY = 'cub_spiele_lb_user_accounts_v1';
 const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_PASSWORD = 'cubspiele-admin';
+
+interface LocalUserAccountRecord {
+  username: string;
+  passwordHash: string;
+  fingerprints: string[];
+  token: string;
+  updatedAt: number;
+}
+
+export function isDefaultPlayerProfileName(name: string = ''): boolean {
+  const norm = name.trim().toLowerCase();
+  return !norm || norm === 'player 1' || norm === 'player 2' || norm === 'admin';
+}
 
 /**
  * Utility / modem / settings cartridges (such as Internet $0313 and Tiger Web Link $0208)
@@ -184,6 +198,7 @@ export class OnlineLeaderboardManager {
               typeof e.numericScore === 'number' &&
               Number.isFinite(e.numericScore) &&
               e.numericScore > 0 &&
+              !isDefaultPlayerProfileName(e.playerName || '') &&
               e.verification &&
               !isNonScoringUtilitySave(
                 e.gameId,
@@ -220,6 +235,14 @@ export class OnlineLeaderboardManager {
     entry: OnlineLeaderboardEntry,
     broadcast: boolean = true
   ): { accepted: boolean; reason: string; isNewPersonalBest: boolean } {
+    if (isDefaultPlayerProfileName(entry.playerName || '')) {
+      return {
+        accepted: false,
+        reason: 'Change your default player profile name before submitting scores to leaderboards.',
+        isNewPersonalBest: false
+      };
+    }
+
     if (
       typeof entry.numericScore !== 'number' ||
       !Number.isFinite(entry.numericScore) ||
@@ -230,6 +253,23 @@ export class OnlineLeaderboardManager {
         reason: 'Scores of 0 or less are not accepted on leaderboards.',
         isNewPersonalBest: false
       };
+    }
+
+    // Prevent unverified duplicate-name impersonation across distinct userFingerprints
+    if (entry.source === 'local_user') {
+      const cleanLower = entry.playerName.trim().toLowerCase();
+      const collision = this.entries.find(
+        (e) =>
+          e.playerName.trim().toLowerCase() === cleanLower &&
+          e.userFingerprint !== entry.userFingerprint
+      );
+      if (collision && !this.hasVerifiedAccountOwnership(cleanLower, entry.userFingerprint)) {
+        return {
+          accepted: false,
+          reason: `Username "${entry.playerName.trim()}" belongs to another player. Verify its account password to claim it or choose another name.`,
+          isNewPersonalBest: false
+        };
+      }
     }
 
     if (
@@ -331,7 +371,8 @@ export class OnlineLeaderboardManager {
    * Submits a verified score to the Online Leaderboard Server (/api/leaderboards + optional custom endpoint).
    */
   public async submitScoreOnline(
-    entry: OnlineLeaderboardEntry
+    entry: OnlineLeaderboardEntry,
+    accountToken?: string
   ): Promise<{ syncedOnline: boolean; message: string }> {
     const localRes = this.ingestEntry(entry, true);
     if (!localRes.accepted) {
@@ -339,13 +380,17 @@ export class OnlineLeaderboardManager {
     }
 
     const endpoints = this.getRelayEndpoints();
+    const userToken = accountToken || this.getStoredUserToken(entry.playerName);
 
     for (const url of endpoints) {
       try {
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entry })
+          headers: {
+            'Content-Type': 'application/json',
+            ...(userToken ? { 'X-User-Token': userToken } : {})
+          },
+          body: JSON.stringify({ entry, accountToken: userToken || undefined })
         });
         if (res.ok) {
           const data = await res.json();
@@ -868,6 +913,173 @@ export class OnlineLeaderboardManager {
       removedCount: removedLocal,
       syncedServer,
       message: `Reset ${label} (removed ${removedLocal} local entry/entries${syncedServer ? ' + synced server relay' : ''}).`
+    };
+  }
+
+  private static hashUserPassword(password: string): string {
+    return calculateMd5Hex(`CUB_SPIELE_USER_ACCT_V1:${password}`).toUpperCase();
+  }
+
+  private loadUserAccounts(): Record<string, LocalUserAccountRecord> {
+    try {
+      const raw = localStorage.getItem(ONLINE_LB_USER_ACCOUNTS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return {};
+  }
+
+  private saveUserAccounts(accounts: Record<string, LocalUserAccountRecord>) {
+    try {
+      localStorage.setItem(ONLINE_LB_USER_ACCOUNTS_KEY, JSON.stringify(accounts));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  public getStoredUserToken(username: string): string {
+    const key = username.trim().toLowerCase();
+    if (!key) return '';
+    return this.loadUserAccounts()[key]?.token || '';
+  }
+
+  public hasVerifiedAccountOwnership(username: string, userFingerprint: string): boolean {
+    const key = username.trim().toLowerCase();
+    if (!key) return false;
+    const acct = this.loadUserAccounts()[key];
+    return Boolean(acct && acct.fingerprints.includes(userFingerprint));
+  }
+
+  /**
+   * Claims a new custom player username with a password, or verifies ownership of an existing
+   * username with its account password to prevent duplicate username impersonation.
+   */
+  public async claimPlayerAccount(
+    username: string,
+    password: string,
+    userFingerprint: string
+  ): Promise<{ ok: boolean; mode?: 'created' | 'verified'; username: string; token?: string; message: string }> {
+    const cleanName = username.trim().slice(0, 24);
+    if (isDefaultPlayerProfileName(cleanName) || cleanName.length < 2) {
+      return {
+        ok: false,
+        username: cleanName,
+        message: 'Choose a custom player name (at least 2 characters, not Player 1 / Player 2 / admin).'
+      };
+    }
+    if (!password || password.length < 4) {
+      return {
+        ok: false,
+        username: cleanName,
+        message: 'Account password must be at least 4 characters.'
+      };
+    }
+
+    const accounts = this.loadUserAccounts();
+    const key = cleanName.toLowerCase();
+    const passHash = OnlineLeaderboardManager.hashUserPassword(password);
+
+    for (const base of this.getRelayEndpoints()) {
+      try {
+        const res = await fetch(`${base}/users/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanName, password, userFingerprint })
+        });
+        if (res.status === 400 || res.status === 409) {
+          const errData = await res.json().catch(() => ({}));
+          return {
+            ok: false,
+            username: cleanName,
+            message: errData?.error || 'Username could not be claimed.'
+          };
+        }
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.ok && data?.token) {
+            const fps = new Set<string>(accounts[key]?.fingerprints || []);
+            if (userFingerprint) fps.add(userFingerprint);
+            accounts[key] = {
+              username: String(data.username || cleanName),
+              passwordHash: passHash,
+              fingerprints: Array.from(fps),
+              token: String(data.token),
+              updatedAt: Date.now()
+            };
+            this.saveUserAccounts(accounts);
+            return {
+              ok: true,
+              mode: data.mode === 'verified' ? 'verified' : 'created',
+              username: String(data.username || cleanName),
+              token: String(data.token),
+              message:
+                data.mode === 'verified'
+                  ? `Verified ownership of "${data.username || cleanName}".`
+                  : `Registered player name "${data.username || cleanName}".`
+            };
+          }
+        }
+      } catch {
+        // Relay unreachable — fall back to local account registry verification
+      }
+    }
+
+    const existing = accounts[key];
+    if (existing) {
+      if (existing.passwordHash !== passHash) {
+        return {
+          ok: false,
+          username: cleanName,
+          message: `Username "${existing.username}" is already registered. Enter its account password or choose another name.`
+        };
+      }
+      if (userFingerprint && !existing.fingerprints.includes(userFingerprint)) {
+        existing.fingerprints.push(userFingerprint);
+      }
+      existing.updatedAt = Date.now();
+      this.saveUserAccounts(accounts);
+      return {
+        ok: true,
+        mode: 'verified',
+        username: existing.username,
+        token: existing.token,
+        message: `Verified ownership of "${existing.username}".`
+      };
+    }
+
+    // Also guard against claiming a name already present on leaderboard under another fingerprint offline
+    const lbCollision = this.entries.find(
+      (e) =>
+        e.playerName.trim().toLowerCase() === key &&
+        e.userFingerprint !== userFingerprint
+    );
+    if (lbCollision) {
+      return {
+        ok: false,
+        username: cleanName,
+        message: `Username "${lbCollision.playerName}" is already in use on the leaderboard by another player.`
+      };
+    }
+
+    const localToken = `USR-${calculateMd5Hex(`${cleanName}:${userFingerprint}:${Date.now()}`).toUpperCase()}`;
+    accounts[key] = {
+      username: cleanName,
+      passwordHash: passHash,
+      fingerprints: userFingerprint ? [userFingerprint] : [],
+      token: localToken,
+      updatedAt: Date.now()
+    };
+    this.saveUserAccounts(accounts);
+    return {
+      ok: true,
+      mode: 'created',
+      username: cleanName,
+      token: localToken,
+      message: `Registered player name "${cleanName}".`
     };
   }
 }

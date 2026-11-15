@@ -1614,6 +1614,19 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <button
           type="button"
+          onClick={() => {
+            closeMenus();
+            onOpenHighScores();
+          }}
+          className="p-1.5 rounded text-amber-600 dark:text-amber-400 hover:bg-zinc-200 dark:hover:bg-zinc-900 transition-colors"
+          title="High Scores & Leaderboards"
+          aria-label="High Scores & Leaderboards"
+        >
+          <Trophy className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          type="button"
           onClick={handleScreenshot}
           className="p-1.5 rounded text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-900 transition-colors"
           title="Take Screenshot (F9 / F12)"

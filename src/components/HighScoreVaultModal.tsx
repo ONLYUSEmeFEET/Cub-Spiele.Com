@@ -102,8 +102,14 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
 
   // Profiles & Import tab state
   const [newProfileName, setNewProfileName] = useState<string>('');
+  const [newProfilePassword, setNewProfilePassword] = useState<string>('');
   const [renamingProfileId, setRenamingProfileId] = useState<string | null>(null);
   const [renamingProfileName, setRenamingProfileName] = useState<string>('');
+  const [renamingProfilePassword, setRenamingProfilePassword] = useState<string>('');
+  const [claimNameInput, setClaimNameInput] = useState<string>('');
+  const [claimPasswordInput, setClaimPasswordInput] = useState<string>('');
+  const [claimBusy, setClaimBusy] = useState<boolean>(false);
+  const [claimError, setClaimError] = useState<string>('');
   const [importPlayerName, setImportPlayerName] = useState<string>('');
   const [importMode, setImportMode] = useState<
     'merge_multiplayer' | 'new_profile' | 'overwrite_current'
@@ -214,27 +220,79 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
     }
   };
 
-  const handleCreateProfile = () => {
+  const handleCreateProfile = async () => {
     const trimmed = newProfileName.trim();
     if (!trimmed) return;
-    const created = hs.createProfile(trimmed, system.cpu.nvram, true);
-    setNewProfileName('');
-    onUpdated();
-    onNotify?.(
-      'Player Profile Created & Activated',
-      `Switched active player to "${created.name}" (${ra.getUserFingerprint()})`,
-      'success'
-    );
+    setClaimBusy(true);
+    try {
+      const res = await hs.claimAndCreateProfile(
+        trimmed,
+        newProfilePassword,
+        system.cpu.nvram,
+        true
+      );
+      if (res.ok && res.profile) {
+        setNewProfileName('');
+        setNewProfilePassword('');
+        onUpdated();
+        onNotify?.(
+          'Player Profile Created & Activated',
+          `${res.message} · Active player: "${res.profile.name}"`,
+          'success'
+        );
+      } else {
+        onNotify?.('Could Not Claim Player Name', res.message, 'error');
+      }
+    } finally {
+      setClaimBusy(false);
+    }
   };
 
-  const handleRenameProfile = (profileId: string) => {
+  const handleRenameProfile = async (profileId: string) => {
     const trimmed = renamingProfileName.trim();
     if (!trimmed) return;
-    hs.renameProfile(profileId, trimmed);
-    setRenamingProfileId(null);
-    setRenamingProfileName('');
-    onUpdated();
-    onNotify?.('Player Profile Renamed', `Updated player name to "${trimmed}"`, 'success');
+    setClaimBusy(true);
+    try {
+      const res = await hs.claimAndRenameProfile(profileId, trimmed, renamingProfilePassword);
+      if (res.ok) {
+        setRenamingProfileId(null);
+        setRenamingProfileName('');
+        setRenamingProfilePassword('');
+        onUpdated();
+        onNotify?.('Player Profile Updated', res.message, 'success');
+      } else {
+        onNotify?.('Could Not Claim Player Name', res.message, 'error');
+      }
+    } finally {
+      setClaimBusy(false);
+    }
+  };
+
+  const handleQuickClaimProfile = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setClaimError('');
+    setClaimBusy(true);
+    try {
+      const res = await hs.claimAndRenameProfile(
+        activeProfile.id,
+        claimNameInput,
+        claimPasswordInput
+      );
+      if (res.ok) {
+        setClaimNameInput('');
+        setClaimPasswordInput('');
+        onUpdated();
+        onNotify?.(
+          'Player Name Claimed & Leaderboard Unlocked',
+          res.message,
+          'success'
+        );
+      } else {
+        setClaimError(res.message);
+      }
+    } finally {
+      setClaimBusy(false);
+    }
   };
 
   const handleSwitchProfile = (profileId: string) => {
@@ -268,11 +326,19 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
       }
       const res = await lb.syncWithServer();
       onUpdated();
-      onNotify?.(
-        res.ok ? 'Online Leaderboard Synchronized' : 'Local Verified Vault Synchronized',
-        `${lb.entries.length} total verified score(s) indexed across all games`,
-        res.ok ? 'success' : 'info'
-      );
+      if (!hs.isProfileLeaderboardEligible()) {
+        onNotify?.(
+          'Change Player Name to Submit Scores',
+          `Fetched ${lb.entries.length} global score(s), but your local scores will not submit while using "${activeProfile.name}".`,
+          'info'
+        );
+      } else {
+        onNotify?.(
+          res.ok ? 'Online Leaderboard Synchronized' : 'Local Verified Vault Synchronized',
+          `${lb.entries.length} total verified score(s) indexed across all games`,
+          res.ok ? 'success' : 'info'
+        );
+      }
     } finally {
       setIsSyncingOnline(false);
     }
@@ -662,6 +728,53 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
           {/* ===================================================================== */}
           {activeTab === 'leaderboard' && (
             <div className="space-y-5">
+              {!hs.isProfileLeaderboardEligible() && (
+                <form
+                  onSubmit={handleQuickClaimProfile}
+                  className="p-4 rounded-xl bg-amber-50/90 dark:bg-amber-950/30 border border-amber-500/40 space-y-2.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span>
+                        Scores are saved locally only until you change your default profile name ({activeProfile.name})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <input
+                      type="text"
+                      value={claimNameInput}
+                      onChange={(e) => setClaimNameInput(e.target.value)}
+                      placeholder="Choose Player Name (e.g. AJ)"
+                      className="flex-1 min-w-[160px] px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white"
+                    />
+                    <input
+                      type="password"
+                      value={claimPasswordInput}
+                      onChange={(e) => setClaimPasswordInput(e.target.value)}
+                      placeholder="Account Password (min 4 chars)"
+                      className="flex-1 min-w-[170px] px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white"
+                    />
+                    <button
+                      type="submit"
+                      disabled={claimBusy}
+                      className="px-3.5 py-1.5 bg-[#4c5931] hover:bg-[#5c6b3d] disabled:opacity-50 text-white font-bold rounded-lg shrink-0 cursor-pointer"
+                    >
+                      {claimBusy ? 'Claiming...' : 'Claim Name & Unlock Submissions'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                    Your password protects your username from duplicates and lets you verify ownership on other devices.
+                  </p>
+                  {claimError && (
+                    <div className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
+                      {claimError}
+                    </div>
+                  )}
+                </form>
+              )}
+
               {/* Top Controls Bar: Game Filter, Hardcore Filter, Online Sync */}
               <div className="p-4 bg-[#f6f7f3] dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1203,18 +1316,27 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                     to the shared Multi-Player Leaderboard.
                   </p>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <input
                     type="text"
                     value={newProfileName}
                     onChange={(e) => setNewProfileName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateProfile()}
-                    placeholder="New player name (e.g. Alex)"
-                    className="flex-1 sm:w-52 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-white"
+                    placeholder="Player name (e.g. Alex)"
+                    className="flex-1 sm:w-44 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-white"
+                  />
+                  <input
+                    type="password"
+                    value={newProfilePassword}
+                    onChange={(e) => setNewProfilePassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateProfile()}
+                    placeholder="Account Password (min 4)"
+                    className="flex-1 sm:w-44 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-white"
                   />
                   <button
                     onClick={handleCreateProfile}
-                    className="px-3.5 py-1.5 bg-[#4c5931] hover:bg-[#5c6b3d] text-white text-xs font-bold rounded-lg shrink-0 cursor-pointer"
+                    disabled={claimBusy}
+                    className="px-3.5 py-1.5 bg-[#4c5931] hover:bg-[#5c6b3d] disabled:opacity-50 text-white text-xs font-bold rounded-lg shrink-0 cursor-pointer"
                   >
                     Create Player
                   </button>
@@ -1238,7 +1360,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           {isRenaming ? (
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <input
                                 type="text"
                                 value={renamingProfileName}
@@ -1246,17 +1368,32 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                                 onKeyDown={(e) =>
                                   e.key === 'Enter' && handleRenameProfile(prof.id)
                                 }
-                                className="px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 rounded text-xs text-zinc-900 dark:text-white"
+                                placeholder="Player Name"
+                                className="w-32 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 rounded text-xs text-zinc-900 dark:text-white"
                                 autoFocus
+                              />
+                              <input
+                                type="password"
+                                value={renamingProfilePassword}
+                                onChange={(e) => setRenamingProfilePassword(e.target.value)}
+                                onKeyDown={(e) =>
+                                  e.key === 'Enter' && handleRenameProfile(prof.id)
+                                }
+                                placeholder="Account Password (min 4)"
+                                className="w-36 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 rounded text-xs text-zinc-900 dark:text-white"
                               />
                               <button
                                 onClick={() => handleRenameProfile(prof.id)}
-                                className="px-2 py-1 bg-[#4c5931] text-white text-xs rounded cursor-pointer"
+                                disabled={claimBusy}
+                                className="px-2 py-1 bg-[#4c5931] disabled:opacity-50 text-white text-xs rounded cursor-pointer"
                               >
                                 Save
                               </button>
                               <button
-                                onClick={() => setRenamingProfileId(null)}
+                                onClick={() => {
+                                  setRenamingProfileId(null);
+                                  setRenamingProfilePassword('');
+                                }}
                                 className="px-2 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs rounded cursor-pointer"
                               >
                                 Cancel

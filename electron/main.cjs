@@ -402,6 +402,31 @@ function startLanRelayServer() {
 
   const lbDbPath = path.join(app.getPath('userData'), 'leaderboards-db.json');
   const lbAdminPath = path.join(app.getPath('userData'), 'leaderboards-admin.json');
+  const lbUsersPath = path.join(app.getPath('userData'), 'leaderboards-users.json');
+  function isReservedPlayerName(name) {
+    const norm = String(name || '').trim().toLowerCase();
+    return !norm || norm === 'player 1' || norm === 'player 2' || norm === 'admin';
+  }
+  function hashUserPassword(password) {
+    return crypto
+      .createHash('sha256')
+      .update(`CUB_SPIELE_USER_V1:${String(password)}`)
+      .digest('hex');
+  }
+  function loadUsersDb() {
+    try {
+      if (fs.existsSync(lbUsersPath)) {
+        const parsed = JSON.parse(fs.readFileSync(lbUsersPath, 'utf8'));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return {};
+  }
+  function saveUsersDb(users) {
+    try {
+      fs.writeFileSync(lbUsersPath, JSON.stringify(users, null, 2), 'utf8');
+    } catch {}
+  }
   function hashAdminPassword(password) {
     return crypto
       .createHash('sha256')
@@ -650,12 +675,127 @@ function startLanRelayServer() {
               );
               return;
             }
+            if (subPath === '/users/claim' && req.method === 'POST') {
+              const cleanName = String(parsedBody?.username || '').trim().slice(0, 24);
+              const password = String(parsedBody?.password || '');
+              const fingerprint = String(parsedBody?.userFingerprint || '').trim();
+              if (isReservedPlayerName(cleanName) || cleanName.length < 2) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(
+                  JSON.stringify({
+                    ok: false,
+                    error: 'Choose a custom player name (at least 2 chars, not Player 1 / Player 2 / admin).'
+                  })
+                );
+                return;
+              }
+              if (!password || password.length < 4) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(
+                  JSON.stringify({
+                    ok: false,
+                    error: 'Account password must be at least 4 characters.'
+                  })
+                );
+                return;
+              }
+              const users = loadUsersDb();
+              const key = cleanName.toLowerCase();
+              const passHash = hashUserPassword(password);
+              const existing = users[key];
+              if (existing) {
+                if (existing.passwordHash !== passHash) {
+                  res.writeHead(409, { 'Content-Type': 'application/json' });
+                  res.end(
+                    JSON.stringify({
+                      ok: false,
+                      error: `Username "${existing.username}" is already taken. Enter its account password to verify ownership or pick a different name.`
+                    })
+                  );
+                  return;
+                }
+                if (fingerprint) {
+                  const fps = Array.isArray(existing.fingerprints)
+                    ? existing.fingerprints
+                    : [existing.ownerFingerprint].filter(Boolean);
+                  if (!fps.includes(fingerprint)) fps.push(fingerprint);
+                  existing.fingerprints = fps;
+                }
+                existing.updatedAt = Date.now();
+                saveUsersDb(users);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(
+                  JSON.stringify({
+                    ok: true,
+                    mode: 'verified',
+                    username: existing.username,
+                    token: existing.token
+                  })
+                );
+                return;
+              }
+              const created = {
+                username: cleanName,
+                passwordHash: passHash,
+                ownerFingerprint: fingerprint,
+                fingerprints: fingerprint ? [fingerprint] : [],
+                token: crypto.randomBytes(24).toString('hex'),
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+              };
+              users[key] = created;
+              saveUsersDb(users);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  mode: 'created',
+                  username: created.username,
+                  token: created.token
+                })
+              );
+              return;
+            }
 
             const entry = parsedBody?.entry || parsedBody;
             const proof = entry?.verification || entry?.proof;
             const sigHex = proof?.signature || proof?.signatureHex;
             const numScore =
               typeof entry?.numericScore === 'number' ? entry.numericScore : entry?.score;
+            const playerNameClean = String(entry?.playerName || '').trim();
+            if (isReservedPlayerName(playerNameClean)) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: false,
+                  error: 'Set a custom player profile name before submitting scores.'
+                })
+              );
+              return;
+            }
+            const usersDb = loadUsersDb();
+            const userRec = usersDb[playerNameClean.toLowerCase()];
+            const reqUserToken = String(
+              parsedBody?.accountToken || req.headers['x-user-token'] || ''
+            ).trim();
+            if (
+              userRec &&
+              reqUserToken !== userRec.token &&
+              !(
+                entry?.userFingerprint &&
+                Array.isArray(userRec.fingerprints) &&
+                userRec.fingerprints.includes(entry.userFingerprint)
+              )
+            ) {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  ok: false,
+                  error: `Username "${userRec.username}" is password-protected. Verify its password in Players or Leaderboards first.`
+                })
+              );
+              return;
+            }
             if (
               entry &&
               typeof numScore === 'number' &&
