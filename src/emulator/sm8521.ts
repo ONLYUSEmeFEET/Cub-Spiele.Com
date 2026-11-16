@@ -891,7 +891,7 @@ export class SM8521CPU {
         this.m_p_ram[SM8521_URTS] &= ~0x1d;
         this.uartRxStaleCycles = 0;
         // Post-read cooldown so current UART_INT ($3D65..$2178) finishes updating $00A2 and executes IRET
-        this.uartRxCooldown = this.enhancedLinkMode ? 2 : 24;
+        this.uartRxCooldown = 24;
         return this.m_p_ram[SM8521_URTR];
       }
       if (addr === 0x00fb && this.linkConnected && this.m_p_ram[0x00fb] === 0xff) {
@@ -1026,7 +1026,7 @@ export class SM8521CPU {
             }
             this.m_p_ram[SM8521_URTT] = data;
             this.m_p_ram[SM8521_URTS] |= 0x42;
-            this.uartTxCyclesRemaining = this.enhancedLinkMode ? 8 : 64;
+            this.uartTxCyclesRemaining = this.enhancedLinkMode ? 32 : 64;
             this.linkWaitFrames = 0;
             this.onUartTxByte?.(data);
             return;
@@ -1446,7 +1446,7 @@ export class SM8521CPU {
         const nextByte = this.uartRxFifo.shift()! & 0xff;
         this.m_p_ram[SM8521_URTR] = nextByte;
         this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1c) | 0x43; // RXRDY (0x01) | TXRDY (0x02) | TXEMPTY (0x40), 0 errors
-        this.uartRxCooldown = this.enhancedLinkMode ? 4 : 48;
+        this.uartRxCooldown = 48;
         this.uartRxStaleCycles = 0;
         this.linkWaitFrames = 0;
         this.set_input_line(UART_INT, true);
@@ -1547,7 +1547,8 @@ export class SM8521CPU {
       // 2b. Compete.Com Link Cable VBlank Handshake Synchronizer ($43CE = BIOS Scan_Keypad in Bank 5):
       //     Fighters Megamix open_h2hx ($6D2F) and exchg_openx ($6D80/$6E53) call Scan_Keypad (`49 5A AC`)
       //     while waiting for the peer console's Port 3 handshake. Ensure $0163/$0164 timeout counter stays
-      //     nonzero while waiting and return from Scan_Keypad once per scanline so the P3 handshake loop advances.
+      //     nonzero while waiting, without skipping $441A (skipping $441A left the BIOS event queue unread
+      //     and misaligned SP/PC into $43EA, resetting $B8:$B9 to $0130 and blocking Fighter Select input).
       if (this.linkConnected && this.m_PC === 0x43ce && this.mmu[2] === 5 && this.mmu[3] === 0x25 && this.linkWaitFrames < 600) {
         this.onLinkPoll?.();
         if (this.m_p_ram[0x0162] === 0x01) {
@@ -1555,7 +1556,6 @@ export class SM8521CPU {
           if (this.m_p_ram[0x0164] > 0 && this.m_p_ram[0x0164] < 0x60) {
             this.m_p_ram[0x0164] = 0x60;
           }
-          this.m_PC = 0x43e6; // POP R2; RET (matching PUSH R2 at $43CC)
           this.uartPollsThisFrame++;
           if (this.uartPollsThisFrame >= 2) {
             this.linkYieldScanline = true;
@@ -1602,14 +1602,15 @@ export class SM8521CPU {
             this.m_p_ram[0x00a2] = (rxTail >> 8) & 0xff;
             this.m_p_ram[0x00a3] = rxTail & 0xff;
           }
-          this.uartRxCooldown = this.enhancedLinkMode ? 4 : 48;
+          this.uartRxCooldown = 48;
           this.uartRxStaleCycles = 0;
           this.linkWaitFrames = 0;
         } else if (rxHead === rxTail && this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
           this.uartPollsThisFrame++;
           this.linkFrameHadWait = true;
           // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in $0208
-          if (this.mmu[4] === 0x27 && this.m_p_ram[0x0208] <= 0x02) {
+          // ONLY after initial $8C49 handshake has set $FC bits 6..7 (during $8C49, $0208 counts 0..3 $E0 pings!).
+          if (this.mmu[4] === 0x27 && (this.m_p_ram[0x00fc] & 0xc0) !== 0 && this.m_p_ram[0x0208] <= 0x02) {
             this.m_p_ram[0x0208] = 0x00;
           }
           if (this.enhancedLinkMode && this.linkPeerHealthy && this.linkWaitFrames < 240) {
@@ -3062,18 +3063,6 @@ default:
     if (this.linkConnected) {
       if (this.linkFrameHadWait) {
         this.linkWaitFrames++;
-        // Enhanced Link Mode: dilate BIOS VBlank frame counter ($0112) during active link waits while peer is healthy
-        // so strict 5-frame (~67ms) ROM delta checks (e.g. MKT $8F67) do not false-abort over LAN/IPC jitter.
-        if (
-          this.enhancedLinkMode &&
-          this.linkPeerHealthy &&
-          this.linkWaitFrames < 240 &&
-          this.uartRxFifo.length === 0 &&
-          (this.linkWaitFrames & 0x03) !== 0
-        ) {
-          this.m_p_ram[0x0112] = (this.m_p_ram[0x0112] - 1) & 0xff;
-          this.linkShieldInterventions++;
-        }
       } else {
         this.linkWaitFrames = 0;
       }

@@ -155,20 +155,9 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
       bgIntervalId = window.setInterval(runBackgroundTick, 16);
     }
 
-    // Immediate packet-arrival wakeup in Enhanced Link Mode to drain incoming bursts with minimal latency
-    const prevWakeup = system.linkCable.onPacketWakeup;
-    system.linkCable.onPacketWakeup = () => {
-      prevWakeup?.();
-      const now = performance.now();
-      if (system.isPoweredOn && !system.isPaused && now - lastTickTime >= 2) {
-        advanceAccumulator(now, !document.hidden);
-      }
-    };
-
     animationFrameId = requestAnimationFrame(renderLoop);
     return () => {
       cancelAnimationFrame(animationFrameId);
-      system.linkCable.onPacketWakeup = prevWakeup;
       if (bgWorker) {
         bgWorker.terminate();
       }
