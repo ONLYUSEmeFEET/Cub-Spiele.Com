@@ -359,12 +359,84 @@ export const CompeteLinkModal: React.FC<CompeteLinkModalProps> = ({
             </div>
           </div>
 
+          {/* Enhanced Link Mode (Playability First) Toggle */}
+          <div className="p-4 rounded-xl bg-[#4c5931]/8 dark:bg-[#4c5931]/15 border border-[#4c5931]/35 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-[#4c5931] dark:text-[#b9c48a] shrink-0 mt-0.5" />
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                    Enhanced Link Mode (Playability First)
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#4c5931]/15 text-[#4c5931] dark:text-[#b9c48a] border border-[#4c5931]/30">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5 max-w-lg">
+                  Prioritizes 2-player stability over strict hardware quirks: fast-drains 68–78B bursts, shields tight ROM VBlank timeouts (MKT / Fighters Megamix / Williams), suppresses transient URTS errors, and supports epoch-safe reconnects.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                link.setEnhancedLinkMode(!link.enhancedLinkMode);
+                setTick((t) => t + 1);
+                onUpdate();
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
+                link.enhancedLinkMode
+                  ? 'bg-[#4c5931] border-[#4c5931] text-white'
+                  : 'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+              }`}
+            >
+              {link.enhancedLinkMode ? 'Enhanced Mode: ON' : 'Strict Hardware Timing'}
+            </button>
+
+            <div className="w-full flex flex-wrap gap-2 pt-2 border-t border-[#4c5931]/20">
+              <button
+                onClick={() => {
+                  link.setForwardP2Input(!link.forwardP2Input);
+                  setTick((t) => t + 1);
+                }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                  link.forwardP2Input
+                    ? 'bg-[#4c5931]/15 border-[#4c5931]/50 text-[#4c5931] dark:text-[#b9c48a]'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
+                }`}
+                title="Allows Player 1's window to forward Numpad (8/2/4/6 + 7/9/1/3) and Gamepad #2 to Instance #2 without Alt-Tabbing"
+              >
+                Forward P2 Input (Numpad / Pad #2): {link.forwardP2Input ? 'ON' : 'OFF'}
+              </button>
+
+              <button
+                onClick={() => {
+                  link.setAutoSyncRom(!link.autoSyncRom);
+                  setTick((t) => t + 1);
+                }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                  link.autoSyncRom
+                    ? 'bg-[#4c5931]/15 border-[#4c5931]/50 text-[#4c5931] dark:text-[#b9c48a]'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
+                }`}
+                title="Automatically sends Instance #1's loaded Slot 1 ROM to Instance #2 when launching 2nd window"
+              >
+                Auto-Sync Slot 1 ROM: {link.autoSyncRom ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          </div>
+
           {/* Live SM8521 Hardware Link Telemetry */}
           <div className="p-4 rounded-xl bg-[#f6f7f3] dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider font-mono">
                 <Cpu className="w-4 h-4 text-[#4c5931] dark:text-[#b9c48a]" />
                 <span>SM8521 Serial UART &amp; Port 3 Crossover Telemetry</span>
+                {link.status === 'connected' && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300">
+                    {link.rttMs !== null ? `RTT: ${link.rttMs}ms` : 'RTT: --'} • Shield Saves: {link.shieldInterventions}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -382,6 +454,16 @@ export const CompeteLinkModal: React.FC<CompeteLinkModalProps> = ({
                   }`}
                 >
                   {link.mode === 'loopback' ? 'Loopback Active' : 'Self-Test Loopback'}
+                </button>
+                <button
+                  onClick={() => {
+                    link.resyncLink();
+                    setTick((t) => t + 1);
+                  }}
+                  className="px-2 py-1 rounded text-[10px] font-mono bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                  title="Flush UART/P3 queues and send fresh handshake packet"
+                >
+                  Resync / Flush
                 </button>
                 <button
                   onClick={() => {

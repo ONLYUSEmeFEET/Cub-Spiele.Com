@@ -125,21 +125,59 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
       animationFrameId = requestAnimationFrame(renderLoop);
     };
 
-    // Unfocused / Background fallback timer so dual-instance Compete.Com multiplayer
-    // and background controller play continue running when the window is unfocused
-    const bgIntervalId = window.setInterval(() => {
+    // Unthrottled Web Worker background ticker (with setInterval fallback) so dual-instance
+    // Compete.Com multiplayer & background controller play continue running at ~74 Hz when unfocused/hidden.
+    const runBackgroundTick = () => {
       const now = performance.now();
       const shouldRunInBackground =
         system.settings.backgroundInput || system.linkCable.mode !== 'off';
-      if (shouldRunInBackground && document.hidden && now - lastTickTime >= 14) {
+      if (shouldRunInBackground && document.hidden && now - lastTickTime >= 12) {
         advanceAccumulator(now, false);
       }
-    }, 16);
+    };
+
+    let bgWorker: Worker | null = null;
+    let bgWorkerUrl: string | null = null;
+    let bgIntervalId: number | null = null;
+
+    if (typeof Worker !== 'undefined' && typeof Blob !== 'undefined') {
+      try {
+        const workerSrc = 'setInterval(() => postMessage(1), 14);';
+        const blob = new Blob([workerSrc], { type: 'application/javascript' });
+        bgWorkerUrl = URL.createObjectURL(blob);
+        bgWorker = new Worker(bgWorkerUrl);
+        bgWorker.onmessage = runBackgroundTick;
+      } catch {
+        bgWorker = null;
+      }
+    }
+    if (!bgWorker) {
+      bgIntervalId = window.setInterval(runBackgroundTick, 16);
+    }
+
+    // Immediate packet-arrival wakeup in Enhanced Link Mode to drain incoming bursts with minimal latency
+    const prevWakeup = system.linkCable.onPacketWakeup;
+    system.linkCable.onPacketWakeup = () => {
+      prevWakeup?.();
+      const now = performance.now();
+      if (system.isPoweredOn && !system.isPaused && now - lastTickTime >= 2) {
+        advanceAccumulator(now, !document.hidden);
+      }
+    };
 
     animationFrameId = requestAnimationFrame(renderLoop);
     return () => {
       cancelAnimationFrame(animationFrameId);
-      clearInterval(bgIntervalId);
+      system.linkCable.onPacketWakeup = prevWakeup;
+      if (bgWorker) {
+        bgWorker.terminate();
+      }
+      if (bgWorkerUrl) {
+        URL.revokeObjectURL(bgWorkerUrl);
+      }
+      if (bgIntervalId !== null) {
+        clearInterval(bgIntervalId);
+      }
     };
   }, [system, onFpsUpdate]);
 

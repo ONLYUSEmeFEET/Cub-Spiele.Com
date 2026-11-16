@@ -374,6 +374,32 @@ export class GameComSystem {
       }
     };
 
+    this.linkCable.onRemoteP2Input = (buttons) => {
+      (Object.keys(buttons) as (keyof GameComButtons)[]).forEach((k) => {
+        const val = buttons[k];
+        if (typeof val === 'boolean') {
+          this.setButton(k, val);
+        }
+      });
+    };
+
+    this.linkCable.getActiveRomForSync = () => {
+      const cart = this.slot1;
+      if (!cart || !cart.romData) return null;
+      return {
+        name: `${cart.title || 'cartridge'}.bin`,
+        data: cart.romData
+      };
+    };
+
+    this.linkCable.onRemoteRomSync = (romName, romData) => {
+      if (this.slot1) return;
+      const copy = new Uint8Array(romData.length);
+      copy.set(romData);
+      const file = new File([copy.buffer], romName, { type: 'application/octet-stream' });
+      void this.loadRomFromFile(file, 1);
+    };
+
     // Wire competitive Hardcore & Online Leaderboard attestation into NVRAM High Score Manager
     this.highScores.attachCompetitiveEngines(
       this.retroAchievements,
@@ -1670,6 +1696,7 @@ export class GameComSystem {
     this.cpu.correctClockSpeed = this.accuracyFixes.correctClockSpeed;
     this.cpu.dualCartridgeSlotFix = this.accuracyFixes.dualCartridgeSlotFix;
     this.cpu.vsyncEnabled = this.settings.vsync;
+    this.linkCable.updatePeerHealth();
 
     if (!this.isPoweredOn) {
       this.lcd.clear(0);

@@ -15,6 +15,7 @@
  */
 
 import { SM8521CPU } from './sm8521';
+import { GameComButtons } from './types';
 
 export type LinkCableMode = 'off' | 'same-pc' | 'lan' | 'loopback';
 export type LinkConnectionStatus = 'disconnected' | 'waiting' | 'connected';
@@ -74,17 +75,43 @@ export const COMPETE_COMPATIBLE_GAMES: CompeteCompatibilityTitle[] = [
 
 interface LinkPacket {
   seq: number;
+  epoch?: number;
   senderUid: string;
   instanceId: 1 | 2;
   room: string;
-  type: 'hello' | 'ack' | 'bye' | 'p3' | 'uart-burst';
+  type: 'hello' | 'ack' | 'bye' | 'p3' | 'uart-burst' | 'p2-input' | 'rom-sync';
   p3Bits?: number;
   bytes?: number[];
+  buttons?: Partial<Record<keyof GameComButtons, boolean>>;
+  romName?: string;
+  romB64?: string;
   timestamp: number;
+  echoTs?: number;
 }
 
 const BROADCAST_CHANNEL_NAME = 'cub_spiele_compete_link_v1';
 const STORAGE_FALLBACK_KEY = 'cub_spiele_compete_packet_v1';
+const ENHANCED_LINK_STORAGE_KEY = 'cub_spiele_enhanced_link_v1';
+const P2_INPUT_FWD_STORAGE_KEY = 'cub_spiele_p2_input_fwd_v1';
+const AUTO_SYNC_ROM_STORAGE_KEY = 'cub_spiele_auto_sync_rom_v1';
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+function base64ToUint8(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    out[i] = bin.charCodeAt(i);
+  }
+  return out;
+}
 
 export class CompeteComLinkManager {
   private cpu: SM8521CPU;
@@ -109,19 +136,35 @@ export class CompeteComLinkManager {
   public lastTxByte: number | null = null;
   public lastRxByte: number | null = null;
   public lastPacketTime: number = 0;
+  public rttMs: number | null = null;
+  public enhancedLinkMode: boolean = true;
+  public forwardP2Input: boolean = true;
+  public autoSyncRom: boolean = true;
   public recentLog: LinkLogEntry[] = [];
   private logSeq: number = 1;
+
+  public get shieldInterventions(): number {
+    return this.cpu.linkShieldInterventions;
+  }
 
   // Transports
   private broadcastChannel: BroadcastChannel | null = null;
   private ws: WebSocket | null = null;
+  private wsOutbox: LinkPacket[] = [];
   private heartbeatTimer: number | null = null;
   private pendingTxBytes: number[] = [];
   private txFlushScheduled: boolean = false;
   private txSeq: number = 1;
+  private readonly bootEpoch: number = Math.floor(Math.random() * 0x7fffffff);
   private lastRxSeqByPeer: Map<string, number> = new Map();
+  private lastRxEpochByPeer: Map<string, number> = new Map();
+  private syncedRomEpochs: Set<string> = new Set();
   private onStateChange?: () => void;
   public onLinkActivated?: () => void;
+  public onPacketWakeup?: () => void;
+  public onRemoteP2Input?: (buttons: Partial<Record<keyof GameComButtons, boolean>>) => void;
+  public onRemoteRomSync?: (romName: string, romData: Uint8Array) => void;
+  public getActiveRomForSync?: () => { name: string; data: Uint8Array } | null;
   private storageListener?: (e: StorageEvent) => void;
   private ipcUnsubscribe?: () => void;
 
@@ -130,8 +173,24 @@ export class CompeteComLinkManager {
     this.onStateChange = onStateChange;
     this.uid = `gcom_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`;
 
-    // Detect instance number from URL query string (?instance=2)
+    // Detect instance number from URL query string (?instance=2) & load Enhanced Link Mode preferences
     if (typeof window !== 'undefined') {
+      try {
+        const savedEnhanced = localStorage.getItem(ENHANCED_LINK_STORAGE_KEY);
+        if (savedEnhanced === '0' || savedEnhanced === 'false') {
+          this.enhancedLinkMode = false;
+        }
+        const savedP2 = localStorage.getItem(P2_INPUT_FWD_STORAGE_KEY);
+        if (savedP2 === '0' || savedP2 === 'false') {
+          this.forwardP2Input = false;
+        }
+        const savedRomSync = localStorage.getItem(AUTO_SYNC_ROM_STORAGE_KEY);
+        if (savedRomSync === '0' || savedRomSync === 'false') {
+          this.autoSyncRom = false;
+        }
+      } catch {
+        // Ignore storage errors
+      }
       const params = new URLSearchParams(window.location.search);
       if (params.get('instance') === '2') {
         this.instanceId = 2;
@@ -142,6 +201,7 @@ export class CompeteComLinkManager {
       }
       this.lanUrl = this.getDefaultLanUrl();
     }
+    this.cpu.enhancedLinkMode = this.enhancedLinkMode;
 
     // Wire CPU hardware callbacks
     this.cpu.onUartTxByte = (byte: number) => {
@@ -163,6 +223,97 @@ export class CompeteComLinkManager {
         }, 120);
       }
     }
+  }
+
+  public setEnhancedLinkMode(enabled: boolean) {
+    this.enhancedLinkMode = enabled;
+    this.cpu.enhancedLinkMode = enabled;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(ENHANCED_LINK_STORAGE_KEY, enabled ? '1' : '0');
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    this.pushLog('SYS', `Link Mode: ${enabled ? 'Enhanced (Playability First)' : 'Strict Hardware Timing'}`);
+    this.onStateChange?.();
+  }
+
+  public setForwardP2Input(enabled: boolean) {
+    this.forwardP2Input = enabled;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(P2_INPUT_FWD_STORAGE_KEY, enabled ? '1' : '0');
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    this.onStateChange?.();
+  }
+
+  public setAutoSyncRom(enabled: boolean) {
+    this.autoSyncRom = enabled;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(AUTO_SYNC_ROM_STORAGE_KEY, enabled ? '1' : '0');
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    this.onStateChange?.();
+  }
+
+  public resyncLink() {
+    this.cpu.uartRxFifo = [];
+    this.cpu.remotePort3Queue = [];
+    this.cpu.remotePort3ReadsInState = 0;
+    this.cpu.linkWaitFrames = 0;
+    this.pendingTxBytes = [];
+    this.wsOutbox = [];
+    if (this.mode === 'same-pc' || this.mode === 'lan') {
+      this.sendHello();
+    } else if (this.mode === 'loopback') {
+      this.cpu.setRemotePort3Bits(this.cpu.localPort3Bits, false);
+    }
+    this.pushLog('SYS', 'Flushed link buffers & sent resync handshake');
+    this.onStateChange?.();
+  }
+
+  public sendP2Input(buttons: Partial<Record<keyof GameComButtons, boolean>>) {
+    if (this.mode !== 'same-pc' || this.status !== 'connected' || !this.forwardP2Input) return;
+    this.sendPacket({
+      senderUid: this.uid,
+      instanceId: this.instanceId,
+      room: this.roomCode,
+      seq: this.txSeq++,
+      epoch: this.bootEpoch,
+      type: 'p2-input',
+      buttons,
+      timestamp: Date.now()
+    });
+  }
+
+  public sendRomSync(name: string, data: Uint8Array) {
+    if (this.mode !== 'same-pc' || this.status !== 'connected') return;
+    this.sendPacket({
+      senderUid: this.uid,
+      instanceId: this.instanceId,
+      room: this.roomCode,
+      seq: this.txSeq++,
+      epoch: this.bootEpoch,
+      type: 'rom-sync',
+      romName: name,
+      romB64: uint8ToBase64(data),
+      timestamp: Date.now()
+    });
+    this.pushLog('SYS', `Auto-synced ROM "${name}" (${(data.length / 1024).toFixed(0)} KB) to Instance #2`);
+  }
+
+  public updatePeerHealth() {
+    this.cpu.enhancedLinkMode = this.enhancedLinkMode;
+    this.cpu.linkPeerHealthy =
+      this.status === 'connected' &&
+      (this.mode === 'loopback' || Date.now() - this.lastPacketTime < 4500);
   }
 
   public getDefaultLanUrl(): string {
@@ -270,6 +421,16 @@ export class CompeteComLinkManager {
       this.ws.onopen = () => {
         this.pushLog('SYS', `Connected to LAN relay ${this.lanUrl} (Room ${this.roomCode})`);
         this.sendHello();
+        if (this.wsOutbox.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+          const queued = this.wsOutbox.splice(0, this.wsOutbox.length);
+          for (const qp of queued) {
+            try {
+              this.ws.send(JSON.stringify(qp));
+            } catch {
+              // Ignore flush error
+            }
+          }
+        }
         this.startHeartbeat();
         this.onStateChange?.();
       };
@@ -369,9 +530,14 @@ export class CompeteComLinkManager {
     this.peerUid = null;
     this.peerInstanceId = null;
     this.pendingTxBytes = [];
+    this.wsOutbox = [];
     this.txFlushScheduled = false;
+    this.rttMs = null;
     this.lastRxSeqByPeer.clear();
+    this.lastRxEpochByPeer.clear();
+    this.syncedRomEpochs.clear();
     this.cpu.linkConnected = false;
+    this.cpu.linkPeerHealthy = false;
     this.cpu.setRemotePort3Bits(0x00, false);
 
     if (notifyUi) {
@@ -445,6 +611,7 @@ export class CompeteComLinkManager {
       instanceId: this.instanceId,
       room: this.roomCode,
       seq: this.txSeq++,
+      epoch: this.bootEpoch,
       type: 'hello',
       p3Bits: this.cpu.localPort3Bits & 0x03,
       timestamp: Date.now()
@@ -470,6 +637,7 @@ export class CompeteComLinkManager {
       instanceId: this.instanceId,
       room: this.roomCode,
       seq: this.txSeq++,
+      epoch: this.bootEpoch,
       type: 'p3',
       p3Bits: cleanBits,
       timestamp: Date.now()
@@ -516,6 +684,7 @@ export class CompeteComLinkManager {
       instanceId: this.instanceId,
       room: this.roomCode,
       seq: this.txSeq++,
+      epoch: this.bootEpoch,
       type: 'uart-burst',
       p3Bits: this.cpu.localPort3Bits & 0x03,
       bytes: burst,
@@ -534,6 +703,13 @@ export class CompeteComLinkManager {
 
   private sendPacket(pkt: LinkPacket) {
     if (this.mode === 'same-pc') {
+      const desktop = typeof window !== 'undefined' ? (window as any).gamecomDesktop : null;
+      // Enhanced Link Mode: use a single lowest-latency transport instead of double-serializing over IPC + BroadcastChannel
+      if (this.enhancedLinkMode && desktop?.sendLinkPacket) {
+        desktop.sendLinkPacket(pkt);
+        return;
+      }
+
       let sentViaChannel = false;
       if (this.broadcastChannel) {
         try {
@@ -551,7 +727,6 @@ export class CompeteComLinkManager {
             // Ignore storage quota
           }
         }
-        const desktop = (window as any).gamecomDesktop;
         if (desktop?.sendLinkPacket) {
           desktop.sendLinkPacket(pkt);
         }
@@ -563,6 +738,11 @@ export class CompeteComLinkManager {
         } catch {
           // Ignore send error
         }
+      } else if (this.enhancedLinkMode && (pkt.type === 'p3' || pkt.type === 'uart-burst')) {
+        if (this.wsOutbox.length >= 64) {
+          this.wsOutbox.shift();
+        }
+        this.wsOutbox.push(pkt);
       }
     }
   }
@@ -570,6 +750,18 @@ export class CompeteComLinkManager {
   private handleIncomingPacket(pkt: LinkPacket) {
     if (!pkt || pkt.senderUid === this.uid) return;
     if (pkt.room && pkt.room.toUpperCase() !== this.roomCode) return;
+
+    // Reset sequence tracking if peer restarted (new epoch) or initiated a fresh hello handshake
+    if (typeof pkt.epoch === 'number') {
+      const prevEpoch = this.lastRxEpochByPeer.get(pkt.senderUid);
+      if (prevEpoch !== pkt.epoch) {
+        this.lastRxEpochByPeer.set(pkt.senderUid, pkt.epoch);
+        this.lastRxSeqByPeer.delete(pkt.senderUid);
+      }
+    }
+    if (pkt.type === 'hello') {
+      this.lastRxSeqByPeer.delete(pkt.senderUid);
+    }
 
     // Deduplicate packets delivered across redundant same-pc transports (BroadcastChannel + Electron IPC + localStorage)
     if (typeof pkt.seq === 'number') {
@@ -588,7 +780,10 @@ export class CompeteComLinkManager {
         this.status = 'waiting';
         this.peerUid = null;
         this.peerInstanceId = null;
+        this.rttMs = null;
         this.lastRxSeqByPeer.delete(pkt.senderUid);
+        this.lastRxEpochByPeer.delete(pkt.senderUid);
+        this.cpu.linkPeerHealthy = false;
         this.cpu.setRemotePort3Bits(0x00, false);
         this.pushLog('SYS', 'Peer console disconnected');
         this.onStateChange?.();
@@ -606,6 +801,7 @@ export class CompeteComLinkManager {
     this.peerInstanceId = this.instanceId === 1 ? 2 : 1;
     this.status = 'connected';
     this.cpu.linkConnected = true;
+    this.cpu.linkPeerHealthy = true;
 
     if (pkt.type === 'hello') {
       if (typeof pkt.p3Bits === 'number') {
@@ -616,18 +812,33 @@ export class CompeteComLinkManager {
         instanceId: this.instanceId,
         room: this.roomCode,
         seq: this.txSeq++,
+        epoch: this.bootEpoch,
         type: 'ack',
         p3Bits: this.cpu.localPort3Bits & 0x03,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        echoTs: pkt.timestamp
       });
       if (!wasConnected) {
         this.pushLog('SYS', `Linked with Peer Console (${pkt.senderUid.slice(0, 10)})`);
         this.onStateChange?.();
       }
+      if (this.mode === 'same-pc' && this.autoSyncRom && this.instanceId === 1) {
+        const epochKey = `${pkt.senderUid}:${pkt.epoch ?? 0}`;
+        if (!this.syncedRomEpochs.has(epochKey)) {
+          this.syncedRomEpochs.add(epochKey);
+          const activeRom = this.getActiveRomForSync?.();
+          if (activeRom && activeRom.data.length > 0) {
+            this.sendRomSync(activeRom.name, activeRom.data);
+          }
+        }
+      }
       return;
     }
 
     if (pkt.type === 'ack') {
+      if (typeof pkt.echoTs === 'number') {
+        this.rttMs = Math.max(0, Date.now() - pkt.echoTs);
+      }
       if (typeof pkt.p3Bits === 'number') {
         this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, false);
       }
@@ -638,14 +849,33 @@ export class CompeteComLinkManager {
       return;
     }
 
+    if (pkt.type === 'p2-input' && pkt.buttons) {
+      this.onRemoteP2Input?.(pkt.buttons);
+      return;
+    }
+
+    if (pkt.type === 'rom-sync' && pkt.romName && pkt.romB64) {
+      try {
+        const bytes = base64ToUint8(pkt.romB64);
+        this.onRemoteRomSync?.(pkt.romName, bytes);
+        this.pushLog('SYS', `Received auto-synced ROM "${pkt.romName}" from Instance #1`);
+      } catch {
+        // Ignore decode error
+      }
+      return;
+    }
+
     if (pkt.type === 'p3' && typeof pkt.p3Bits === 'number') {
       this.p3Handshakes++;
       this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, true);
+      if (this.enhancedLinkMode) {
+        this.onPacketWakeup?.();
+      }
       return;
     }
 
     if (pkt.type === 'uart-burst' && Array.isArray(pkt.bytes)) {
-      if (typeof pkt.p3Bits === 'number') {
+      if (typeof pkt.p3Bits === 'number' && (!this.enhancedLinkMode || this.cpu.remotePort3Queue.length === 0)) {
         this.cpu.setRemotePort3Bits(pkt.p3Bits & 0x03, false);
       }
       for (const b of pkt.bytes) {
@@ -653,6 +883,9 @@ export class CompeteComLinkManager {
         this.rxBytes++;
         this.lastRxByte = clean;
         this.cpu.enqueueUartRxByte(clean);
+      }
+      if (this.enhancedLinkMode) {
+        this.onPacketWakeup?.();
       }
       const preview = pkt.bytes
         .slice(0, 6)

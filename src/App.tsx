@@ -342,6 +342,32 @@ export function App() {
       }
 
       // Stylus Touch / Tap Keys
+      const p2NumpadMap: Record<string, keyof GameComButtons> = {
+        Numpad8: 'up',
+        Numpad2: 'down',
+        Numpad5: 'down',
+        Numpad4: 'left',
+        Numpad6: 'right',
+        Numpad7: 'a',
+        Numpad9: 'b',
+        Numpad1: 'c',
+        Numpad3: 'd',
+        NumpadEnter: 'pause'
+      };
+      const canForwardP2 = () =>
+        system.linkCable.mode === 'same-pc' &&
+        system.linkCable.status === 'connected' &&
+        system.linkCable.instanceNumber === 1 &&
+        system.linkCable.forwardP2Input;
+
+      if (canForwardP2() && p2NumpadMap[e.code]) {
+        e.preventDefault();
+        if (!e.repeat) {
+          system.linkCable.sendP2Input({ [p2NumpadMap[e.code]]: true });
+        }
+        return;
+      }
+
       if (hasKey('stylusTouch', e.code)) {
         e.preventDefault();
         if (!e.repeat) {
@@ -403,6 +429,30 @@ export function App() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      const p2NumpadMap: Record<string, keyof GameComButtons> = {
+        Numpad8: 'up',
+        Numpad2: 'down',
+        Numpad5: 'down',
+        Numpad4: 'left',
+        Numpad6: 'right',
+        Numpad7: 'a',
+        Numpad9: 'b',
+        Numpad1: 'c',
+        Numpad3: 'd',
+        NumpadEnter: 'pause'
+      };
+      const canForwardP2 = () =>
+        system.linkCable.mode === 'same-pc' &&
+        system.linkCable.status === 'connected' &&
+        system.linkCable.instanceNumber === 1 &&
+        system.linkCable.forwardP2Input;
+
+      if (canForwardP2() && p2NumpadMap[e.code]) {
+        e.preventDefault();
+        system.linkCable.sendP2Input({ [p2NumpadMap[e.code]]: false });
+        return;
+      }
+
       if (hasKey('stylusTouch', e.code)) {
         e.preventDefault();
         system.setVirtualStylusTouch(false);
@@ -452,6 +502,7 @@ export function App() {
     };
     let prevPadStylusTouch = false;
     let prevPadL3 = false;
+    const prevP2PadButtons: Partial<Record<keyof GameComButtons, boolean>> = {};
 
     const pollInputTick = () => {
       // 1. Apply continuous keyboard stylus movement
@@ -576,6 +627,46 @@ export function App() {
           system.setButton(k, nowVal);
         }
       });
+
+      // Forward Gamepad #2 to Linked Instance #2 when Same-PC P2 Input Forwarding is enabled
+      if (
+        connectedPads.length >= 2 &&
+        system.linkCable.mode === 'same-pc' &&
+        system.linkCable.status === 'connected' &&
+        system.linkCable.instanceNumber === 1 &&
+        system.linkCable.forwardP2Input
+      ) {
+        const pad2 = connectedPads[1];
+        const p2Pressed = (idx: number) => Boolean(pad2.buttons[idx]?.pressed);
+        const anyP2Action = (action: keyof typeof padBindings) =>
+          (padBindings[action] || []).some((idx) => p2Pressed(idx));
+        const p2lx = applyDeadzone(pad2.axes[0] || 0);
+        const p2ly = applyDeadzone(pad2.axes[1] || 0);
+        const nextP2: Partial<Record<keyof GameComButtons, boolean>> = {
+          up: anyP2Action('dpadUp') || p2ly < -0.45,
+          down: anyP2Action('dpadDown') || p2ly > 0.45,
+          left: anyP2Action('dpadLeft') || p2lx < -0.45,
+          right: anyP2Action('dpadRight') || p2lx > 0.45,
+          a: anyP2Action('buttonA'),
+          b: anyP2Action('buttonB'),
+          c: anyP2Action('buttonC'),
+          d: anyP2Action('buttonD'),
+          pause: anyP2Action('pause')
+        };
+        const delta: Partial<Record<keyof GameComButtons, boolean>> = {};
+        let hasDelta = false;
+        (Object.keys(nextP2) as (keyof GameComButtons)[]).forEach((k) => {
+          const v = Boolean(nextP2[k]);
+          if (v !== Boolean(prevP2PadButtons[k])) {
+            prevP2PadButtons[k] = v;
+            delta[k] = v;
+            hasDelta = true;
+          }
+        });
+        if (hasDelta) {
+          system.linkCable.sendP2Input(delta);
+        }
+      }
     };
 
     const pollInterval = window.setInterval(pollInputTick, 16);

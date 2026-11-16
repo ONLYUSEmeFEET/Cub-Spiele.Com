@@ -201,6 +201,9 @@ export class SM8521CPU {
 
   // Compete.Com Serial Link Cable & SM8521 Hardware UART ($002B-$002F + P3 $0017 crossover)
   public linkConnected: boolean = false;
+  public enhancedLinkMode: boolean = true; // Playability-first link stability mode (anti-drop shield + fast burst drain)
+  public linkPeerHealthy: boolean = false; // Updated by CompeteComLinkManager based on peer connection & heartbeat
+  public linkShieldInterventions: number = 0; // Count of prevented timeouts / transient error shields
   public localPort3Bits: number = 0x00;  // Local P3 bits 0..1 (outputs to link cable)
   public remotePort3Bits: number = 0x00; // Remote P3 bits 0..1 (received on local P3 bits 2..3)
   public remotePort3Queue: number[] = [];
@@ -328,6 +331,7 @@ export class SM8521CPU {
     this.linkFrameHadWait = false;
     this.linkYieldScanline = false;
     this.linkYieldFrame = false;
+    this.linkShieldInterventions = 0;
 
     // Initialize default BIOS UART ISR vector ($3D0E in Bank 2, stored in Register Bank $28 RR2 = $002A/$002B!)
     // and System TX/RX Queues ($0180/$0188)
@@ -841,7 +845,8 @@ export class SM8521CPU {
         const result = (this.m_p_ram[SM8521_P3] & ~0x0c) | remoteIn;
         this.remotePort3ReadsInState++;
         this.p3ReadsThisFrame++;
-        if (this.remotePort3Queue.length > 0 && this.remotePort3ReadsInState >= 4) {
+        const readThreshold = this.enhancedLinkMode ? 2 : 4;
+        if (this.remotePort3Queue.length > 0 && this.remotePort3ReadsInState >= readThreshold) {
           this.remotePort3Bits = this.remotePort3Queue.shift()! & 0x03;
           this.remotePort3ReadsInState = 0;
           this.m_p_ram[SM8521_P3] =
@@ -855,6 +860,13 @@ export class SM8521CPU {
               this.m_p_ram[0x0164] = 0x60;
             }
           }
+          // Enhanced Link Mode: shield MKT P3 timeout counter ($02D3 in Bank 34/35 $7C48/$7E11) while peer is healthy
+          if (this.enhancedLinkMode && this.linkPeerHealthy && this.linkWaitFrames < 240) {
+            if (this.m_p_ram[0x02d3] > 0) {
+              this.m_p_ram[0x02d3] = 0;
+              this.linkShieldInterventions++;
+            }
+          }
           if (this.p3ReadsThisFrame > 16) {
             // CPU is spinning in a P3 handshake wait loop; yield the current scanline so software timeout
             // loops stretch across ~20+ frames for async BroadcastChannel / IPC / WebSocket delivery
@@ -865,12 +877,21 @@ export class SM8521CPU {
         }
         return result;
       }
+      if (addr === SM8521_URTS) {
+        const rawUrts = this.m_p_ram[SM8521_URTS];
+        if (this.enhancedLinkMode && this.linkConnected && (rawUrts & 0x1c) !== 0) {
+          this.m_p_ram[SM8521_URTS] = rawUrts & ~0x1c;
+          this.linkShieldInterventions++;
+          return this.m_p_ram[SM8521_URTS];
+        }
+        return rawUrts;
+      }
       if (addr === SM8521_URTR) {
         // Reading UART Receive Data ($002C) clears RXRDY (bit 0) and error flags (bits 2..4) in URTS ($002D)
         this.m_p_ram[SM8521_URTS] &= ~0x1d;
         this.uartRxStaleCycles = 0;
         // Post-read cooldown so current UART_INT ($3D65..$2178) finishes updating $00A2 and executes IRET
-        this.uartRxCooldown = 24;
+        this.uartRxCooldown = this.enhancedLinkMode ? 2 : 24;
         return this.m_p_ram[SM8521_URTR];
       }
       if (addr === 0x00fb && this.linkConnected && this.m_p_ram[0x00fb] === 0xff) {
@@ -1005,7 +1026,7 @@ export class SM8521CPU {
             }
             this.m_p_ram[SM8521_URTT] = data;
             this.m_p_ram[SM8521_URTS] |= 0x42;
-            this.uartTxCyclesRemaining = 64;
+            this.uartTxCyclesRemaining = this.enhancedLinkMode ? 8 : 64;
             this.linkWaitFrames = 0;
             this.onUartTxByte?.(data);
             return;
@@ -1425,7 +1446,7 @@ export class SM8521CPU {
         const nextByte = this.uartRxFifo.shift()! & 0xff;
         this.m_p_ram[SM8521_URTR] = nextByte;
         this.m_p_ram[SM8521_URTS] = (this.m_p_ram[SM8521_URTS] & ~0x1c) | 0x43; // RXRDY (0x01) | TXRDY (0x02) | TXEMPTY (0x40), 0 errors
-        this.uartRxCooldown = 48;
+        this.uartRxCooldown = this.enhancedLinkMode ? 4 : 48;
         this.uartRxStaleCycles = 0;
         this.linkWaitFrames = 0;
         this.set_input_line(UART_INT, true);
@@ -1581,7 +1602,7 @@ export class SM8521CPU {
             this.m_p_ram[0x00a2] = (rxTail >> 8) & 0xff;
             this.m_p_ram[0x00a3] = rxTail & 0xff;
           }
-          this.uartRxCooldown = 48;
+          this.uartRxCooldown = this.enhancedLinkMode ? 4 : 48;
           this.uartRxStaleCycles = 0;
           this.linkWaitFrames = 0;
         } else if (rxHead === rxTail && this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
@@ -1590,6 +1611,28 @@ export class SM8521CPU {
           // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in $0208
           if (this.mmu[4] === 0x27 && this.m_p_ram[0x0208] <= 0x02) {
             this.m_p_ram[0x0208] = 0x00;
+          }
+          if (this.enhancedLinkMode && this.linkPeerHealthy && this.linkWaitFrames < 240) {
+            // Shield MKT ($02BF bit 1 LINK LOST / $0209 title retry / $00FB URTS mirror) & Williams ($00DE/$0300)
+            if (this.mmu[4] === 0x27) {
+              if ((this.m_p_ram[0x00fb] & 0x1c) !== 0) {
+                this.m_p_ram[0x00fb] &= ~0x1c;
+                this.linkShieldInterventions++;
+              }
+              if ((this.m_p_ram[0x02bf] & 0x02) !== 0) {
+                this.m_p_ram[0x02bf] &= ~0x02;
+                this.linkShieldInterventions++;
+              }
+            } else if (this.mmu[4] !== 0x27 && this.mmu[1] === 0x20) {
+              if (this.m_p_ram[0x00de] >= 0x10 && this.m_p_ram[0x00de] < 0x14) {
+                this.m_p_ram[0x00de] = 0x00;
+                this.linkShieldInterventions++;
+              }
+              if (this.m_p_ram[0x0300] >= 0xf0) {
+                this.m_p_ram[0x0300] = 0x00;
+                this.linkShieldInterventions++;
+              }
+            }
           }
           if (this.uartPollsThisFrame > 8) {
             this.linkYieldScanline = true;
@@ -3019,6 +3062,18 @@ default:
     if (this.linkConnected) {
       if (this.linkFrameHadWait) {
         this.linkWaitFrames++;
+        // Enhanced Link Mode: dilate BIOS VBlank frame counter ($0112) during active link waits while peer is healthy
+        // so strict 5-frame (~67ms) ROM delta checks (e.g. MKT $8F67) do not false-abort over LAN/IPC jitter.
+        if (
+          this.enhancedLinkMode &&
+          this.linkPeerHealthy &&
+          this.linkWaitFrames < 240 &&
+          this.uartRxFifo.length === 0 &&
+          (this.linkWaitFrames & 0x03) !== 0
+        ) {
+          this.m_p_ram[0x0112] = (this.m_p_ram[0x0112] - 1) & 0xff;
+          this.linkShieldInterventions++;
+        }
       } else {
         this.linkWaitFrames = 0;
       }

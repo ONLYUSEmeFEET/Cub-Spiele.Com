@@ -88,6 +88,7 @@ export class NvramHighScoreManager {
     entry: OnlineLeaderboardEntry,
     meta?: { scoreBroken: boolean }
   ) => void;
+  private repairedScoreProofs = new WeakSet<HighScoreRecord>();
 
   constructor(
     raEngine?: RetroAchievementsEngine,
@@ -187,6 +188,34 @@ export class NvramHighScoreManager {
     }
     this.onlineLeaderboard = onlineLeaderboard;
     this.onScoreRecordedCallback = onScoreRecorded;
+
+    const localFp = raEngine.getUserFingerprint();
+    let resignedAny = false;
+    for (const prof of this.profiles) {
+      if (prof.isImportedProfile) continue;
+      for (const rec of prof.records) {
+        if (
+          this.repairedScoreProofs.has(rec) &&
+          rec.verification &&
+          rec.verification.userFingerprint === localFp
+        ) {
+          rec.verification = this.resignVerificationProof(
+            rec.gameId,
+            rec.numericScore,
+            rec.scoreText,
+            rec.playerName || prof.name,
+            rec.verification
+          );
+          this.repairedScoreProofs.delete(rec);
+          resignedAny = true;
+        }
+      }
+    }
+    if (resignedAny) {
+      this.syncActiveFieldsFromProfile();
+      this.saveVault();
+    }
+
     this.syncAllProfileScoresToLeaderboard();
   }
 
@@ -338,6 +367,33 @@ export class NvramHighScoreManager {
     return { ok: true, message: `Updated player name to "${cleanName}".` };
   }
 
+  private resignVerificationProof(
+    gameId: number,
+    numericScore: number,
+    scoreText: string,
+    playerName: string,
+    prev: ScoreVerificationProof
+  ): ScoreVerificationProof {
+    if (!this.raEngine) return prev;
+    const savedSession = { ...this.raEngine.session };
+    this.raEngine.session = {
+      ...this.raEngine.session,
+      sessionId: prev.sessionId,
+      hardcoreActive: prev.hardcoreVerified,
+      saveStateLoaded: prev.saveStateUsed,
+      slowdownUsed: prev.slowdownUsed,
+      debuggerUsed: prev.debuggerUsed,
+      framesExecuted: prev.sessionFrames,
+      inputEventCount: prev.inputCount,
+      inputRollingHash: parseInt(prev.inputHash, 16) || 0x811c9dc5,
+      activeRomMd5: prev.romMd5,
+      activeRomCrc32: prev.romCrc32
+    };
+    const reSigned = this.raEngine.createScoreProof(gameId, numericScore, scoreText, playerName);
+    this.raEngine.session = savedSession;
+    return reSigned;
+  }
+
   /**
    * Renames an existing Player Profile and updates all associated records & leaderboard entries.
    */
@@ -353,48 +409,24 @@ export class NvramHighScoreManager {
       prof.hasCustomName = true;
     }
 
-    const resignProof = (
-      gameId: number,
-      numericScore: number,
-      scoreText: string,
-      prev: ScoreVerificationProof
-    ): ScoreVerificationProof => {
-      if (!this.raEngine) return prev;
-      const savedSession = { ...this.raEngine.session };
-      this.raEngine.session = {
-        ...this.raEngine.session,
-        sessionId: prev.sessionId,
-        hardcoreActive: prev.hardcoreVerified,
-        saveStateLoaded: prev.saveStateUsed,
-        slowdownUsed: prev.slowdownUsed,
-        debuggerUsed: prev.debuggerUsed,
-        framesExecuted: prev.sessionFrames,
-        inputEventCount: prev.inputCount,
-        inputRollingHash: parseInt(prev.inputHash, 16) || 0x811c9dc5,
-        activeRomMd5: prev.romMd5,
-        activeRomCrc32: prev.romCrc32
-      };
-      const reSigned = this.raEngine.createScoreProof(gameId, numericScore, scoreText, cleanName);
-      this.raEngine.session = savedSession;
-      return reSigned;
-    };
-
     for (const rec of prof.records) {
       rec.playerName = cleanName;
       if (rec.verification && !prof.isImportedProfile && this.raEngine) {
-        rec.verification = resignProof(
+        rec.verification = this.resignVerificationProof(
           rec.gameId,
           rec.numericScore,
           rec.scoreText,
+          cleanName,
           rec.verification
         );
       }
     }
     if (prof.solitaireVerification && !prof.isImportedProfile && this.raEngine) {
-      prof.solitaireVerification = resignProof(
+      prof.solitaireVerification = this.resignVerificationProof(
         0xfee0,
         prof.solitaireScore,
         String(prof.solitaireScore),
+        cleanName,
         prof.solitaireVerification
       );
     }
@@ -425,28 +457,13 @@ export class NvramHighScoreManager {
     const rec = this.records[recordIndex];
     rec.playerName = clean;
     if (rec.verification && this.raEngine && rec.verification.userFingerprint === this.raEngine.getUserFingerprint()) {
-      const savedSession = { ...this.raEngine.session };
-      const prev = rec.verification;
-      this.raEngine.session = {
-        ...this.raEngine.session,
-        sessionId: prev.sessionId,
-        hardcoreActive: prev.hardcoreVerified,
-        saveStateLoaded: prev.saveStateUsed,
-        slowdownUsed: prev.slowdownUsed,
-        debuggerUsed: prev.debuggerUsed,
-        framesExecuted: prev.sessionFrames,
-        inputEventCount: prev.inputCount,
-        inputRollingHash: parseInt(prev.inputHash, 16) || 0x811c9dc5,
-        activeRomMd5: prev.romMd5,
-        activeRomCrc32: prev.romCrc32
-      };
-      rec.verification = this.raEngine.createScoreProof(
+      rec.verification = this.resignVerificationProof(
         rec.gameId,
         rec.numericScore,
         rec.scoreText,
-        clean
+        clean,
+        rec.verification
       );
-      this.raEngine.session = savedSession;
     }
     this.syncActiveFieldsToProfile();
     this.saveVault();
@@ -484,21 +501,56 @@ export class NvramHighScoreManager {
     return true;
   }
 
+  private static readExactAscii(slot: Uint8Array, start: number, end: number): string | null {
+    let out = '';
+    for (let i = start; i < end; i++) {
+      const b = slot[i];
+      if (b < 0x20 || b > 0x7e) return null;
+      out += String.fromCharCode(b);
+    }
+    return out;
+  }
+
+  private static writeAscii(slot: Uint8Array, start: number, text: string): void {
+    for (let i = 0; i < text.length; i++) {
+      slot[start + i] = text.charCodeAt(i) & 0x7f;
+    }
+  }
+
+  /**
+   * Extracts the last numeric token from the first $00-terminated ASCII segment in [start, end).
+   * Used to recover clean scores when a shifted slot left an old score prepended before a new write
+   * (e.g. Duke Nukem 3D's "123   175" -> "175" or "123\x00  123" -> "123").
+   */
+  private static extractTrailingScoreDigits(
+    slot: Uint8Array,
+    start: number,
+    end: number,
+    fallback: string = '0'
+  ): string {
+    let seg = '';
+    for (let i = start; i < end; i++) {
+      const b = slot[i];
+      if (b === 0x00 || b === 0xff) break;
+      seg += b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : ' ';
+    }
+    const matches = seg.match(/\d+/g);
+    return matches && matches.length > 0 ? matches[matches.length - 1] : fallback;
+  }
+
   /**
    * Sanitizes a 64-byte hardware NVRAM slot ($FC60 + slot * $40).
-   * Specifically fixes the Lights Out (Game ID $0917) "1?5" starting level bug:
-   * Lights Out stores "Lights Out\x01xxx\x00" at +$03..+$11 and 6 raw binary level
-   * progress bytes (1..100 for each of the 6 game modes, loaded into $01BC..$01C2)
-   * at slot offsets +$12..+$17 immediately after the $00 string terminator.
+   * - Repairs Lights Out (Game ID $0917) "1?5" starting level bug while preserving binary level bytes +$12..+$17.
+   * - Repairs fixed-offset cartridge slots (Duke Nukem 3D, Resident Evil 2, Sonic 2/3/Jam, Casino, Williams)
+   *   whose title/score padding was previously shifted left by legacy trim-reencoding, restoring authentic
+   *   field offsets without touching post-terminator binary save data.
    */
   public static sanitizeSlot64(slot: Uint8Array): void {
     if (slot.length < 0x40) return;
     const gameId = (slot[0] << 8) | slot[1];
     if (gameId === 0x0917) {
       const expectedTitle = 'Lights Out';
-      for (let i = 0; i < expectedTitle.length; i++) {
-        slot[0x03 + i] = expectedTitle.charCodeAt(i);
-      }
+      NvramHighScoreManager.writeAscii(slot, 0x03, expectedTitle);
       slot[0x0d] = 0x01;
 
       let badAscii = false;
@@ -519,6 +571,159 @@ export class NvramHighScoreManager {
         if (slot[i] === 0x00 || slot[i] > 100) {
           slot[i] = 0x01;
         }
+      }
+      return;
+    }
+
+    if (gameId === 0x1b3a) {
+      if (NvramHighScoreManager.readExactAscii(slot, 0x03, 0x06) === 'RE2' && slot[0x06] === 0x01) {
+        if (slot[0x0d] === 0x01) {
+          NvramHighScoreManager.writeAscii(slot, 0x03, 'RE2       ');
+          return;
+        }
+        const digits = NvramHighScoreManager.extractTrailingScoreDigits(slot, 0x07, 0x0d, '0');
+        NvramHighScoreManager.writeAscii(slot, 0x03, 'RE2       ');
+        slot[0x0d] = 0x01;
+        NvramHighScoreManager.writeAscii(slot, 0x0e, digits);
+        slot[0x0e + digits.length] = 0x00;
+      }
+      return;
+    }
+
+    const fixedSlotLayouts: Array<{
+      gameId: number;
+      shiftedTitle: string;
+      paddedTitle: string;
+      scoreWidth: number;
+      padChar: string;
+      terminatorOffset: number;
+      requireTerminatorMatch?: boolean;
+    }> = [
+      {
+        gameId: 0x1b2b,
+        shiftedTitle: 'DUKE NUKEM',
+        paddedTitle: 'DUKE NUKEM ',
+        scoreWidth: 8,
+        padChar: ' ',
+        terminatorOffset: 0x17
+      },
+      {
+        gameId: 0x3011,
+        shiftedTitle: 'CASINO',
+        paddedTitle: 'CASINO    ',
+        scoreWidth: 6,
+        padChar: ' ',
+        terminatorOffset: 0x14,
+        requireTerminatorMatch: true
+      },
+      {
+        gameId: 0x1a15,
+        shiftedTitle: 'DEFENDER',
+        paddedTitle: 'DEFENDER   ',
+        scoreWidth: 6,
+        padChar: ' ',
+        terminatorOffset: 0x15
+      },
+      {
+        gameId: 0x1a16,
+        shiftedTitle: 'JOUST',
+        paddedTitle: 'JOUST      ',
+        scoreWidth: 6,
+        padChar: ' ',
+        terminatorOffset: 0x15
+      },
+      {
+        gameId: 0x1a18,
+        shiftedTitle: 'SINISTAR',
+        paddedTitle: 'SINISTAR   ',
+        scoreWidth: 6,
+        padChar: ' ',
+        terminatorOffset: 0x15
+      },
+      {
+        gameId: 0x1a19,
+        shiftedTitle: 'ROBOTRON',
+        paddedTitle: 'ROBOTRON   ',
+        scoreWidth: 6,
+        padChar: ' ',
+        terminatorOffset: 0x15
+      },
+      {
+        gameId: 0x0432,
+        shiftedTitle: 'SONIC 3',
+        paddedTitle: 'SONIC 3    ',
+        scoreWidth: 6,
+        padChar: '0',
+        terminatorOffset: 0x15
+      },
+      {
+        gameId: 0x0433,
+        shiftedTitle: 'SONIC 2',
+        paddedTitle: 'SONIC 2    ',
+        scoreWidth: 6,
+        padChar: '0',
+        terminatorOffset: 0x15
+      },
+      {
+        gameId: 0x0432,
+        shiftedTitle: 'SONIC JAM',
+        paddedTitle: 'SONIC JAM  ',
+        scoreWidth: 8,
+        padChar: '0',
+        terminatorOffset: 0x17
+      },
+      {
+        gameId: 0x0518,
+        shiftedTitle: 'SONIC JAM',
+        paddedTitle: 'SONIC JAM  ',
+        scoreWidth: 8,
+        padChar: '0',
+        terminatorOffset: 0x17
+      }
+    ];
+
+    for (const cfg of fixedSlotLayouts) {
+      if (cfg.gameId !== gameId) continue;
+      const shiftedSep = 0x03 + cfg.shiftedTitle.length;
+      if (
+        NvramHighScoreManager.readExactAscii(slot, 0x03, shiftedSep) === cfg.shiftedTitle &&
+        slot[shiftedSep] === 0x01 &&
+        (!cfg.requireTerminatorMatch || slot[cfg.terminatorOffset] === 0x00)
+      ) {
+        const digits = NvramHighScoreManager.extractTrailingScoreDigits(
+          slot,
+          shiftedSep + 1,
+          cfg.terminatorOffset,
+          '0'
+        );
+        const paddedScore = digits.padStart(cfg.scoreWidth, cfg.padChar).slice(-cfg.scoreWidth);
+        const targetSep = 0x03 + cfg.paddedTitle.length;
+        NvramHighScoreManager.writeAscii(slot, 0x03, cfg.paddedTitle);
+        slot[targetSep] = 0x01;
+        NvramHighScoreManager.writeAscii(slot, targetSep + 1, paddedScore);
+        slot[cfg.terminatorOffset] = 0x00;
+        return;
+      }
+    }
+
+    // Williams DEFENDER II ($1A17) keeps an 11-char title, so only leading score spaces were stripped
+    if (
+      gameId === 0x1a17 &&
+      NvramHighScoreManager.readExactAscii(slot, 0x03, 0x0e) === 'DEFENDER II' &&
+      slot[0x0e] === 0x01 &&
+      slot[0x15] === 0x00
+    ) {
+      let innerNull = -1;
+      for (let i = 0x0f; i < 0x14; i++) {
+        if (slot[i] === 0x00) {
+          innerNull = i;
+          break;
+        }
+      }
+      if (innerNull > 0x0f && slot[innerNull + 1] >= 0x30 && slot[innerNull + 1] <= 0x39) {
+        const digits = NvramHighScoreManager.extractTrailingScoreDigits(slot, 0x0f, innerNull, '0');
+        NvramHighScoreManager.writeAscii(slot, 0x0f, digits.padStart(6, ' ').slice(-6));
+        slot[0x15] = 0x00;
       }
     }
   }
@@ -596,9 +801,25 @@ export class NvramHighScoreManager {
     this.syncBankToNvram(nvram, this.activeBank);
   }
 
+  private static hasValidSlotHeader(slot: Uint8Array): boolean {
+    let hasTitleChar = false;
+    for (let i = 3; i < 0x3e; i++) {
+      const b = slot[i];
+      if (b === 0x00 || b === 0xff) return false;
+      if (b === 0x01) return hasTitleChar;
+      if (b >= 0x20 && b <= 0x7e && b !== 0x20) {
+        hasTitleChar = true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Encodes a single HighScoreRecord into the exact 64-byte ($0040) binary format
    * expected by the Tiger Game.Com BIOS at $FC60 + slot * $0040.
+   * Preserves authentic hardware `rawSlot` byte offsets (including space-padded titles
+   * and right-aligned score fields) so fixed-offset cartridges never drift or concatenate
+   * stale bytes across resets/reloads.
    */
   public static encodeSlot64(rec: HighScoreRecord | null): Uint8Array {
     const slot = new Uint8Array(0x40);
@@ -607,9 +828,10 @@ export class NvramHighScoreManager {
       return slot;
     }
 
-    if (rec.rawSlot && rec.rawSlot.length === 0x40) {
+    const hasRawSlot = Boolean(rec.rawSlot && rec.rawSlot.length === 0x40);
+    if (hasRawSlot) {
       for (let i = 0; i < 0x40; i++) {
-        slot[i] = rec.rawSlot[i] & 0xff;
+        slot[i] = rec.rawSlot![i] & 0xff;
       }
     } else {
       slot.fill(0x00);
@@ -633,6 +855,14 @@ export class NvramHighScoreManager {
       slot[0x11] = 0x00;
       NvramHighScoreManager.sanitizeSlot64(slot);
       return slot;
+    }
+
+    if (hasRawSlot) {
+      NvramHighScoreManager.sanitizeSlot64(slot);
+      if (NvramHighScoreManager.hasValidSlotHeader(slot)) {
+        return slot;
+      }
+      slot.fill(0x00, 3);
     }
 
     const cleanTitle = rec.title.slice(0, 11);
@@ -1214,15 +1444,59 @@ export class NvramHighScoreManager {
 
       // 2. Normalize records from parsed.records or parsed.profiles
       const normalizeRecord = (r: HighScoreRecord, pName: string): HighScoreRecord => {
+        let sanitizedRawSlot = Array.isArray(r.rawSlot) ? r.rawSlot : undefined;
+        let repairedScoreText = String(r.scoreText || '0').slice(0, 16);
+        let repairedNumericScore = Number(r.numericScore) || 0;
+        let verification = r.verification;
+        const gameId = Number(r.gameId) & 0xffff;
+        const playerName = options?.customPlayerName?.trim() || r.playerName || pName;
+
+        if (sanitizedRawSlot && sanitizedRawSlot.length === 0x40) {
+          const slotBytes = Uint8Array.from(sanitizedRawSlot, (b) => b & 0xff);
+          NvramHighScoreManager.sanitizeSlot64(slotBytes);
+          sanitizedRawSlot = Array.from(slotBytes);
+          const dec = NvramHighScoreManager.decodeSlot64(slotBytes);
+          if (dec) {
+            if (dec.scoreText !== repairedScoreText) {
+              const oldProofValid = verification
+                ? RetroAchievementsEngine.verifyScoreProof(
+                    gameId,
+                    repairedNumericScore,
+                    repairedScoreText,
+                    verification
+                  ).validSignature
+                : false;
+              if (!verification) {
+                repairedScoreText = dec.scoreText;
+                repairedNumericScore = dec.numericScore;
+              } else if (
+                oldProofValid &&
+                this.raEngine &&
+                verification.userFingerprint === this.raEngine.getUserFingerprint()
+              ) {
+                repairedScoreText = dec.scoreText;
+                repairedNumericScore = dec.numericScore;
+                verification = this.resignVerificationProof(
+                  gameId,
+                  repairedNumericScore,
+                  repairedScoreText,
+                  playerName,
+                  verification
+                );
+              }
+            }
+          }
+        }
+
         const cleanRec: HighScoreRecord = {
-          gameId: Number(r.gameId) & 0xffff,
+          gameId,
           title: String(r.title || 'Game.Com').slice(0, 11),
-          scoreText: String(r.scoreText || '0').slice(0, 16),
-          numericScore: Number(r.numericScore) || 0,
+          scoreText: repairedScoreText,
+          numericScore: repairedNumericScore,
           updatedAt: Number(r.updatedAt) || Date.now(),
-          rawSlot: Array.isArray(r.rawSlot) ? r.rawSlot : undefined,
-          playerName: options?.customPlayerName?.trim() || r.playerName || pName,
-          verification: r.verification
+          rawSlot: sanitizedRawSlot,
+          playerName,
+          verification
         };
         if (cleanRec.verification) {
           const check = RetroAchievementsEngine.verifyScoreProof(
@@ -1398,13 +1672,36 @@ export class NvramHighScoreManager {
                     const encoded = NvramHighScoreManager.encodeSlot64(r);
                     const dec = NvramHighScoreManager.decodeSlot64(encoded);
                     if (!dec) return null;
-                    return {
+                    const needsResign =
+                      Boolean(r.verification) &&
+                      dec.scoreText !== r.scoreText &&
+                      !RetroAchievementsEngine.verifyScoreProof(
+                        dec.gameId,
+                        dec.numericScore,
+                        dec.scoreText,
+                        r.verification
+                      ).validSignature &&
+                      RetroAchievementsEngine.verifyScoreProof(
+                        r.gameId,
+                        r.numericScore,
+                        r.scoreText,
+                        r.verification
+                      ).validSignature;
+                    const finalRec: HighScoreRecord = {
                       ...dec,
+                      scoreText:
+                        needsResign && prof.isImportedProfile ? r.scoreText : dec.scoreText,
+                      numericScore:
+                        needsResign && prof.isImportedProfile ? r.numericScore : dec.numericScore,
                       updatedAt: r.updatedAt || dec.updatedAt,
                       playerName: r.playerName || prof.name,
                       playerId: prof.id,
                       verification: r.verification
                     };
+                    if (needsResign && !prof.isImportedProfile) {
+                      this.repairedScoreProofs.add(finalRec);
+                    }
+                    return finalRec;
                   })
                   .filter(Boolean) as HighScoreRecord[])
               : []

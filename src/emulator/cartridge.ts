@@ -351,6 +351,15 @@ export function resolveKnownGameByGameIdOrTitle(
         headerMatches: ['SONIC 3', 'SONIC3']
       };
     }
+    // Williams Arcade Classics ($1A18 Sinistar) shares Game ID $1A18 with Frogger
+    if (gameId === 0x1a18 && /^SINISTAR(?:\b|$)/.test(norm)) {
+      return {
+        ...KNOWN_GAMECOM_GAMES.williams,
+        id: 'sinistar',
+        title: 'SINISTAR',
+        headerMatches: ['SINISTAR']
+      };
+    }
   }
   if (gameId !== 0) {
     for (const key in KNOWN_GAMECOM_GAMES) {
