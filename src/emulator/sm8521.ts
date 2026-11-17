@@ -1690,6 +1690,23 @@ export class SM8521CPU {
         this.syncDeviceDateTime();
       }
 
+      // Fighters Megamix Bank $20 ($5333..$5361) ROM bug guard:
+      // $5333 pushes MMU3, then $533F (BR EQ, $5361) skips $535F (POP MMU3) when $0242 == 0,
+      // causing RET at $5361 to pop a misaligned return address and crash/reset during match-end sync.
+      if (
+        this.enhancedLinkMode &&
+        this.linkConnected &&
+        this.m_PC === 0x533f &&
+        this.mmu[2] === 0x20 &&
+        (this.m_p_ram[0x1f] & FLAG_Z) !== 0 &&
+        this.mem_readbyte(0x5333) === 0x0e &&
+        this.mem_readbyte(0x533f) === 0xd6 &&
+        this.mem_readbyte(0x5340) === 0x20 &&
+        this.mem_readbyte(0x535f) === 0x0f
+      ) {
+        this.m_PC = 0x535f;
+      }
+
       this.m_oldpc = this.m_PC;
       const op = this.mem_readbyte(this.m_PC);
       this.m_PC = (this.m_PC + 1) & 0xffff;

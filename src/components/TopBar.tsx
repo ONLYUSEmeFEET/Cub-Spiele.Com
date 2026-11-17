@@ -80,6 +80,7 @@ type SubMenuId =
   | 'view-screen-size'
   | 'view-touch-size'
   | 'view-display'
+  | 'tools-cheats'
   | null;
 
 const SCREEN_SCALES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
@@ -187,6 +188,16 @@ export const TopBar: React.FC<TopBarProps> = ({
   const isTouchFull = system.settings.touchScaleMode === 'full';
   const isHardcore = system.retroAchievements.config.hardcoreMode;
   const touchOrientation = system.settings.touchOrientation || 'auto';
+  const hasActiveCheats = system.hasActiveCheats();
+
+  useEffect(() => {
+    system.onCheatsChanged = onUpdate;
+    return () => {
+      if (system.onCheatsChanged === onUpdate) {
+        system.onCheatsChanged = undefined;
+      }
+    };
+  }, [system, onUpdate]);
 
   const menuBtnClass = (id: Exclude<MenuId, null>) =>
     `px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
@@ -1591,6 +1602,147 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <span>Desktop & Mobile Releases...</span>
                 </span>
               </button>
+
+              <div className={dividerClass} />
+
+              <div
+                className="relative"
+                onMouseEnter={() => setOpenSubMenu('tools-cheats')}
+                onMouseLeave={() =>
+                  setOpenSubMenu((prev) => (prev === 'tools-cheats' ? null : prev))
+                }
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenSubMenu((prev) =>
+                      prev === 'tools-cheats' ? null : 'tools-cheats'
+                    )
+                  }
+                  className={itemClass}
+                >
+                  <span className="flex items-center gap-2">
+                    <Zap
+                      className={`w-3.5 h-3.5 ${
+                        hasActiveCheats ? 'text-amber-500' : 'text-zinc-400'
+                      }`}
+                    />
+                    <span>Cheat Codes & Unlocks</span>
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                </button>
+                {openSubMenu === 'tools-cheats' && (
+                  <div className="absolute left-full top-0 ml-0.5 w-72 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                    <div className={sectionLabelClass}>Fighters Megamix</div>
+                    <button
+                      type="button"
+                      disabled={isHardcore}
+                      onClick={() => {
+                        system.toggleCheat('fmUnlockFighters');
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                      title="Unlocks Kids Sarah, Janet, Hornet & Siba"
+                    >
+                      <span>Unlock Hidden Fighters</span>
+                      {system.cheats.fmUnlockFighters && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isHardcore}
+                      onClick={() => {
+                        system.toggleCheat('fmUnlockModes');
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                      title="Unlocks secret courses & bonus modes"
+                    >
+                      <span>Unlock Hidden Modes</span>
+                      {system.cheats.fmUnlockModes && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
+
+                    <div className={dividerClass} />
+                    <div className={sectionLabelClass}>Mortal Kombat Trilogy</div>
+                    <button
+                      type="button"
+                      disabled={isHardcore}
+                      onClick={() => {
+                        system.toggleCheat('mktUnlockFighters');
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                      title="Unlocks Ermac & Noob Saibot"
+                    >
+                      <span>Unlock Hidden Fighters (Ermac & Noob)</span>
+                      {system.cheats.mktUnlockFighters && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isHardcore}
+                      onClick={() => {
+                        system.toggleCheat('mktUnlockModes');
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                      title="Unlocks the secret '?' Options Menu"
+                    >
+                      <span>Unlock Secret "?" Options Menu</span>
+                      {system.cheats.mktUnlockModes && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
+
+                    <div className={dividerClass} />
+                    <div className={sectionLabelClass}>Other Games</div>
+                    <button
+                      type="button"
+                      disabled={isHardcore}
+                      onClick={() => {
+                        system.toggleCheat('lightsOutUnlockLevels');
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                      title="Unlocks all Lights Out puzzle levels in isolated Unlock NVRAM"
+                    >
+                      <span>Lights Out: Unlock All Levels</span>
+                      {system.cheats.lightsOutUnlockLevels && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
+
+                    {hasActiveCheats && (
+                      <>
+                        <div className={dividerClass} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            system.clearAllCheats(true);
+                            onUpdate();
+                          }}
+                          className={itemClass}
+                        >
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">
+                            Disable All Cheats & Restore NVRAM
+                          </span>
+                        </button>
+                      </>
+                    )}
+
+                    <div className={dividerClass} />
+                    <div className="px-3 py-1 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                      {isHardcore
+                        ? 'Disabled in Hardcore Mode to protect competitive integrity.'
+                        : 'Off by default · Isolated Unlock NVRAM (saves & scores protected) · Synced to P2.'}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className={dividerClass} />
 

@@ -380,3 +380,16 @@ export interface CPURegisters {
   };
   cycles: number;
 }
+
+export interface CheatToggles {
+  /** Fighters Megamix: unlock hidden fighters (Kids Sarah, Janet, Hornet, Siba) */
+  fmUnlockFighters: boolean;
+  /** Fighters Megamix: unlock hidden modes & secret courses */
+  fmUnlockModes: boolean;
+  /** Mortal Kombat Trilogy: unlock hidden fighters (Ermac, Noob Saibot) */
+  mktUnlockFighters: boolean;
+  /** Mortal Kombat Trilogy: unlock secret "?" options menu */
+  mktUnlockModes: boolean;
+  /** Lights Out: unlock all puzzle levels via dedicated Unlock NVRAM */
+  lightsOutUnlockLevels: boolean;
+}

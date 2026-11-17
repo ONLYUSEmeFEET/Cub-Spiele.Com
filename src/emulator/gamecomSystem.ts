@@ -17,12 +17,14 @@ import { TigerWebLinkManager } from './tigerWebLink';
 import { VirtualModemManager } from './virtualModem';
 import { RetroAchievementsEngine } from './retroAchievements';
 import { OnlineLeaderboardManager } from './onlineLeaderboard';
+import { resolveKnownGameByGameIdOrTitle } from './cartridge';
 import {
   GameComButtons,
   TouchPoint,
   VirtualStylusState,
   CartridgeInfo,
   EmulatorSettings,
+  CheatToggles,
   CPURegisters,
   RecentGameEntry,
   LCDPaletteId,
@@ -206,6 +208,18 @@ export class GameComSystem {
   private phoneBookDirtyFrames: number = 0;
   private biosOnlyFrames: number = 0;
 
+  // Game-specific unlock cheats (always off by default; Casual Mode only; dedicated Unlock NVRAM isolated)
+  public cheats: CheatToggles = {
+    fmUnlockFighters: false,
+    fmUnlockModes: false,
+    mktUnlockFighters: false,
+    mktUnlockModes: false,
+    lightsOutUnlockLevels: false
+  };
+  private cleanNvramSnapshot: Uint8Array | null = null;
+  private cheatSyncChannel: BroadcastChannel | null = null;
+  public onCheatsChanged?: () => void;
+
   // Single-touch discrete lock (strictly 1 touch input per pointer press)
   private touchLockedUntilRelease: boolean = false;
   private stylusPulseFrames: number = 0;
@@ -351,6 +365,8 @@ export class GameComSystem {
       this.retroAchievements.config.hardcoreMode = false;
       this.retroAchievements.session.hardcoreActive = false;
     }
+
+    this.initCheatSyncChannel();
 
     // Bind NVRAM Vault & Phone Book to isolated Softcore or Hardcore storage partition before loading scores
     const initialHardcore =
@@ -547,6 +563,7 @@ export class GameComSystem {
    * onto the requested mode's completely isolated storage partition.
    */
   private switchNvramModePartition(hardcore: boolean, syncCpuNvram: boolean) {
+    this.restoreCleanNvramIfNeeded();
     const nextHardcore = this.linkCable.instanceId !== 2 && hardcore;
     const changing =
       this.highScores.isHardcorePartition !== nextHardcore ||
@@ -582,6 +599,11 @@ export class GameComSystem {
         'Compete.Com Link Multiplayer is Softcore (Casual) Mode only. Disconnect Link Cable to enable Hardcore Mode.'
       );
       return false;
+    }
+
+    // Clear any active cheats and restore clean NVRAM before entering Hardcore Mode
+    if (nextState) {
+      this.clearAllCheats(true);
     }
 
     // Isolate Softcore and Hardcore NVRAM + High Score Vault + Phone Book partitions cleanly
@@ -708,6 +730,247 @@ export class GameComSystem {
       this.cpu.writeByte(addr, val);
     }
     return true;
+  }
+
+  public hasActiveCheats(): boolean {
+    return (
+      this.cheats.fmUnlockFighters ||
+      this.cheats.fmUnlockModes ||
+      this.cheats.mktUnlockFighters ||
+      this.cheats.mktUnlockModes ||
+      this.cheats.lightsOutUnlockLevels
+    );
+  }
+
+  private restoreCleanNvramIfNeeded() {
+    if (this.cleanNvramSnapshot) {
+      this.cpu.nvram.set(this.cleanNvramSnapshot);
+      this.cleanNvramSnapshot = null;
+      this.nvramDirtyFrames = 0;
+    }
+  }
+
+  private getLoadedKnownGameId(): string | null {
+    const cart = this.getActiveCartridge();
+    if (!cart) return null;
+    const known = resolveKnownGameByGameIdOrTitle(
+      cart.headerGameId ?? 0,
+      cart.headerTitle || cart.title
+    );
+    return known?.id ?? null;
+  }
+
+  /**
+   * Patches the isolated in-memory Unlock NVRAM ($E000-$FFFF) without touching the user's
+   * persisted Softcore/Hardcore NVRAM or High Score Vault.
+   */
+  private applyDedicatedUnlockNvram() {
+    if (!this.hasActiveCheats()) return;
+    const gameId = this.getLoadedKnownGameId();
+
+    if (gameId === 'lightsout' && this.cheats.lightsOutUnlockLevels) {
+      // Locate or allocate Lights Out ($0917) 64-byte slot in $FC60-$FEDF (NVRAM $1C60-$1EDF)
+      let slotOff = -1;
+      let freeOff = -1;
+      for (let off = 0x1c60; off < 0x1ee0; off += 0x40) {
+        const id = (this.cpu.nvram[off] << 8) | this.cpu.nvram[off + 1];
+        if (id === 0x0917) {
+          slotOff = off;
+          break;
+        }
+        if (freeOff === -1 && (id === 0x0000 || id === 0xffff)) {
+          freeOff = off;
+        }
+      }
+      if (slotOff === -1 && freeOff !== -1) {
+        slotOff = freeOff;
+        this.cpu.nvram.fill(0x00, slotOff, slotOff + 0x40);
+        this.cpu.nvram[slotOff] = 0x09;
+        this.cpu.nvram[slotOff + 1] = 0x17;
+        const title = 'Lights Out';
+        for (let i = 0; i < title.length; i++) {
+          this.cpu.nvram[slotOff + 0x03 + i] = title.charCodeAt(i);
+        }
+        this.cpu.nvram[slotOff + 0x0d] = 0x01;
+        this.cpu.nvram[slotOff + 0x0e] = 0x20;
+        this.cpu.nvram[slotOff + 0x0f] = 0x20;
+        this.cpu.nvram[slotOff + 0x10] = 0x31;
+      }
+      if (slotOff !== -1) {
+        // Set all 6 puzzle-set progress bytes (+$12..+$17) to level 50 (0x32)
+        for (let i = 0x12; i <= 0x17; i++) {
+          this.cpu.nvram[slotOff + i] = 0x32;
+        }
+      }
+    }
+
+    if (gameId === 'megamix' && (this.cheats.fmUnlockFighters || this.cheats.fmUnlockModes)) {
+      for (let off = 0x1c60; off < 0x1ee0; off += 0x40) {
+        const id = (this.cpu.nvram[off] << 8) | this.cpu.nvram[off + 1];
+        if (id === 0x0426 || id === 0x1018) {
+          this.cpu.nvram[off + 0x10] = 0xa5;
+          this.cpu.nvram[off + 0x11] = 0xa5;
+          if (this.cheats.fmUnlockModes) {
+            this.cpu.nvram[off + 0x12] |= 0x01;
+            this.cpu.nvram[off + 0x13] |= 0x01;
+            this.cpu.nvram[off + 0x14] |= 0x01;
+          }
+          if (this.cheats.fmUnlockFighters) {
+            this.cpu.nvram[off + 0x16] |= 0x0f;
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  private applyActiveCheatsToCpu() {
+    if (!this.hasActiveCheats()) return;
+    const gameId = this.getLoadedKnownGameId();
+    if (gameId === 'megamix') {
+      if (this.cheats.fmUnlockFighters) {
+        this.cpu.m_p_ram[0x0285] |= 0x0f;
+      }
+      if (this.cheats.fmUnlockModes) {
+        this.cpu.m_p_ram[0x0287] |= 0x07;
+      }
+    } else if (gameId === 'mkt') {
+      if (this.cheats.mktUnlockFighters) {
+        this.cpu.m_p_ram[0x02d4] |= 0x60;
+      }
+      if (this.cheats.mktUnlockModes) {
+        this.cpu.m_p_ram[0x00fa] |= 0x08;
+      }
+    } else if (gameId === 'lightsout' && this.cheats.lightsOutUnlockLevels) {
+      for (let addr = 0x01bc; addr <= 0x01c1; addr++) {
+        this.cpu.m_p_ram[addr] = 0x32;
+      }
+    }
+  }
+
+  private initCheatSyncChannel() {
+    if (typeof BroadcastChannel === 'undefined') return;
+    try {
+      this.cheatSyncChannel = new BroadcastChannel('cub-spiele-cheat-sync');
+      this.cheatSyncChannel.onmessage = (ev: MessageEvent) => {
+        const msg = ev.data;
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'REQUEST_CHEAT_SYNC' && this.linkCable.instanceId !== 2) {
+          this.broadcastCheats();
+        } else if (msg.type === 'CHEAT_SYNC' && this.linkCable.instanceId === 2 && msg.cheats) {
+          this.applySyncedCheats(msg.cheats as Partial<CheatToggles>);
+        }
+      };
+      if (this.linkCable.instanceId === 2) {
+        this.cheatSyncChannel.postMessage({ type: 'REQUEST_CHEAT_SYNC' });
+      }
+    } catch {
+      this.cheatSyncChannel = null;
+    }
+  }
+
+  private broadcastCheats() {
+    if (!this.cheatSyncChannel || this.linkCable.instanceId === 2) return;
+    try {
+      this.cheatSyncChannel.postMessage({
+        type: 'CHEAT_SYNC',
+        cheats: { ...this.cheats }
+      });
+    } catch {
+      // ignore closed channel
+    }
+  }
+
+  private applySyncedCheats(incoming: Partial<CheatToggles>) {
+    const keys: Array<keyof CheatToggles> = [
+      'fmUnlockFighters',
+      'fmUnlockModes',
+      'mktUnlockFighters',
+      'mktUnlockModes',
+      'lightsOutUnlockLevels'
+    ];
+    for (const key of keys) {
+      if (typeof incoming[key] === 'boolean' && this.cheats[key] !== incoming[key]) {
+        this.toggleCheat(key, incoming[key], true);
+      }
+    }
+    this.onCheatsChanged?.();
+  }
+
+  /**
+   * Toggles a built-in unlock cheat (off by default, Casual Mode only).
+   * Protects NVRAM and score integrity by isolating an in-memory Unlock NVRAM copy,
+   * blocking NVRAM/score syncing while active, and tainting RetroAchievements.
+   */
+  public toggleCheat(
+    key: keyof CheatToggles,
+    enabled?: boolean,
+    fromPeerSync: boolean = false
+  ): boolean {
+    const nextState = enabled !== undefined ? enabled : !this.cheats[key];
+    if (nextState && this.retroAchievements.config.hardcoreMode) {
+      this.onHardcoreViolation?.('Cheat codes are prohibited in Hardcore Mode.');
+      return false;
+    }
+
+    if (nextState) {
+      if (!this.cleanNvramSnapshot) {
+        this.cleanNvramSnapshot = new Uint8Array(this.cpu.nvram);
+      }
+      this.retroAchievements.taintSession('cheat');
+    }
+
+    this.cheats[key] = nextState;
+
+    const gameId = this.getLoadedKnownGameId();
+    if (nextState) {
+      this.applyDedicatedUnlockNvram();
+      this.applyActiveCheatsToCpu();
+    } else {
+      if (key === 'fmUnlockFighters' && gameId === 'megamix') {
+        this.cpu.m_p_ram[0x0285] &= ~0x0f;
+      } else if (key === 'fmUnlockModes' && gameId === 'megamix') {
+        this.cpu.m_p_ram[0x0287] &= ~0x07;
+      } else if (key === 'mktUnlockFighters' && gameId === 'mkt') {
+        this.cpu.m_p_ram[0x02d4] &= ~0x60;
+      } else if (key === 'mktUnlockModes' && gameId === 'mkt') {
+        this.cpu.m_p_ram[0x00fa] &= ~0x08;
+      }
+      if (!this.hasActiveCheats()) {
+        this.restoreCleanNvramIfNeeded();
+      } else {
+        // Re-seed dedicated Unlock NVRAM from clean snapshot for remaining active cheats
+        if (this.cleanNvramSnapshot) {
+          this.cpu.nvram.set(this.cleanNvramSnapshot);
+        }
+        this.applyDedicatedUnlockNvram();
+      }
+    }
+
+    if (!fromPeerSync) {
+      this.broadcastCheats();
+    }
+    return true;
+  }
+
+  public clearAllCheats(restoreNvram: boolean = true) {
+    const gameId = this.getLoadedKnownGameId();
+    if (gameId === 'megamix') {
+      if (this.cheats.fmUnlockFighters) this.cpu.m_p_ram[0x0285] &= ~0x0f;
+      if (this.cheats.fmUnlockModes) this.cpu.m_p_ram[0x0287] &= ~0x07;
+    } else if (gameId === 'mkt') {
+      if (this.cheats.mktUnlockFighters) this.cpu.m_p_ram[0x02d4] &= ~0x60;
+      if (this.cheats.mktUnlockModes) this.cpu.m_p_ram[0x00fa] &= ~0x08;
+    }
+    this.cheats.fmUnlockFighters = false;
+    this.cheats.fmUnlockModes = false;
+    this.cheats.mktUnlockFighters = false;
+    this.cheats.mktUnlockModes = false;
+    this.cheats.lightsOutUnlockLevels = false;
+    if (restoreNvram) {
+      this.restoreCleanNvramIfNeeded();
+    }
+    this.broadcastCheats();
   }
 
   private loadDisplaySettingsFromStorage() {
@@ -1395,6 +1658,7 @@ export class GameComSystem {
 
   public openBiosHighScoreScreen() {
     this.isPoweredOn = true;
+    this.restoreCleanNvramIfNeeded();
     this.highScores.syncBankToNvram(this.cpu.nvram, this.highScores.activeBank);
     if (this.bootFrameCounter >= 480 && this.cpu.mmu[1] === 2 && this.cpu.m_p_ram[0x168] === 0) {
       this.triggerSingleStylusTap(100, 120, 12);
@@ -1467,6 +1731,7 @@ export class GameComSystem {
     }
 
     if (cart.romData) {
+      this.restoreCleanNvramIfNeeded();
       this.highScores.ensureBankForCartridge(cart.romData, this.cpu.nvram);
     }
 
@@ -1479,6 +1744,7 @@ export class GameComSystem {
   }
 
   public ejectCartridge(slot: 1 | 2) {
+    this.restoreCleanNvramIfNeeded();
     if (slot === 1) {
       this.slot1 = null;
       this.cpu.loadCartridgeROM(null, 1);
@@ -1503,8 +1769,13 @@ export class GameComSystem {
     this.recordRecentGame(cart, slot);
 
     if (cart.romData) {
+      this.restoreCleanNvramIfNeeded();
       this.cpu.loadCartridgeROM(cart.romData, slot);
       this.highScores.ensureBankForCartridge(cart.romData, this.cpu.nvram);
+      if (this.hasActiveCheats()) {
+        this.cleanNvramSnapshot = new Uint8Array(this.cpu.nvram);
+        this.applyDedicatedUnlockNvram();
+      }
     }
 
     this.isPoweredOn = true;
@@ -1626,7 +1897,9 @@ export class GameComSystem {
     }
 
     this.sound.setSuppressToneOutput(this.fastBootTarget !== 'NONE');
+    this.applyActiveCheatsToCpu();
     this.cpu.runFrame(speedMult);
+    this.applyActiveCheatsToCpu();
     this.webLink.onFrameTick();
     this.virtualModem.onFrameTick();
     this.sound.endFrameDacCheck();
@@ -1732,14 +2005,14 @@ export class GameComSystem {
 
     if (this.nvramDirtyFrames > 0) {
       this.nvramDirtyFrames--;
-      if (this.nvramDirtyFrames === 0) {
+      if (this.nvramDirtyFrames === 0 && !this.hasActiveCheats()) {
         this.highScores.syncFromNvram(this.cpu.nvram);
       }
     }
 
     if (this.phoneBookDirtyFrames > 0) {
       this.phoneBookDirtyFrames--;
-      if (this.phoneBookDirtyFrames === 0) {
+      if (this.phoneBookDirtyFrames === 0 && !this.hasActiveCheats()) {
         this.phoneBook.syncFromNvram(this.cpu.nvram);
         this.highScores.saveRawNvram(this.cpu.nvram);
       }
