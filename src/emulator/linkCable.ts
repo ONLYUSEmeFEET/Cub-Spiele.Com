@@ -159,6 +159,8 @@ export class CompeteComLinkManager {
   private lastRxSeqByPeer: Map<string, number> = new Map();
   private lastRxEpochByPeer: Map<string, number> = new Map();
   private syncedRomEpochs: Set<string> = new Set();
+  private sentP2HeldButtons: Set<keyof GameComButtons> = new Set();
+  private remoteP2HeldButtons: Set<keyof GameComButtons> = new Set();
   private onStateChange?: () => void;
   public onLinkActivated?: () => void;
   public onPacketWakeup?: () => void;
@@ -240,6 +242,9 @@ export class CompeteComLinkManager {
   }
 
   public setForwardP2Input(enabled: boolean) {
+    if (!enabled) {
+      this.releaseSentP2Input();
+    }
     this.forwardP2Input = enabled;
     if (typeof window !== 'undefined') {
       try {
@@ -249,6 +254,37 @@ export class CompeteComLinkManager {
       }
     }
     this.onStateChange?.();
+  }
+
+  private releaseSentP2Input() {
+    if (this.sentP2HeldButtons.size === 0) return;
+    const release: Partial<Record<keyof GameComButtons, boolean>> = {};
+    for (const btn of this.sentP2HeldButtons) {
+      release[btn] = false;
+    }
+    this.sentP2HeldButtons.clear();
+    if (this.mode === 'same-pc' && this.status === 'connected') {
+      this.sendPacket({
+        senderUid: this.uid,
+        instanceId: this.instanceId,
+        room: this.roomCode,
+        seq: this.txSeq++,
+        epoch: this.bootEpoch,
+        type: 'p2-input',
+        buttons: release,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  private clearRemoteP2Input() {
+    if (this.remoteP2HeldButtons.size === 0) return;
+    const release: Partial<Record<keyof GameComButtons, boolean>> = {};
+    for (const btn of this.remoteP2HeldButtons) {
+      release[btn] = false;
+    }
+    this.remoteP2HeldButtons.clear();
+    this.onRemoteP2Input?.(release);
   }
 
   public setAutoSyncRom(enabled: boolean) {
@@ -280,7 +316,14 @@ export class CompeteComLinkManager {
   }
 
   public sendP2Input(buttons: Partial<Record<keyof GameComButtons, boolean>>) {
-    if (this.mode !== 'same-pc' || this.status !== 'connected' || !this.forwardP2Input) return;
+    if (this.mode !== 'same-pc' || this.status !== 'connected' || this.instanceId !== 1 || !this.forwardP2Input) return;
+    for (const k of Object.keys(buttons) as (keyof GameComButtons)[]) {
+      if (buttons[k]) {
+        this.sentP2HeldButtons.add(k);
+      } else {
+        this.sentP2HeldButtons.delete(k);
+      }
+    }
     this.sendPacket({
       senderUid: this.uid,
       instanceId: this.instanceId,
@@ -525,6 +568,8 @@ export class CompeteComLinkManager {
       this.ws = null;
     }
 
+    this.releaseSentP2Input();
+    this.clearRemoteP2Input();
     this.mode = 'off';
     this.status = 'disconnected';
     this.peerUid = null;
@@ -785,6 +830,7 @@ export class CompeteComLinkManager {
         this.lastRxEpochByPeer.delete(pkt.senderUid);
         this.cpu.linkPeerHealthy = false;
         this.cpu.setRemotePort3Bits(0x00, false);
+        this.clearRemoteP2Input();
         this.pushLog('SYS', 'Peer console disconnected');
         this.onStateChange?.();
       }
@@ -850,7 +896,17 @@ export class CompeteComLinkManager {
     }
 
     if (pkt.type === 'p2-input' && pkt.buttons) {
-      this.onRemoteP2Input?.(pkt.buttons);
+      // Only Same-PC Instance #2 should ever consume forwarded P2 inputs; ignore on Instance #1.
+      if (this.mode === 'same-pc' && this.instanceId === 2) {
+        for (const k of Object.keys(pkt.buttons) as (keyof GameComButtons)[]) {
+          if (pkt.buttons[k]) {
+            this.remoteP2HeldButtons.add(k);
+          } else {
+            this.remoteP2HeldButtons.delete(k);
+          }
+        }
+        this.onRemoteP2Input?.(pkt.buttons);
+      }
       return;
     }
 

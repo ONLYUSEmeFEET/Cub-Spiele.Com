@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cub-spiele-com-v0.1.8';
+const CACHE_NAME = 'cub-spiele-com-v0.1.9';
 const CORE_ASSETS = [
   './',
   './index.html',

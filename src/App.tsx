@@ -188,6 +188,8 @@ export function App() {
       left: false,
       right: false
     };
+    const heldKeyboardButtons = new Set<keyof GameComButtons>();
+    const forwardedP2Keys = new Map<string, keyof GameComButtons>();
 
     const hasKey = (
       action: keyof typeof system.settings.inputBindings.keyboard,
@@ -363,7 +365,9 @@ export function App() {
       if (canForwardP2() && p2NumpadMap[e.code]) {
         e.preventDefault();
         if (!e.repeat) {
-          system.linkCable.sendP2Input({ [p2NumpadMap[e.code]]: true });
+          const p2Btn = p2NumpadMap[e.code];
+          forwardedP2Keys.set(e.code, p2Btn);
+          system.linkCable.sendP2Input({ [p2Btn]: true });
         }
         return;
       }
@@ -414,6 +418,7 @@ export function App() {
             system.virtualStylus.visible = true;
           }
         } else {
+          heldKeyboardButtons.add(dpadDir);
           system.setButton(dpadDir, true);
           forceUpdate();
         }
@@ -423,6 +428,7 @@ export function App() {
       const mapped = getActionButtonForCode(e.code);
       if (mapped) {
         e.preventDefault();
+        heldKeyboardButtons.add(mapped);
         system.setButton(mapped, true);
         forceUpdate();
       }
@@ -447,6 +453,13 @@ export function App() {
         system.linkCable.instanceNumber === 1 &&
         system.linkCable.forwardP2Input;
 
+      const forwardedBtn = forwardedP2Keys.get(e.code);
+      if (forwardedBtn) {
+        e.preventDefault();
+        forwardedP2Keys.delete(e.code);
+        system.linkCable.sendP2Input({ [forwardedBtn]: false });
+        return;
+      }
       if (canForwardP2() && p2NumpadMap[e.code]) {
         e.preventDefault();
         system.linkCable.sendP2Input({ [p2NumpadMap[e.code]]: false });
@@ -471,6 +484,7 @@ export function App() {
       if (dpadDir) {
         e.preventDefault();
         heldStylusDirs[dpadDir] = false;
+        heldKeyboardButtons.delete(dpadDir);
         system.setButton(dpadDir, false);
         forceUpdate();
         return;
@@ -479,6 +493,7 @@ export function App() {
       const mapped = getActionButtonForCode(e.code);
       if (mapped) {
         e.preventDefault();
+        heldKeyboardButtons.delete(mapped);
         system.setButton(mapped, false);
         forceUpdate();
       }
@@ -504,6 +519,64 @@ export function App() {
     let prevPadL3 = false;
     const prevP2PadButtons: Partial<Record<keyof GameComButtons, boolean>> = {};
 
+    const releasePadButtons = () => {
+      let changed = false;
+      (Object.keys(prevPadButtons) as (keyof GameComButtons)[]).forEach((k) => {
+        if (prevPadButtons[k]) {
+          prevPadButtons[k] = false;
+          system.setButton(k, false);
+          changed = true;
+        }
+      });
+      if (prevPadStylusTouch) {
+        prevPadStylusTouch = false;
+        system.setVirtualStylusTouch(false);
+        changed = true;
+      }
+      prevPadL3 = false;
+
+      const p2Release: Partial<Record<keyof GameComButtons, boolean>> = {};
+      let hasP2Release = false;
+      (Object.keys(prevP2PadButtons) as (keyof GameComButtons)[]).forEach((k) => {
+        if (prevP2PadButtons[k]) {
+          prevP2PadButtons[k] = false;
+          p2Release[k] = false;
+          hasP2Release = true;
+        }
+      });
+      if (hasP2Release) {
+        system.linkCable.sendP2Input(p2Release);
+      }
+      if (changed) forceUpdate();
+    };
+
+    const releaseAllActiveInputs = () => {
+      heldStylusDirs.up = false;
+      heldStylusDirs.down = false;
+      heldStylusDirs.left = false;
+      heldStylusDirs.right = false;
+
+      let changed = false;
+      if (heldKeyboardButtons.size > 0) {
+        for (const btn of heldKeyboardButtons) {
+          system.setButton(btn, false);
+        }
+        heldKeyboardButtons.clear();
+        changed = true;
+      }
+      if (forwardedP2Keys.size > 0) {
+        const p2Release: Partial<Record<keyof GameComButtons, boolean>> = {};
+        for (const btn of forwardedP2Keys.values()) {
+          p2Release[btn] = false;
+        }
+        forwardedP2Keys.clear();
+        system.linkCable.sendP2Input(p2Release);
+      }
+      system.setVirtualStylusTouch(false);
+      releasePadButtons();
+      if (changed) forceUpdate();
+    };
+
     const pollInputTick = () => {
       // 1. Apply continuous keyboard stylus movement
       const kDx = (heldStylusDirs.right ? 1 : 0) - (heldStylusDirs.left ? 1 : 0);
@@ -517,6 +590,7 @@ export function App() {
       // 2. Poll HTML5 Gamepad API (respecting Background Input setting)
       const isFocused = document.hasFocus();
       if (!isFocused && !system.settings.backgroundInput) {
+        releasePadButtons();
         return;
       }
 
@@ -526,7 +600,10 @@ export function App() {
         const p = rawPads[i];
         if (p && p.connected) connectedPads.push(p);
       }
-      if (connectedPads.length === 0) return;
+      if (connectedPads.length === 0) {
+        releasePadButtons();
+        return;
+      }
 
       let activePad: Gamepad | null = null;
       if (system.settings.gamepadIndex >= 0) {
@@ -550,7 +627,10 @@ export function App() {
         }
       }
 
-      if (!activePad) return;
+      if (!activePad) {
+        releasePadButtons();
+        return;
+      }
 
       const dz = system.settings.gamepadDeadzone || 0.15;
       const applyDeadzone = (v: number) => (Math.abs(v) < dz ? 0 : v);
@@ -671,12 +751,22 @@ export function App() {
 
     const pollInterval = window.setInterval(pollInputTick, 16);
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        releaseAllActiveInputs();
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', releaseAllActiveInputs);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       clearInterval(pollInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', releaseAllActiveInputs);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [system, forceUpdate, showToast, handleTakeScreenshot]);
 

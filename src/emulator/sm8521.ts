@@ -854,7 +854,7 @@ export class SM8521CPU {
         } else if (this.linkConnected && this.linkWaitFrames < 600) {
           // Fighters Megamix open_h2hx & exchg_openx ($6CE0..$6F35 in Bank $25) decrement their $0162/$0163
           // 16-bit timeout counter ($0163=hi, $0164=lo) across frames; keep $0164 nonzero while waiting!
-          if (this.mmu[2] === 0x20 && this.mmu[3] === 0x25 && this.m_PC >= 0x6ce0 && this.m_PC < 0x6f35) {
+          if ((this.mmu[2] === 0x20 || this.mmu[2] === 5) && this.mmu[3] === 0x25 && this.m_PC >= 0x6ce0 && this.m_PC < 0x6f35) {
             this.linkFrameHadWait = true;
             if (this.m_p_ram[0x0162] === 0x01 && this.m_p_ram[0x0164] > 0 && this.m_p_ram[0x0164] < 0x60) {
               this.m_p_ram[0x0164] = 0x60;
@@ -873,6 +873,27 @@ export class SM8521CPU {
             // without corrupting any CPU registers (RR10) or freezing the remainder of the frame.
             this.linkFrameHadWait = true;
             this.linkYieldScanline = true;
+          }
+        }
+        if (this.enhancedLinkMode && this.linkPeerHealthy) {
+          // MKT ($42BE, $42E1, $44A1 in Bank $20): if peer's UART packet has already arrived in User_RX_qq / uartRxFifo
+          // while peer moved on to $7A14 (clearing P3), allow P2 to proceed after >= 8 wait frames instead of hanging.
+          if (this.mmu[2] === 0x20 && this.mmu[4] === 0x27 && this.linkWaitFrames >= 8) {
+            const rxHead = (this.m_p_ram[0x00a0] << 8) | this.m_p_ram[0x00a1];
+            const rxTail = (this.m_p_ram[0x00a2] << 8) | this.m_p_ram[0x00a3];
+            if (this.uartRxFifo.length > 0 || rxHead !== rxTail) {
+              if (this.m_PC >= 0x42be && this.m_PC <= 0x42c2) {
+                return result | 0x08;
+              } else if ((this.m_PC >= 0x42e1 && this.m_PC <= 0x42e5) || (this.m_PC >= 0x44a1 && this.m_PC <= 0x44a5)) {
+                return result | 0x04;
+              }
+            }
+          }
+          // MKT ($7A3E in Bank $23): single-shot P3 check before entering post-fight menu ($59D2).
+          // Under async frame jitter, peer may still be finishing KO animation (remote P3=2), causing
+          // P1 to skip $59D2 while P2 enters $59D2 and hangs.
+          if (this.mmu[3] === 0x23 && this.m_PC >= 0x7a3e && this.m_PC <= 0x7a42) {
+            return result & ~0x0c;
           }
         }
         return result;
@@ -1610,9 +1631,9 @@ export class SM8521CPU {
           this.linkFrameHadWait = true;
           // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in $0208
           // ONLY after initial $8C49 handshake has set $FC bits 6..7 (during $8C49, $0208 counts 0..3 $E0 pings!).
-          if (this.mmu[4] === 0x27 && (this.m_p_ram[0x00fc] & 0xc0) !== 0 && this.m_p_ram[0x0208] <= 0x02) {
-            this.m_p_ram[0x0208] = 0x00;
-          }
+          // if (this.mmu[4] === 0x27 && (this.m_p_ram[0x00fc] & 0xc0) !== 0 && this.m_p_ram[0x0208] <= 0x02 && this.linkWaitFrames < 12) {
+          //   this.m_p_ram[0x0208] = 0x00;
+          // }
           if (this.enhancedLinkMode && this.linkPeerHealthy && this.linkWaitFrames < 240) {
             // Shield MKT ($02BF bit 1 LINK LOST / $0209 title retry / $00FB URTS mirror) & Williams ($00DE/$0300)
             if (this.mmu[4] === 0x27) {
@@ -1635,7 +1656,8 @@ export class SM8521CPU {
               }
             }
           }
-          if (this.uartPollsThisFrame > 8) {
+          const maxUartPolls = (this.enhancedLinkMode && this.linkPeerHealthy && this.mmu[3] === 0x25) ? 2 : 8;
+          if (this.uartPollsThisFrame > maxUartPolls) {
             this.linkYieldScanline = true;
           }
         }
