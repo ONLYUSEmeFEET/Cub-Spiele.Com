@@ -1373,6 +1373,18 @@ def main():
     # Sequential release history starting from v0.0.1 up to current package.json version
     release_specs = [
         {
+            "tag": "v0.2.0",
+            "title": "Cub Spiele.Com v0.2.0 — Authentic Handheld Console Shells, Proportional Scaling, Vertical Pocket View & ROM Library",
+            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "highlights": [
+                "Hardware-accurate interactive console shells for all released Tiger Game.Com models: 1997 Original (#71-500), 1998/1999 Pocket Pro Translucent (#71-510 Purple, Green, Blue, Pink) with one-piece continuous winged silver shield, and 1999 Backlit Pocket Pro (#71-520) with interactive teal EL LIGHT button",
+                "RetroArch-style uniform proportional handheld scaling (Auto, Full, Mid, Close, and 1x-4x) where the console shell, 3D screen bezel, 200x160 LCD, D-Pad, and action buttons scale together in exact lockstep",
+                "Restored Vertical Pocket (Classic) portrait handheld view combining an Analogue Pocket vertical form factor with 1997 Tiger Game.Com brushed-silver and charcoal hardware styling and accessible thumb controls",
+                "Added Game.Com Library & Preservation Vault with Online ROM Repository scanning (Internet Archive support), high-res scanned cartridge label artwork, original PDF instruction manuals, and Historical Preservation Archive",
+                "Streamlined single-dropdown View menu and updated multi-platform application icons and credits"
+            ],
+        },
+        {
             "tag": "v0.1.2",
             "title": "Cub Spiele.Com v0.1.2 — Isolated Softcore/Hardcore NVRAM, Zero-Score Filtering, Opt-In V-Sync & Admin Console",
             "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

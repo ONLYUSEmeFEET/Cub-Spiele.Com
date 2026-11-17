@@ -2,8 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { GameComButtons, GameComConsoleModel } from '../emulator/types';
 import { LCDScreen } from './LCDScreen';
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../emulator/lcd';
-import { Menu, Pause, Volume2, VolumeX, Sun } from 'lucide-react';
 
 interface GameComConsoleProps {
   system: GameComSystem;
@@ -148,704 +146,255 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
   const model: GameComConsoleModel = system.settings.consoleModel || 'original';
   const bezelZoom = system.settings.bezelZoom || 'auto';
-  const isCloseUp = bezelZoom === 'closeup';
-  const isMidZoom = bezelZoom === 'mid';
-
-  // Compute LCD scale based on model geometry and selected zoom mode
-  const availW = Math.max(280, viewport.w - 24);
-  const availH = Math.max(220, viewport.h - 56);
-
-  let effectiveScale = system.settings.touchScale || 2.5;
-  if (model !== 'minimal') {
-    // Original shell adds ~340px width & ~135px height around the LCD (less in mid/closeup)
-    // Pocket Pro shell adds ~290px width & ~115px height around the LCD
-    const isOrig = model === 'original';
-    const shellExtraW = isCloseUp
-      ? isOrig
-        ? 250
-        : 225
-      : isMidZoom
-      ? isOrig
-        ? 295
-        : 260
-      : isOrig
-      ? 345
-      : 295;
-    const shellExtraH = isCloseUp
-      ? isOrig
-        ? 58
-        : 65
-      : isMidZoom
-      ? isOrig
-        ? 95
-        : 95
-      : isOrig
-      ? 142
-      : 120;
-
-    const fitScaleW = Math.max(1, (availW - shellExtraW) / SCREEN_WIDTH);
-    const fitScaleH = Math.max(1, (availH - shellExtraH) / SCREEN_HEIGHT);
-    const autoFitScale = Math.max(1, Math.min(5, Math.min(fitScaleW, fitScaleH)));
-
-    if (bezelZoom === 'auto') {
-      effectiveScale = autoFitScale;
-    } else if (bezelZoom === 'full-system') {
-      effectiveScale = Math.min(autoFitScale, 2.35);
-    } else if (bezelZoom === 'mid') {
-      effectiveScale = Math.min(Math.max(autoFitScale, 2.2), 3.2);
-    } else if (bezelZoom === 'closeup') {
-      effectiveScale = Math.min(Math.max(autoFitScale, 2.6), 3.8);
-    } else {
-      effectiveScale = Math.max(1, Math.min(5, system.settings.touchScale || 2.5));
-    }
-    if (system.settings.integerScaling && bezelZoom === 'scale') {
-      effectiveScale = Math.max(1, Math.round(effectiveScale));
-    } else {
-      effectiveScale = Math.round(effectiveScale * 20) / 20;
-    }
-  } else {
-    const orientPref = system.settings.touchOrientation || 'auto';
-    const isHorizontal =
-      orientPref === 'horizontal'
-        ? true
-        : orientPref === 'vertical'
-        ? false
-        : viewport.w >= 620 && viewport.w > viewport.h * 0.95;
-    const sideControlsWidth = isHorizontal ? 310 : 28;
-    const verticalControlsHeight = isHorizontal ? 36 : 240;
-    const maxScaleW = Math.max(0.85, (availW - sideControlsWidth) / SCREEN_WIDTH);
-    const maxScaleH = Math.max(0.85, (availH - verticalControlsHeight) / SCREEN_HEIGHT);
-    const fitScale = Math.min(8, Math.min(maxScaleW, maxScaleH));
-    effectiveScale =
-      system.settings.touchScaleMode === 'scale' ? system.settings.touchScale : fitScale;
-  }
-
-  // ============================================================================
-  // MODEL 1: 1997 ORIGINAL GAME.COM (#71-500 — Charcoal & Brushed Silver Dual-Slot)
-  // Layout matches the original 1997 hardware (original.gif):
-  // - Left of screen: 5x8 speaker dot matrix (top-left) + Round 8-way D-Pad (bottom-left)
-  // - Right of screen: Round Blue ON/OFF (top-right) + 2 angled (-15deg) pill wells
-  //   containing [A  B] and [C  D] (middle-right) + 3 blue pills [MENU][SOUND][PAUSE] (bottom-right)
-  // - Bottom charcoal dock: Recessed horizontal Tiger Stylus in its slot
-  // ============================================================================
-  if (model === 'original') {
-    const padSize = isCloseUp ? 104 : 118;
-    const actBtnSize = isCloseUp ? 36 : 40;
-
-    return (
-      <div className="flex flex-col items-center justify-center select-none max-w-full">
-        {/* Outer Charcoal Handheld Chassis */}
-        <div
-          className={`relative flex flex-col items-center rounded-[36px] bg-gradient-to-b from-[#2b2f35] via-[#1f2227] to-[#15171b] border-2 border-[#3b4048] shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_2px_4px_rgba(255,255,255,0.12)] transition-all ${
-            isCloseUp ? 'p-2.5 rounded-[26px]' : isMidZoom ? 'px-4 pt-3.5 pb-4' : 'px-6 pt-4 pb-5'
-          }`}
-        >
-          {/* Top Dual-Cartridge Bay Seam Indicator */}
-          {!isCloseUp && (
-            <div className="w-3/5 h-1.5 -mt-1 mb-1.5 rounded-b-md bg-[#141619] border-x border-b border-[#383d45] flex items-center justify-around px-6">
-              <span className="text-[8px] font-mono tracking-widest text-zinc-500 uppercase">
-                Slot 1 {system.slot1 ? `· ${system.slot1.title.slice(0, 12)}` : ''}
-              </span>
-              <span className="w-px h-full bg-zinc-700" />
-              <span className="text-[8px] font-mono tracking-widest text-zinc-500 uppercase">
-                Slot 2 {system.slot2 ? `· ${system.slot2.title.slice(0, 12)}` : ''}
-              </span>
-            </div>
-          )}
-
-          {/* Inner Brushed Silver Metallic Faceplate */}
-          <div
-            className={`relative flex flex-row items-stretch rounded-[24px] bg-gradient-to-b from-[#d8dce0] via-[#c3c8ce] to-[#aeb4bc] border-2 border-[#8c929a] shadow-[inset_0_2px_3px_rgba(255,255,255,0.75),inset_0_-3px_6px_rgba(0,0,0,0.28),0_4px_12px_rgba(0,0,0,0.45)] ${
-              isCloseUp ? 'px-3 py-2.5 gap-3' : isMidZoom ? 'px-5 py-3.5 gap-4' : 'px-6 py-4 gap-5'
-            }`}
-          >
-            {/* LEFT WING: 5x8 Speaker Grille (Top-Left) + Recessed Circular D-Pad (Bottom-Left) */}
-            <div className="flex flex-col items-center justify-between py-1 min-w-[116px]">
-              {/* Authentic 5x8 Speaker Dot Matrix tilted slightly */}
-              <div
-                className="grid grid-cols-8 gap-x-1.5 gap-y-1 px-2 pt-1.5 pb-1 -rotate-6 opacity-80"
-                aria-hidden="true"
-              >
-                {Array.from({ length: 40 }).map((_, i) => (
-                  <span
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full bg-[#23272e] shadow-[inset_0_1px_1px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.5)]"
-                  />
-                ))}
-              </div>
-
-              {/* Circular Recessed 8-Way D-Pad Well */}
-              <div className="my-auto flex items-center justify-center p-2 rounded-full bg-gradient-to-b from-[#7a8088] to-[#a4aab2] shadow-[inset_0_3px_6px_rgba(0,0,0,0.55),0_1px_0_rgba(255,255,255,0.6)]">
-                <div
-                  ref={dpadRef}
-                  onPointerDown={handleDpadPointerDown}
-                  onPointerMove={handleDpadPointerMove}
-                  onPointerUp={handleDpadPointerUp}
-                  onPointerCancel={handleDpadPointerUp}
-                  onLostPointerCapture={handleDpadPointerUp}
-                  style={{ width: padSize, height: padSize }}
-                  className="relative rounded-full bg-gradient-to-b from-[#2f333a] via-[#1d2025] to-[#121418] border-2 border-[#0e1013] shadow-[0_4px_8px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.18)] touch-none cursor-pointer select-none"
-                  aria-label="Directional Pad"
-                >
-                  {/* Moulded Cross Ridge */}
-                  <div
-                    className={`absolute left-[34%] right-[34%] top-2 bottom-2 rounded-md bg-[#252930] border border-[#3a3f48]/60 transition-transform ${
-                      activeButtons.up
-                        ? '-translate-y-0.5 bg-[#383e48]'
-                        : activeButtons.down
-                        ? 'translate-y-0.5 bg-[#383e48]'
-                        : ''
-                    }`}
-                  />
-                  <div
-                    className={`absolute top-[34%] bottom-[34%] left-2 right-2 rounded-md bg-[#252930] border border-[#3a3f48]/60 transition-transform ${
-                      activeButtons.left
-                        ? '-translate-x-0.5 bg-[#383e48]'
-                        : activeButtons.right
-                        ? 'translate-x-0.5 bg-[#383e48]'
-                        : ''
-                    }`}
-                  />
-                  {/* Up Arrow */}
-                  <span
-                    className={`absolute top-2.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[9px] ${
-                      activeButtons.up ? 'border-b-amber-400' : 'border-b-zinc-400/80'
-                    }`}
-                  />
-                  {/* Down Arrow */}
-                  <span
-                    className={`absolute bottom-2.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[9px] ${
-                      activeButtons.down ? 'border-t-amber-400' : 'border-t-zinc-400/80'
-                    }`}
-                  />
-                  {/* Left Arrow */}
-                  <span
-                    className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[9px] ${
-                      activeButtons.left ? 'border-r-amber-400' : 'border-r-zinc-400/80'
-                    }`}
-                  />
-                  {/* Right Arrow */}
-                  <span
-                    className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[9px] ${
-                      activeButtons.right ? 'border-l-amber-400' : 'border-l-zinc-400/80'
-                    }`}
-                  />
-                  {/* Center Pivot Dish */}
-                  <div className="absolute inset-[38%] rounded-full bg-gradient-to-br from-[#16181d] to-[#2c3038] shadow-inner pointer-events-none" />
-                </div>
-              </div>
-
-              <div className="h-2" />
-            </div>
-
-            {/* CENTER: game.com Header + Deep Sunken 3D Beveled Screen Cutout + TIGER Footer */}
-            <div className="flex flex-col items-center justify-center">
-              {/* Top "game.com" Logo above the screen */}
-              <div className="mb-1 flex items-center justify-center">
-                <span className="font-mono font-black tracking-tight text-[#1e2229] text-base sm:text-lg leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.65)]">
-                  game<span className="text-[#be123c]">.</span>com
-                </span>
-              </div>
-
-              {/* Deeply Recessed 4-Side Chamfered Bezel Frame */}
-              <div className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-br from-[#7d838b] via-[#9ea4ac] to-[#d4d8dc] border border-[#686d75] shadow-[inset_0_4px_8px_rgba(0,0,0,0.6),0_1px_0_rgba(255,255,255,0.75)]">
-                <div className="p-1.5 rounded-lg bg-[#1c1f24] shadow-[inset_0_2px_6px_rgba(0,0,0,0.9)]">
-                  <LCDScreen
-                    system={system}
-                    scale={effectiveScale}
-                    onFpsUpdate={onFpsUpdate}
-                  />
-                </div>
-              </div>
-
-              {/* Bottom "TIGER" Logo on the lower silver bezel */}
-              <div className="mt-1.5 flex items-center justify-center">
-                <span className="text-[10px] font-black tracking-[0.22em] text-[#2a2e35] uppercase drop-shadow-[0_1px_0_rgba(255,255,255,0.6)]">
-                  TIGER
-                </span>
-              </div>
-            </div>
-
-            {/* RIGHT WING: Round Blue ON/OFF (Top-Right) + 2 Angled [A B] / [C D] Wells + 3 Blue [MENU][SOUND][PAUSE] Pills */}
-            <div className="flex flex-col items-center justify-between py-1 min-w-[126px]">
-              {/* Top-Right: Round Blue ON/OFF Power Button */}
-              <div className="w-full flex items-center justify-start gap-1.5 pl-2 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    system.powerToggle();
-                    onStateChange?.();
-                  }}
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-[0_2px_4px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.45)] ${
-                    system.isPoweredOn
-                      ? 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#1e3a8a] ring-2 ring-blue-400/50'
-                      : 'bg-gradient-to-b from-[#1e40af] to-[#172554] border-[#0f172a]'
-                  }`}
-                  title={system.isPoweredOn ? 'ON/OFF (Power Off)' : 'ON/OFF (Power On)'}
-                  aria-label="ON/OFF Power Button"
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      system.isPoweredOn ? 'bg-sky-200 shadow-[0_0_4px_#38bdf8]' : 'bg-blue-950'
-                    }`}
-                  />
-                </button>
-                <span className="text-[8px] font-bold tracking-wider text-[#2b3038] uppercase">
-                  ON/OFF
-                </span>
-              </div>
-
-              {/* Middle-Right: Two Angled (-15deg) Recessed Oval Wells for [A, B] and [C, D] */}
-              <div className="my-auto flex flex-col gap-2.5 py-2">
-                {/* Upper Angled Pill Well: A & B */}
-                <div className="-rotate-12 px-2.5 py-1.5 rounded-full bg-gradient-to-b from-[#8b919a] to-[#b8bec6] border border-[#6e747c] shadow-[inset_0_2px_5px_rgba(0,0,0,0.55),0_1px_0_rgba(255,255,255,0.65)] flex items-center gap-3">
-                  {(['a', 'b'] as const).map((btn) => (
-                    <button
-                      key={btn}
-                      type="button"
-                      {...bindButtonPointer(btn)}
-                      style={{ width: actBtnSize, height: actBtnSize }}
-                      className={`rotate-12 rounded-full border-2 font-black text-xs uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
-                        activeButtons[btn]
-                          ? 'scale-92 bg-[#111317] text-amber-300 border-black shadow-inner'
-                          : 'bg-gradient-to-b from-[#353942] via-[#22252b] to-[#14161a] text-zinc-100 border-[#0d0f12] shadow-[0_3px_5px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(255,255,255,0.25)]'
-                      }`}
-                      aria-label={`Button ${btn.toUpperCase()}`}
-                    >
-                      {btn.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Lower Angled Pill Well: C & D */}
-                <div className="-rotate-12 px-2.5 py-1.5 rounded-full bg-gradient-to-b from-[#8b919a] to-[#b8bec6] border border-[#6e747c] shadow-[inset_0_2px_5px_rgba(0,0,0,0.55),0_1px_0_rgba(255,255,255,0.65)] flex items-center gap-3">
-                  {(['c', 'd'] as const).map((btn) => (
-                    <button
-                      key={btn}
-                      type="button"
-                      {...bindButtonPointer(btn)}
-                      style={{ width: actBtnSize, height: actBtnSize }}
-                      className={`rotate-12 rounded-full border-2 font-black text-xs uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
-                        activeButtons[btn]
-                          ? 'scale-92 bg-[#111317] text-amber-300 border-black shadow-inner'
-                          : 'bg-gradient-to-b from-[#353942] via-[#22252b] to-[#14161a] text-zinc-100 border-[#0d0f12] shadow-[0_3px_5px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(255,255,255,0.25)]'
-                      }`}
-                      aria-label={`Button ${btn.toUpperCase()}`}
-                    >
-                      {btn.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottom-Right Edge: Three Blue Rectangular Pill Buttons [MENU] [SOUND] [PAUSE] */}
-              <div className="w-full flex items-end justify-between gap-1.5 pt-1 -rotate-3">
-                {/* MENU */}
-                <div className="flex flex-col items-center gap-0.5 flex-1">
-                  <span className="text-[7px] font-bold tracking-wider text-[#2b3038] uppercase">
-                    MENU
-                  </span>
-                  <button
-                    type="button"
-                    {...bindButtonPointer('menu')}
-                    className={`w-full h-3.5 rounded-full border transition-transform select-none touch-none cursor-pointer ${
-                      activeButtons.menu
-                        ? 'scale-95 bg-[#1e3a8a] border-black shadow-inner'
-                        : 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#172554] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                    }`}
-                    title="MENU (Enter)"
-                    aria-label="MENU Button"
-                  />
-                </div>
-
-                {/* SOUND */}
-                <div className="flex flex-col items-center gap-0.5 flex-1">
-                  <span className="text-[7px] font-bold tracking-wider text-[#2b3038] uppercase">
-                    SOUND
-                  </span>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => {
-                      bindButtonPointer('sound').onPointerDown(e);
-                      system.soundToggle();
-                      onStateChange?.();
-                    }}
-                    onPointerUp={bindButtonPointer('sound').onPointerUp}
-                    onPointerCancel={bindButtonPointer('sound').onPointerCancel}
-                    onLostPointerCapture={bindButtonPointer('sound').onLostPointerCapture}
-                    className={`w-full h-3.5 rounded-full border transition-transform select-none touch-none cursor-pointer ${
-                      activeButtons.sound || system.settings.muted
-                        ? 'scale-95 bg-[#1e3a8a] border-black shadow-inner'
-                        : 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#172554] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                    }`}
-                    title={system.settings.muted ? 'SOUND (Unmute)' : 'SOUND (Mute)'}
-                    aria-label="SOUND Button"
-                  />
-                </div>
-
-                {/* PAUSE */}
-                <div className="flex flex-col items-center gap-0.5 flex-1">
-                  <span className="text-[7px] font-bold tracking-wider text-[#2b3038] uppercase">
-                    PAUSE
-                  </span>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => {
-                      bindButtonPointer('pause').onPointerDown(e);
-                      system.pauseToggle();
-                      onStateChange?.();
-                    }}
-                    onPointerUp={bindButtonPointer('pause').onPointerUp}
-                    onPointerCancel={bindButtonPointer('pause').onPointerCancel}
-                    onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
-                    className={`w-full h-3.5 rounded-full border transition-transform select-none touch-none cursor-pointer ${
-                      activeButtons.pause || system.isPaused
-                        ? 'scale-95 bg-[#1e3a8a] border-black shadow-inner'
-                        : 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#172554] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                    }`}
-                    title="PAUSE (Space)"
-                    aria-label="PAUSE Button"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Charcoal Grip & Docked Horizontal Tiger Stylus (shown in Full-System & Mid zoom) */}
-          {!isCloseUp && (
-            <div className="w-full pt-3 pb-0.5 px-8 flex items-center justify-center">
-              <div className="w-4/5 max-w-[440px] h-5 rounded-full bg-[#111317] border border-[#2e323b] shadow-[inset_0_2px_5px_rgba(0,0,0,0.9)] px-3 flex items-center">
-                {/* Docked Black Stylus Pen */}
-                <div className="w-full h-3 rounded-full bg-gradient-to-b from-[#383d46] via-[#1f2228] to-[#121418] border border-[#0b0c0e] flex items-center justify-between px-4 shadow">
-                  <div className="flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-zinc-500" />
-                    <span className="w-1 h-1 rounded-full bg-zinc-500" />
-                    <span className="w-1 h-1 rounded-full bg-zinc-500" />
-                  </div>
-                  <span className="text-[7px] font-black tracking-[0.2em] text-zinc-300 uppercase">
-                    TIGER
-                  </span>
-                  <div className="w-6 h-1 rounded-full bg-zinc-600/60" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ============================================================================
-  // MODEL 2 & 3: GAME.COM POCKET PRO (#71-510 Translucent Colors & #71-520 Backlit)
-  // Layout matches pocketpro.gif & pocketprobl.gif:
-  // - Contoured outer shell (Charcoal for Backlit #71-520, or Translucent Purple/Green/Blue/Pink)
-  // - Central silver metallic shield with top/bottom screw bosses:
-  //   - Upper-left of shield: 4 angled speaker slots
-  //   - Upper-right of shield: Stacked angled [ON/OFF] (round), [MENU] (oval), [PAUSE] (oval)
-  //   - Bottom of shield: "game.com POCKET PRO" + Teal [LIGHT] arch button on #71-520 Backlit!
-  // - Lower-left grip: Circular recessed well with Cross D-Pad
-  // - Lower-right grip: Circular recessed well with 2x2 [A B / C D] round buttons
-  // ============================================================================
-  if (model.startsWith('pocketpro')) {
-    const isBacklitModel = model === 'pocketpro_backlit';
-    const isBacklightActive = system.settings.palette === 'pocket_pro_el';
-
-    const shellStyles: Record<
-      string,
-      { body: string; border: string; accentBtn: string; accentBorder: string }
-    > = {
-      pocketpro_backlit: {
-        body: 'from-[#2d3138] via-[#202329] to-[#15171b]',
-        border: 'border-[#3d424b]',
-        accentBtn: 'from-[#06b6d4] to-[#0891b2]',
-        accentBorder: 'border-[#155e75]'
-      },
-      pocketpro_purple: {
-        body: 'from-[#5b2a86]/95 via-[#431d66]/95 to-[#2c1147]/95',
-        border: 'border-[#7c3aed]/50',
-        accentBtn: 'from-[#a78bfa] to-[#7c3aed]',
-        accentBorder: 'border-[#4c1d95]'
-      },
-      pocketpro_green: {
-        body: 'from-[#0f6852]/95 via-[#0b4f3e]/95 to-[#063529]/95',
-        border: 'border-[#10b981]/50',
-        accentBtn: 'from-[#34d399] to-[#059669]',
-        accentBorder: 'border-[#064e3b]'
-      },
-      pocketpro_blue: {
-        body: 'from-[#1d4ed8]/90 via-[#1e3a8a]/95 to-[#172554]/95',
-        border: 'border-[#60a5fa]/50',
-        accentBtn: 'from-[#60a5fa] to-[#2563eb]',
-        accentBorder: 'border-[#1e3a8a]'
-      },
-      pocketpro_pink: {
-        body: 'from-[#9d174d]/95 via-[#831843]/95 to-[#500724]/95',
-        border: 'border-[#f472b6]/50',
-        accentBtn: 'from-[#f472b6] to-[#db2777]',
-        accentBorder: 'border-[#831843]'
-      }
-    };
-
-    const st = shellStyles[model] || shellStyles.pocketpro_purple;
-    const padSize = isCloseUp ? 98 : 110;
-    const actBtnSize = isCloseUp ? 34 : 38;
-
-    return (
-      <div className="flex flex-col items-center justify-center select-none max-w-full">
-        {/* Outer Pocket Pro Contoured Shell */}
-        <div
-          className={`relative flex flex-row items-center rounded-[44px] bg-gradient-to-b ${st.body} border-2 ${st.border} shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_2px_6px_rgba(255,255,255,0.2)] transition-all ${
-            isCloseUp ? 'px-3 py-2.5 gap-2.5 rounded-[30px]' : isMidZoom ? 'px-4 py-3.5 gap-3' : 'px-6 py-4 gap-4'
-          }`}
-        >
-          {/* LEFT GRIP + UPPER SHIELD SPEAKER SLOTS */}
-          <div className="flex flex-col items-center justify-between self-stretch py-1 min-w-[112px]">
-            {/* Upper-Left Silver Shield Wing: 4 Angled Speaker Slots */}
-            <div className="w-full rounded-tl-[26px] rounded-bl-xl bg-gradient-to-b from-[#d5d9de] to-[#b5bbc3] border border-[#8e959e] px-3 py-2.5 shadow-[inset_0_1px_2px_rgba(255,255,255,0.7),0_2px_5px_rgba(0,0,0,0.35)] flex flex-col items-center gap-1.5">
-              <div className="w-full flex items-center justify-start">
-                <span className="w-3 h-3 rounded-full bg-gradient-to-br from-[#e2e5e9] to-[#8a9099] border border-[#686e77] shadow-inner" />
-              </div>
-              <div className="flex flex-col gap-1.5 py-1 rotate-6">
-                {[0, 1, 2, 3].map((slot) => (
-                  <span
-                    key={slot}
-                    className="w-11 h-1.5 rounded-full bg-[#22262d] shadow-[inset_0_1px_2px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.55)]"
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Lower-Left Grip: Circular Recessed Cross D-Pad */}
-            <div className="my-auto pt-2 flex items-center justify-center">
-              <div className="p-2 rounded-full bg-black/35 border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.65)]">
-                <div
-                  ref={dpadRef}
-                  onPointerDown={handleDpadPointerDown}
-                  onPointerMove={handleDpadPointerMove}
-                  onPointerUp={handleDpadPointerUp}
-                  onPointerCancel={handleDpadPointerUp}
-                  onLostPointerCapture={handleDpadPointerUp}
-                  style={{ width: padSize, height: padSize }}
-                  className="relative rounded-full bg-gradient-to-b from-[#494e58] via-[#343840] to-[#23262c] border-2 border-[#16181c] shadow-[0_4px_8px_rgba(0,0,0,0.7),inset_0_1px_2px_rgba(255,255,255,0.22)] touch-none cursor-pointer select-none"
-                  aria-label="Pocket Pro Directional Pad"
-                >
-                  {/* Moulded Cross Arms */}
-                  <div
-                    className={`absolute left-[33%] right-[33%] top-2 bottom-2 rounded-md bg-[#3d424b] border border-white/10 ${
-                      activeButtons.up
-                        ? '-translate-y-0.5 bg-[#525865]'
-                        : activeButtons.down
-                        ? 'translate-y-0.5 bg-[#525865]'
-                        : ''
-                    }`}
-                  />
-                  <div
-                    className={`absolute top-[33%] bottom-[33%] left-2 right-2 rounded-md bg-[#3d424b] border border-white/10 ${
-                      activeButtons.left
-                        ? '-translate-x-0.5 bg-[#525865]'
-                        : activeButtons.right
-                        ? 'translate-x-0.5 bg-[#525865]'
-                        : ''
-                    }`}
-                  />
-                  <div className="absolute inset-[37%] rounded-full bg-[#2b2f37] shadow-inner pointer-events-none" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* CENTER SILVER SHIELD: TIGER Header + Sunken LCD + "game.com POCKET PRO" + #71-520 LIGHT Arch Button */}
-          <div className="relative flex flex-col items-center rounded-[26px] bg-gradient-to-b from-[#dadcdf] via-[#c4c9d0] to-[#aeb4bc] border-2 border-[#8c929a] px-4 pt-2 pb-3 shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_6px_14px_rgba(0,0,0,0.5)]">
-            {/* Top "TIGER" Logo */}
-            <div className="mb-1 flex items-center justify-center">
-              <span className="text-[10px] font-black tracking-[0.22em] text-[#22262c] uppercase drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]">
-                TIGER
-              </span>
-            </div>
-
-            {/* Sunken Chamfered LCD Window */}
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#7e848d] via-[#9fa5ae] to-[#d4d8dd] border border-[#6b7078] shadow-[inset_0_4px_8px_rgba(0,0,0,0.55)]">
-              <div
-                className={`p-1 rounded-lg transition-shadow ${
-                  isBacklightActive
-                    ? 'bg-[#092e20] shadow-[0_0_16px_rgba(52,211,153,0.45),inset_0_2px_6px_rgba(0,0,0,0.85)]'
-                    : 'bg-[#1c1f24] shadow-[inset_0_2px_6px_rgba(0,0,0,0.9)]'
-                }`}
-              >
-                <LCDScreen
-                  system={system}
-                  scale={effectiveScale}
-                  onFpsUpdate={onFpsUpdate}
-                />
-              </div>
-            </div>
-
-            {/* Bottom Silver Chin: Screw Bosses + Embossed "game.com POCKET PRO" + Backlit LIGHT Button */}
-            <div className="w-full mt-2 flex items-center justify-between px-2">
-              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-[#e2e5e9] to-[#8a9099] border border-[#686e77] shadow-inner" />
-              <div className="flex flex-col items-center leading-none">
-                <span className="font-mono font-black tracking-tight text-[#6c727a] text-sm drop-shadow-[0_1px_0_rgba(255,255,255,0.75)]">
-                  game.com
-                </span>
-                <span className="text-[8px] font-bold tracking-[0.22em] text-[#737982] uppercase mt-0.5">
-                  POCKET PRO
-                </span>
-              </div>
-              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-[#e2e5e9] to-[#8a9099] border border-[#686e77] shadow-inner" />
-            </div>
-
-            {/* #71-520 Backlit Model Signature Teal Arched "LIGHT" Button */}
-            {isBacklitModel && (
-              <button
-                type="button"
-                onClick={() => {
-                  const nextPreset =
-                    system.settings.palette === 'pocket_pro_el'
-                      ? 'original'
-                      : 'pocket_pro_el';
-                  system.applyScreenPreset(nextPreset, true);
-                  onStateChange?.();
-                }}
-                className={`mt-1.5 px-6 py-0.5 rounded-t-full rounded-b-md bg-gradient-to-b ${st.accentBtn} border ${st.accentBorder} text-white text-[9px] font-black tracking-widest uppercase shadow-[0_2px_4px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.5)] active:scale-95 transition-transform cursor-pointer flex items-center gap-1`}
-                title="Toggle Pocket Pro Electroluminescent Backlight (#71-520)"
-              >
-                <Sun className="w-2.5 h-2.5" />
-                <span>LIGHT</span>
-              </button>
-            )}
-          </div>
-
-          {/* RIGHT GRIP + UPPER SHIELD [ON/OFF, MENU, PAUSE] + LOWER 2x2 [A B / C D] WELL */}
-          <div className="flex flex-col items-center justify-between self-stretch py-1 min-w-[116px]">
-            {/* Upper-Right Silver Shield Wing: Stacked Angled ON/OFF, MENU, PAUSE */}
-            <div className="w-full rounded-tr-[26px] rounded-br-xl bg-gradient-to-b from-[#d5d9de] to-[#b5bbc3] border border-[#8e959e] px-3 py-2 shadow-[inset_0_1px_2px_rgba(255,255,255,0.7),0_2px_5px_rgba(0,0,0,0.35)] flex flex-col items-center gap-1.5">
-              <div className="w-full flex items-center justify-between">
-                <span className="text-[7px] font-bold tracking-wider text-[#2b3038] uppercase">
-                  ON/OFF
-                </span>
-                <span className="w-3 h-3 rounded-full bg-gradient-to-br from-[#e2e5e9] to-[#8a9099] border border-[#686e77] shadow-inner" />
-              </div>
-
-              {/* Round ON/OFF Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  system.powerToggle();
-                  onStateChange?.();
-                }}
-                className={`w-6 h-6 rounded-full bg-gradient-to-b ${st.accentBtn} border ${st.accentBorder} shadow-[0_2px_4px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.5)] active:scale-90 transition-transform cursor-pointer`}
-                title={system.isPoweredOn ? 'ON/OFF (Power Off)' : 'ON/OFF (Power On)'}
-                aria-label="ON/OFF Power Button"
-              />
-
-              {/* Angled Oval MENU Button */}
-              <div className="flex flex-col items-center w-full -rotate-12">
-                <span className="text-[7px] font-bold tracking-wider text-[#2b3038] uppercase">
-                  MENU
-                </span>
-                <button
-                  type="button"
-                  {...bindButtonPointer('menu')}
-                  className={`w-12 h-3.5 rounded-full bg-gradient-to-b ${st.accentBtn} border ${st.accentBorder} shadow-[0_2px_3px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.5)] active:scale-95 transition-transform cursor-pointer touch-none`}
-                  title="MENU (Enter)"
-                  aria-label="MENU Button"
-                />
-              </div>
-
-              {/* Angled Oval PAUSE Button */}
-              <div className="flex flex-col items-center w-full -rotate-12">
-                <span className="text-[7px] font-bold tracking-wider text-[#2b3038] uppercase">
-                  PAUSE
-                </span>
-                <button
-                  type="button"
-                  onPointerDown={(e) => {
-                    bindButtonPointer('pause').onPointerDown(e);
-                    system.pauseToggle();
-                    onStateChange?.();
-                  }}
-                  onPointerUp={bindButtonPointer('pause').onPointerUp}
-                  onPointerCancel={bindButtonPointer('pause').onPointerCancel}
-                  onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
-                  className={`w-12 h-3.5 rounded-full bg-gradient-to-b ${st.accentBtn} border ${st.accentBorder} shadow-[0_2px_3px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.5)] active:scale-95 transition-transform cursor-pointer touch-none`}
-                  title="PAUSE (Space)"
-                  aria-label="PAUSE Button"
-                />
-              </div>
-
-              {/* Side Volume / Sound Mute Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  system.soundToggle();
-                  onStateChange?.();
-                }}
-                className="mt-0.5 px-2 py-0.5 rounded bg-black/20 hover:bg-black/30 text-[#22262c] text-[8px] font-bold uppercase flex items-center gap-1 cursor-pointer"
-                title={system.settings.muted ? 'Unmute Sound' : 'Mute Sound'}
-              >
-                {system.settings.muted ? (
-                  <VolumeX className="w-2.5 h-2.5 text-rose-700" />
-                ) : (
-                  <Volume2 className="w-2.5 h-2.5" />
-                )}
-                <span>SOUND</span>
-              </button>
-            </div>
-
-            {/* Lower-Right Grip: Circular Recessed Well with 2x2 [A B / C D] Buttons */}
-            <div className="my-auto pt-2 flex items-center justify-center">
-              <div className="p-2.5 rounded-full bg-black/35 border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.65)] grid grid-cols-2 gap-2.5">
-                {(['a', 'b', 'c', 'd'] as const).map((btn) => (
-                  <button
-                    key={btn}
-                    type="button"
-                    {...bindButtonPointer(btn)}
-                    style={{ width: actBtnSize, height: actBtnSize }}
-                    className={`rounded-full border-2 font-black text-xs uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
-                      activeButtons[btn]
-                        ? 'scale-92 bg-[#1c1f24] text-amber-300 border-black shadow-inner'
-                        : 'bg-gradient-to-b from-[#525864] via-[#3a3f48] to-[#25282f] text-zinc-100 border-[#15171c] shadow-[0_3px_5px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(255,255,255,0.28)]'
-                    }`}
-                    aria-label={`Button ${btn.toUpperCase()}`}
-                  >
-                    {btn.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ============================================================================
-  // MODEL 4: MINIMAL TOUCH CONTROLS (Compact Button-Only Border)
-  // ============================================================================
   const orientPref = system.settings.touchOrientation || 'auto';
-  const isHorizontal =
-    orientPref === 'horizontal'
-      ? true
-      : orientPref === 'vertical'
-      ? false
-      : viewport.w >= 620 && viewport.w > viewport.h * 0.95;
 
-  return (
-    <div className="flex flex-col items-center justify-center select-none max-w-full">
-      <div
-        className={`flex ${
-          isHorizontal ? 'flex-row gap-5 px-5 py-4' : 'flex-col gap-3 p-3.5'
-        } items-center rounded-2xl bg-[#e6e8df] dark:bg-black border border-zinc-300 dark:border-zinc-900 shadow-lg dark:shadow-2xl transition-colors`}
-      >
-        <div className="bg-[#dce0d5] dark:bg-black p-1.5 rounded-xl border border-zinc-300 dark:border-zinc-900">
-          <LCDScreen
-            system={system}
-            scale={effectiveScale}
-            onFpsUpdate={onFpsUpdate}
-          />
-        </div>
+  // Determine whether to render the Vertical Analogue-Pocket style handheld
+  const isVerticalPocket =
+    model === 'minimal' ||
+    orientPref === 'vertical' ||
+    (orientPref === 'auto' && viewport.h > viewport.w * 1.08);
 
-        <div className="flex items-center gap-6">
+  // Canonical 1x coordinate dimensions for each hardware shell (around the 200x160 LCD)
+  const baseW = isVerticalPocket ? 320 : model === 'original' ? 560 : 500;
+  const baseH = isVerticalPocket ? 510 : model === 'original' ? 320 : 300;
+
+  const availW = Math.max(260, viewport.w - 16);
+  const availH = Math.max(220, viewport.h - 48);
+
+  // RetroArch-style uniform scaling: the entire console (screen, bezel, buttons, D-Pad)
+  // scales by a single uniform multiplier `S` so proportions ALWAYS match the 1x design.
+  const fitScale = Math.max(0.55, Math.min(availW / baseW, availH / baseH));
+
+  let S = fitScale;
+  if (bezelZoom === 'auto' || bezelZoom === 'full-system') {
+    S = fitScale;
+  } else if (bezelZoom === 'mid') {
+    S = fitScale * 1.18;
+  } else if (bezelZoom === 'closeup') {
+    S = fitScale * 1.38;
+  } else if (bezelZoom === 'scale') {
+    S = Math.max(0.75, Math.min(4.5, system.settings.touchScale || 2));
+  }
+  S = Math.round(S * 100) / 100;
+
+  const totalW = Math.round(baseW * S);
+  const totalH = Math.round(baseH * S);
+  const isBacklightActive = system.settings.palette === 'pocket_pro_el';
+
+  const toggleBacklight = () => {
+    const nextPreset =
+      system.settings.palette === 'pocket_pro_el' ? 'original' : 'pocket_pro_el';
+    system.applyScreenPreset(nextPreset, true);
+    onStateChange?.();
+  };
+
+  // ============================================================================
+  // LAYOUT C: VERTICAL POCKET HANDHELD (Analogue Pocket Form Factor + 1997 Game.Com Styling)
+  // Canonical 1x space: 320 x 510, LCD (200x160) at (60, 44)
+  // ============================================================================
+  if (isVerticalPocket) {
+    return (
+      <div className="flex items-center justify-center overflow-hidden max-w-full max-h-full select-none">
+        <div
+          style={{ width: totalW, height: totalH }}
+          className="relative shrink-0 select-none"
+        >
+          {/* Precision SVG Hardware Shell */}
+          <svg
+            viewBox="0 0 320 510"
+            className="w-full h-full drop-shadow-[0_18px_40px_rgba(0,0,0,0.75)] pointer-events-none"
+          >
+            <defs>
+              <linearGradient id="vp-body" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2c3038" />
+                <stop offset="50%" stopColor="#1f2329" />
+                <stop offset="100%" stopColor="#14171b" />
+              </linearGradient>
+              <linearGradient id="vp-silver" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#dde1e6" />
+                <stop offset="55%" stopColor="#c5cad1" />
+                <stop offset="100%" stopColor="#a7adb6" />
+              </linearGradient>
+              <radialGradient id="vp-well" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#101216" />
+                <stop offset="100%" stopColor="#1c2026" />
+              </radialGradient>
+            </defs>
+
+            {/* Outer Analogue-Pocket Vertical Body */}
+            <rect
+              x="4"
+              y="4"
+              width="312"
+              height="502"
+              rx="32"
+              fill="url(#vp-body)"
+              stroke="#3e444f"
+              strokeWidth="2.5"
+            />
+            {/* Subtle Inner Moulded Seam */}
+            <rect
+              x="11"
+              y="11"
+              width="298"
+              height="488"
+              rx="26"
+              fill="none"
+              stroke="#111317"
+              strokeWidth="1.2"
+            />
+
+            {/* Brushed Silver Upper Screen Shield */}
+            <path
+              d="M 22 20 H 298 A 14 14 0 0 1 304 34 V 222 A 18 18 0 0 1 286 240 H 34 A 18 18 0 0 1 16 222 V 34 A 14 14 0 0 1 22 20 Z"
+              fill="url(#vp-silver)"
+              stroke="#7e858f"
+              strokeWidth="2"
+            />
+
+            {/* 4 Corner Screw Bosses on Silver Shield */}
+            {[
+              [30, 32],
+              [290, 32],
+              [30, 226],
+              [290, 226]
+            ].map(([cx, cy], idx) => (
+              <circle
+                key={idx}
+                cx={cx}
+                cy={cy}
+                r="4.2"
+                fill="#b8bec7"
+                stroke="#6b717a"
+                strokeWidth="1"
+              />
+            ))}
+
+            {/* Top "game.com" Header */}
+            <text
+              x="160"
+              y="34"
+              textAnchor="middle"
+              fill="#1e2229"
+              fontFamily="monospace"
+              fontWeight="900"
+              fontSize="14"
+              letterSpacing="-0.5"
+            >
+              game<tspan fill="#be123c">.</tspan>com
+            </text>
+
+            {/* 4-Polygon 3D Sunken Chamfered Screen Frame (outer 48..272, 38..214 -> inner 60..260, 44..204) */}
+            <polygon points="48,38 272,38 260,44 60,44" fill="#828891" />
+            <polygon points="48,38 60,44 60,204 48,212" fill="#969ca5" />
+            <polygon points="272,38 272,212 260,204 260,44" fill="#b4bac3" />
+            <polygon points="60,204 260,204 272,212 48,212" fill="#d3d7dc" />
+            <rect
+              x="58"
+              y="42"
+              width="204"
+              height="164"
+              rx="3"
+              fill="#181b20"
+              stroke="#454a54"
+              strokeWidth="1.5"
+            />
+
+            {/* Bottom of Silver Shield: Speaker Dots + "TIGER" */}
+            <text
+              x="160"
+              y="229"
+              textAnchor="middle"
+              fill="#2c313a"
+              fontFamily="sans-serif"
+              fontWeight="900"
+              fontSize="9.5"
+              letterSpacing="3"
+            >
+              TIGER
+            </text>
+
+            {/* Recessed Circular D-Pad Well (Left: cx=86, cy=338, r=54) */}
+            <circle
+              cx="86"
+              cy="338"
+              r="54"
+              fill="url(#vp-well)"
+              stroke="#333842"
+              strokeWidth="1.5"
+            />
+
+            {/* Two Angled Pill Recesses for [A, B] & [C, D] (Right: matching 1997 Original style) */}
+            <g transform="rotate(-15 232 314)">
+              <rect
+                x="182"
+                y="290"
+                width="100"
+                height="48"
+                rx="24"
+                fill="url(#vp-well)"
+                stroke="#333842"
+                strokeWidth="1.5"
+              />
+            </g>
+            <g transform="rotate(-15 240 368)">
+              <rect
+                x="190"
+                y="344"
+                width="100"
+                height="48"
+                rx="24"
+                fill="url(#vp-well)"
+                stroke="#333842"
+                strokeWidth="1.5"
+              />
+            </g>
+
+            {/* Center/Bottom System Pill Labels */}
+            <text x="58" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+              ON/OFF
+            </text>
+            <text x="118" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+              MENU
+            </text>
+            <text x="168" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+              SOUND
+            </text>
+            <text x="218" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+              PAUSE
+            </text>
+            <text x="268" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+              LIGHT
+            </text>
+
+            {/* Bottom Speaker Grille Slots */}
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+              <rect
+                key={i}
+                x={112 + i * 15}
+                y="478"
+                width="6"
+                height="12"
+                rx="3"
+                fill="#0e1014"
+              />
+            ))}
+          </svg>
+
+          {/* LCD Screen at exact (60, 44) -> (200x160) in 320x510 space */}
+          <div
+            style={{
+              left: `${(60 / 320) * 100}%`,
+              top: `${(44 / 510) * 100}%`,
+              width: `${(200 / 320) * 100}%`,
+              height: `${(160 / 510) * 100}%`
+            }}
+            className="absolute overflow-hidden flex items-center justify-center"
+          >
+            <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
+          </div>
+
+          {/* Interactive 8-Way D-Pad at (cx=86, cy=338, r=48) */}
           <div
             ref={dpadRef}
             onPointerDown={handleDpadPointerDown}
@@ -853,60 +402,940 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onPointerUp={handleDpadPointerUp}
             onPointerCancel={handleDpadPointerUp}
             onLostPointerCapture={handleDpadPointerUp}
-            className="relative w-28 h-28 rounded-full bg-zinc-800 border-2 border-zinc-700 touch-none cursor-pointer select-none"
+            style={{
+              left: `${((86 - 48) / 320) * 100}%`,
+              top: `${((338 - 48) / 510) * 100}%`,
+              width: `${(96 / 320) * 100}%`,
+              height: `${(96 / 510) * 100}%`
+            }}
+            className="absolute rounded-full bg-gradient-to-b from-[#343942] via-[#22262c] to-[#15181c] border border-black shadow-[0_4px_10px_rgba(0,0,0,0.75)] touch-none cursor-pointer"
+            aria-label="Directional Pad"
           >
-            <div className="absolute left-1/3 right-1/3 top-2 bottom-2 bg-zinc-700 rounded" />
-            <div className="absolute top-1/3 bottom-1/3 left-2 right-2 bg-zinc-700 rounded" />
+            <div
+              className={`absolute left-[34%] right-[34%] top-[10%] bottom-[10%] rounded-sm bg-[#2c313a] border border-white/10 ${
+                activeButtons.up
+                  ? '-translate-y-[3%] bg-[#434a57]'
+                  : activeButtons.down
+                  ? 'translate-y-[3%] bg-[#434a57]'
+                  : ''
+              }`}
+            />
+            <div
+              className={`absolute top-[34%] bottom-[34%] left-[10%] right-[10%] rounded-sm bg-[#2c313a] border border-white/10 ${
+                activeButtons.left
+                  ? '-translate-x-[3%] bg-[#434a57]'
+                  : activeButtons.right
+                  ? 'translate-x-[3%] bg-[#434a57]'
+                  : ''
+              }`}
+            />
+            <div className="absolute inset-[37%] rounded-full bg-[#1c1f25] shadow-inner pointer-events-none" />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-2">
-              {(['a', 'b', 'c', 'd'] as const).map((btn) => (
-                <button
-                  key={btn}
-                  type="button"
-                  {...bindButtonPointer(btn)}
-                  className="w-11 h-11 rounded-full bg-[#7a1f5c] hover:bg-[#8e266c] text-white font-bold text-xs uppercase cursor-pointer touch-none"
-                >
-                  {btn}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 pt-1">
-              <button
-                type="button"
-                {...bindButtonPointer('menu')}
-                className="px-2 py-1 rounded bg-zinc-700 text-white text-[10px] flex items-center gap-1 cursor-pointer"
-              >
-                <Menu className="w-3 h-3" /> Menu
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  system.soundToggle();
-                  onStateChange?.();
-                }}
-                className="px-2 py-1 rounded bg-zinc-700 text-white text-[10px] flex items-center gap-1 cursor-pointer"
-              >
-                {system.settings.muted ? (
-                  <VolumeX className="w-3 h-3" />
-                ) : (
-                  <Volume2 className="w-3 h-3" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  system.pauseToggle();
-                  onStateChange?.();
-                }}
-                className="px-2 py-1 rounded bg-zinc-700 text-white text-[10px] flex items-center gap-1 cursor-pointer"
-              >
-                <Pause className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
+          {/* Interactive A, B, C, D Action Buttons */}
+          {(
+            [
+              { id: 'a', cx: 209, cy: 320 },
+              { id: 'b', cx: 255, cy: 308 },
+              { id: 'c', cx: 217, cy: 374 },
+              { id: 'd', cx: 263, cy: 362 }
+            ] as const
+          ).map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              {...bindButtonPointer(b.id)}
+              style={{
+                left: `${((b.cx - 19) / 320) * 100}%`,
+                top: `${((b.cy - 19) / 510) * 100}%`,
+                width: `${(38 / 320) * 100}%`,
+                height: `${(38 / 510) * 100}%`,
+                fontSize: `${Math.max(10, Math.round(13 * S))}px`
+              }}
+              className={`absolute rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
+                activeButtons[b.id]
+                  ? 'scale-92 bg-[#111317] text-amber-300 border-black shadow-inner'
+                  : 'bg-gradient-to-b from-[#3b404a] via-[#252930] to-[#16181d] text-zinc-100 border-black shadow-[0_3px_6px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.25)]'
+              }`}
+              aria-label={`Button ${b.id.toUpperCase()}`}
+            >
+              {b.id.toUpperCase()}
+            </button>
+          ))}
+
+          {/* Accessible Bottom System Pill Row: ON/OFF, MENU, SOUND, PAUSE, LIGHT */}
+          <button
+            type="button"
+            onClick={() => {
+              system.powerToggle();
+              onStateChange?.();
+            }}
+            style={{
+              left: `${(38 / 320) * 100}%`,
+              top: `${(442 / 510) * 100}%`,
+              width: `${(40 / 320) * 100}%`,
+              height: `${(16 / 510) * 100}%`
+            }}
+            className={`absolute rounded-full border cursor-pointer active:scale-95 ${
+              system.isPoweredOn
+                ? 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#1e3a8a]'
+                : 'bg-gradient-to-b from-[#374151] to-[#1f2937] border-black'
+            }`}
+            title="ON/OFF Power"
+            aria-label="ON/OFF Power"
+          />
+
+          <button
+            type="button"
+            {...bindButtonPointer('menu')}
+            style={{
+              left: `${(98 / 320) * 100}%`,
+              top: `${(442 / 510) * 100}%`,
+              width: `${(40 / 320) * 100}%`,
+              height: `${(16 / 510) * 100}%`
+            }}
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer touch-none"
+            title="MENU"
+            aria-label="MENU"
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              system.soundToggle();
+              onStateChange?.();
+            }}
+            style={{
+              left: `${(148 / 320) * 100}%`,
+              top: `${(442 / 510) * 100}%`,
+              width: `${(40 / 320) * 100}%`,
+              height: `${(16 / 510) * 100}%`
+            }}
+            className={`absolute rounded-full border active:scale-95 cursor-pointer ${
+              system.settings.muted
+                ? 'bg-[#be123c] border-[#881337]'
+                : 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#172554]'
+            }`}
+            title="SOUND"
+            aria-label="SOUND"
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              system.pauseToggle();
+              onStateChange?.();
+            }}
+            style={{
+              left: `${(198 / 320) * 100}%`,
+              top: `${(442 / 510) * 100}%`,
+              width: `${(40 / 320) * 100}%`,
+              height: `${(16 / 510) * 100}%`
+            }}
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer"
+            title="PAUSE"
+            aria-label="PAUSE"
+          />
+
+          <button
+            type="button"
+            onClick={toggleBacklight}
+            style={{
+              left: `${(248 / 320) * 100}%`,
+              top: `${(442 / 510) * 100}%`,
+              width: `${(40 / 320) * 100}%`,
+              height: `${(16 / 510) * 100}%`
+            }}
+            className={`absolute rounded-full border active:scale-95 cursor-pointer ${
+              isBacklightActive
+                ? 'bg-gradient-to-b from-[#10b981] to-[#059669] border-[#064e3b]'
+                : 'bg-gradient-to-b from-[#06b6d4] to-[#0891b2] border-[#155e75]'
+            }`}
+            title="Toggle Backlight"
+            aria-label="LIGHT"
+          />
         </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // LAYOUT A: 1997 ORIGINAL GAME.COM (#71-500 — Exact Match to original.gif)
+  // Canonical 1x space: 560 x 320, LCD (200x160) at (180, 48)
+  // ============================================================================
+  if (model === 'original') {
+    return (
+      <div className="flex items-center justify-center overflow-hidden max-w-full max-h-full select-none">
+        <div
+          style={{ width: totalW, height: totalH }}
+          className="relative shrink-0 select-none"
+        >
+          {/* Precision 1997 Original Game.Com SVG Shell */}
+          <svg
+            viewBox="0 0 560 320"
+            className="w-full h-full drop-shadow-[0_20px_45px_rgba(0,0,0,0.8)] pointer-events-none"
+          >
+            <defs>
+              <linearGradient id="orig-body" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#32363e" />
+                <stop offset="50%" stopColor="#21242a" />
+                <stop offset="100%" stopColor="#14161a" />
+              </linearGradient>
+              <linearGradient id="orig-silver" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#e2e5e9" />
+                <stop offset="55%" stopColor="#c9ced4" />
+                <stop offset="100%" stopColor="#aeb4bc" />
+              </linearGradient>
+              <radialGradient id="orig-well" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#15181d" />
+                <stop offset="85%" stopColor="#252932" />
+                <stop offset="100%" stopColor="#7c828b" />
+              </radialGradient>
+            </defs>
+
+            {/* Outer Wide Charcoal Handheld Body */}
+            <path
+              d="M 42 8 Q 280 0 518 8 A 34 34 0 0 1 552 42 V 278 A 34 34 0 0 1 518 312 H 42 A 34 34 0 0 1 8 278 V 42 A 34 34 0 0 1 42 8 Z"
+              fill="url(#orig-body)"
+              stroke="#454a54"
+              strokeWidth="2.5"
+            />
+
+            {/* Single Wide Brushed Silver Metallic Upper Faceplate with Curved Bottom Seam */}
+            <path
+              d="M 46 14 Q 280 7 514 14 A 24 24 0 0 1 536 38 V 214 Q 536 232 512 235 L 395 242 H 165 L 48 235 Q 24 232 24 214 V 38 A 24 24 0 0 1 46 14 Z"
+              fill="url(#orig-silver)"
+              stroke="#7a8088"
+              strokeWidth="2"
+            />
+
+            {/* Top "game.com" Stencil Wordmark */}
+            <text
+              x="280"
+              y="29"
+              textAnchor="middle"
+              fill="#1d2128"
+              fontFamily="monospace"
+              fontWeight="900"
+              fontSize="16"
+              letterSpacing="-0.5"
+            >
+              game<tspan fill="#be123c">.</tspan>com
+            </text>
+
+            {/* Deep 4-Polygon Trapezoidal Chamfered Screen Inset (outer 154..406, 34..222 -> inner 180..380, 48..208) */}
+            <polygon points="154,34 406,34 380,48 180,48" fill="#8d939c" />
+            <polygon points="154,34 180,48 180,208 154,222" fill="#a2a8b0" />
+            <polygon points="406,34 406,222 380,208 380,48" fill="#eaedf0" />
+            <polygon points="180,208 380,208 406,222 154,222" fill="#b4bac2" />
+            <rect
+              x="178"
+              y="46"
+              width="204"
+              height="164"
+              rx="2"
+              fill="#181b20"
+              stroke="#333840"
+              strokeWidth="1.5"
+            />
+
+            {/* Bottom "TIGER" Wordmark below screen bevel */}
+            <text
+              x="280"
+              y="235"
+              textAnchor="middle"
+              fill="#262a32"
+              fontFamily="sans-serif"
+              fontWeight="900"
+              fontSize="9"
+              letterSpacing="2.5"
+            >
+              TIGER
+            </text>
+
+            {/* Top-Left Parallelogram 5x8 Speaker Dot Matrix */}
+            {Array.from({ length: 5 }).map((_, row) =>
+              Array.from({ length: 8 }).map((__, col) => (
+                <circle
+                  key={`${row}-${col}`}
+                  cx={52 + col * 10.5}
+                  cy={38 + row * 7.5 + col * 1.4}
+                  r="2.1"
+                  fill="#23272f"
+                />
+              ))
+            )}
+
+            {/* Bottom-Left Circular Recessed D-Pad Bezel Well (cx=94, cy=154, r=50) */}
+            <circle
+              cx="94"
+              cy="154"
+              r="50"
+              fill="url(#orig-well)"
+              stroke="#686e77"
+              strokeWidth="1.5"
+            />
+
+            {/* Top-Right Round ON/OFF Bezel Ring + Label */}
+            <circle
+              cx="438"
+              cy="52"
+              r="13"
+              fill="#1f242d"
+              stroke="#686e77"
+              strokeWidth="1.5"
+            />
+            <text
+              x="457"
+              y="55"
+              fill="#2c313a"
+              fontFamily="sans-serif"
+              fontWeight="800"
+              fontSize="7.5"
+              letterSpacing="0.8"
+            >
+              ON/OFF
+            </text>
+
+            {/* Middle-Right Two Angled (-16deg) Stadium Wells for [A, B] and [C, D] */}
+            <g transform="rotate(-16 462 114)">
+              <rect
+                x="412"
+                y="91"
+                width="100"
+                height="46"
+                rx="23"
+                fill="#afb5bd"
+                stroke="#6e747d"
+                strokeWidth="1.8"
+              />
+            </g>
+            <g transform="rotate(-16 470 166)">
+              <rect
+                x="420"
+                y="143"
+                width="100"
+                height="46"
+                rx="23"
+                fill="#afb5bd"
+                stroke="#6e747d"
+                strokeWidth="1.8"
+              />
+            </g>
+
+            {/* Bottom-Right Labels for [MENU] [SOUND] [PAUSE] along the silver seam */}
+            <g transform="rotate(-4 472 222)">
+              <text x="431" y="216" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+                MENU
+              </text>
+              <text x="470" y="216" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+                SOUND
+              </text>
+              <text x="509" y="216" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+                PAUSE
+              </text>
+            </g>
+
+            {/* Lower Charcoal Grip Dock & Horizontal Recessed Tiger Stylus */}
+            <rect
+              x="112"
+              y="262"
+              width="336"
+              height="26"
+              rx="13"
+              fill="#111317"
+              stroke="#2d323b"
+              strokeWidth="1.5"
+            />
+            {/* Stylus Pen Body */}
+            <path
+              d="M 122 275 L 154 267 H 418 A 6 6 0 0 1 424 273 V 277 A 6 6 0 0 1 418 283 H 154 Z"
+              fill="#252930"
+              stroke="#0c0e11"
+              strokeWidth="1.2"
+            />
+            <rect x="228" y="268" width="42" height="14" rx="2" fill="#323741" />
+            <text
+              x="312"
+              y="278"
+              fill="#d4d8de"
+              fontFamily="sans-serif"
+              fontWeight="900"
+              fontSize="7.5"
+              letterSpacing="2"
+            >
+              TIGER
+            </text>
+          </svg>
+
+          {/* LCD Screen at exact (180, 48) -> (200x160) in 560x320 space */}
+          <div
+            style={{
+              left: `${(180 / 560) * 100}%`,
+              top: `${(48 / 320) * 100}%`,
+              width: `${(200 / 560) * 100}%`,
+              height: `${(160 / 320) * 100}%`
+            }}
+            className="absolute overflow-hidden flex items-center justify-center"
+          >
+            <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
+          </div>
+
+          {/* Interactive 8-Way D-Pad Disc at (cx=94, cy=154, r=44) */}
+          <div
+            ref={dpadRef}
+            onPointerDown={handleDpadPointerDown}
+            onPointerMove={handleDpadPointerMove}
+            onPointerUp={handleDpadPointerUp}
+            onPointerCancel={handleDpadPointerUp}
+            onLostPointerCapture={handleDpadPointerUp}
+            style={{
+              left: `${((94 - 44) / 560) * 100}%`,
+              top: `${((154 - 44) / 320) * 100}%`,
+              width: `${(88 / 560) * 100}%`,
+              height: `${(88 / 320) * 100}%`
+            }}
+            className="absolute rounded-full bg-gradient-to-b from-[#2f333b] via-[#1c1f24] to-[#101215] border border-black shadow-[0_4px_8px_rgba(0,0,0,0.75)] touch-none cursor-pointer"
+            aria-label="Directional Pad"
+          >
+            <div
+              className={`absolute left-[34%] right-[34%] top-[10%] bottom-[10%] rounded-sm bg-[#272b33] border border-white/10 ${
+                activeButtons.up
+                  ? '-translate-y-[3%] bg-[#3e4450]'
+                  : activeButtons.down
+                  ? 'translate-y-[3%] bg-[#3e4450]'
+                  : ''
+              }`}
+            />
+            <div
+              className={`absolute top-[34%] bottom-[34%] left-[10%] right-[10%] rounded-sm bg-[#272b33] border border-white/10 ${
+                activeButtons.left
+                  ? '-translate-x-[3%] bg-[#3e4450]'
+                  : activeButtons.right
+                  ? 'translate-x-[3%] bg-[#3e4450]'
+                  : ''
+              }`}
+            />
+            <div className="absolute inset-[36%] rounded-full bg-[#16191e] shadow-inner pointer-events-none" />
+          </div>
+
+          {/* Interactive Round Blue ON/OFF Button at (cx=438, cy=52, r=9.5) */}
+          <button
+            type="button"
+            onClick={() => {
+              system.powerToggle();
+              onStateChange?.();
+            }}
+            style={{
+              left: `${((438 - 9.5) / 560) * 100}%`,
+              top: `${((52 - 9.5) / 320) * 100}%`,
+              width: `${(19 / 560) * 100}%`,
+              height: `${(19 / 320) * 100}%`
+            }}
+            className={`absolute rounded-full border transition-transform active:scale-90 cursor-pointer ${
+              system.isPoweredOn
+                ? 'bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] border-[#1e3a8a]'
+                : 'bg-gradient-to-b from-[#1e40af] to-[#172554] border-black'
+            }`}
+            title={system.isPoweredOn ? 'ON/OFF (Power Off)' : 'ON/OFF (Power On)'}
+            aria-label="ON/OFF Power Button"
+          />
+
+          {/* Interactive Angled A, B, C, D Action Buttons */}
+          {(
+            [
+              { id: 'a', cx: 439, cy: 121 },
+              { id: 'b', cx: 485, cy: 107 },
+              { id: 'c', cx: 447, cy: 173 },
+              { id: 'd', cx: 493, cy: 159 }
+            ] as const
+          ).map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              {...bindButtonPointer(b.id)}
+              style={{
+                left: `${((b.cx - 18) / 560) * 100}%`,
+                top: `${((b.cy - 18) / 320) * 100}%`,
+                width: `${(36 / 560) * 100}%`,
+                height: `${(36 / 320) * 100}%`,
+                fontSize: `${Math.max(9, Math.round(12 * S))}px`
+              }}
+              className={`absolute rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
+                activeButtons[b.id]
+                  ? 'scale-92 bg-[#111317] text-amber-300 border-black shadow-inner'
+                  : 'bg-gradient-to-b from-[#363b44] via-[#22252b] to-[#121418] text-zinc-100 border-black shadow-[0_3px_5px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.28)]'
+              }`}
+              aria-label={`Button ${b.id.toUpperCase()}`}
+            >
+              {b.id.toUpperCase()}
+            </button>
+          ))}
+
+          {/* Interactive Bottom-Right Blue Pill Buttons: [MENU] [SOUND] [PAUSE] */}
+          <button
+            type="button"
+            {...bindButtonPointer('menu')}
+            style={{
+              left: `${(414 / 560) * 100}%`,
+              top: `${(221 / 320) * 100}%`,
+              width: `${(34 / 560) * 100}%`,
+              height: `${(11 / 320) * 100}%`
+            }}
+            className="absolute -rotate-4 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] shadow active:scale-95 cursor-pointer touch-none"
+            title="MENU (Enter)"
+            aria-label="MENU Button"
+          />
+
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              bindButtonPointer('sound').onPointerDown(e);
+              system.soundToggle();
+              onStateChange?.();
+            }}
+            onPointerUp={bindButtonPointer('sound').onPointerUp}
+            onPointerCancel={bindButtonPointer('sound').onPointerCancel}
+            onLostPointerCapture={bindButtonPointer('sound').onLostPointerCapture}
+            style={{
+              left: `${(453 / 560) * 100}%`,
+              top: `${(219 / 320) * 100}%`,
+              width: `${(34 / 560) * 100}%`,
+              height: `${(11 / 320) * 100}%`
+            }}
+            className="absolute -rotate-4 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] shadow active:scale-95 cursor-pointer touch-none"
+            title="SOUND (Mute / Unmute)"
+            aria-label="SOUND Button"
+          />
+
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              bindButtonPointer('pause').onPointerDown(e);
+              system.pauseToggle();
+              onStateChange?.();
+            }}
+            onPointerUp={bindButtonPointer('pause').onPointerUp}
+            onPointerCancel={bindButtonPointer('pause').onPointerCancel}
+            onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
+            style={{
+              left: `${(492 / 560) * 100}%`,
+              top: `${(217 / 320) * 100}%`,
+              width: `${(34 / 560) * 100}%`,
+              height: `${(11 / 320) * 100}%`
+            }}
+            className="absolute -rotate-4 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] shadow active:scale-95 cursor-pointer touch-none"
+            title="PAUSE (Space)"
+            aria-label="PAUSE Button"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // LAYOUT B: 1998/1999 GAME.COM POCKET PRO (#71-510 & #71-520 Backlit)
+  // Exact match to pocketpro.gif & pocketprobl.gif:
+  // - Single continuous T-shaped winged silver metallic shield (NO gaps!)
+  // - Contoured ergonomic outer shell with flared lower grip lobes
+  // - 4 angled speaker slots on left wing, 4 silver screw bosses
+  // - Stacked angled [ON/OFF], [MENU], [PAUSE] on right silver wing
+  // - Lower-left circular cross D-Pad & lower-right circular 2x2 [A B / C D] well
+  // - #71-520 Backlit model includes the teal arched [LIGHT] button on the chin!
+  // Canonical 1x space: 500 x 300, LCD (200x160) at (150, 48)
+  // ============================================================================
+  const isBacklitModel = model === 'pocketpro_backlit';
+
+  const paletteMap: Record<
+    string,
+    {
+      cTop: string;
+      cMid: string;
+      cBot: string;
+      stroke: string;
+      wellFill: string;
+      btnTop: string;
+      btnBot: string;
+      btnBorder: string;
+    }
+  > = {
+    pocketpro_backlit: {
+      cTop: '#2e323a',
+      cMid: '#21242a',
+      cBot: '#15171c',
+      stroke: '#434853',
+      wellFill: '#16181d',
+      btnTop: '#06b6d4',
+      btnBot: '#0891b2',
+      btnBorder: '#164e63'
+    },
+    pocketpro_purple: {
+      cTop: '#5b2a86',
+      cMid: '#431d66',
+      cBot: '#2b1045',
+      stroke: '#7c3aed',
+      wellFill: '#240d3a',
+      btnTop: '#a78bfa',
+      btnBot: '#7c3aed',
+      btnBorder: '#4c1d95'
+    },
+    pocketpro_green: {
+      cTop: '#0f6852',
+      cMid: '#0a4e3d',
+      cBot: '#053328',
+      stroke: '#10b981',
+      wellFill: '#04281f',
+      btnTop: '#34d399',
+      btnBot: '#059669',
+      btnBorder: '#064e3b'
+    },
+    pocketpro_blue: {
+      cTop: '#1e469c',
+      cMid: '#173679',
+      cBot: '#0f2352',
+      stroke: '#3b82f6',
+      wellFill: '#0c1b40',
+      btnTop: '#60a5fa',
+      btnBot: '#2563eb',
+      btnBorder: '#1e3a8a'
+    },
+    pocketpro_pink: {
+      cTop: '#9d174d',
+      cMid: '#7c133d',
+      cBot: '#500724',
+      stroke: '#f472b6',
+      wellFill: '#3b051a',
+      btnTop: '#f472b6',
+      btnBot: '#db2777',
+      btnBorder: '#831843'
+    }
+  };
+
+  const p = paletteMap[model] || paletteMap.pocketpro_purple;
+
+  return (
+    <div className="flex items-center justify-center overflow-hidden max-w-full max-h-full select-none">
+      <div
+        style={{ width: totalW, height: totalH }}
+        className="relative shrink-0 select-none"
+      >
+        {/* Precision Pocket Pro SVG Hardware Shell */}
+        <svg
+          viewBox="0 0 500 300"
+          className="w-full h-full drop-shadow-[0_20px_45px_rgba(0,0,0,0.8)] pointer-events-none"
+        >
+          <defs>
+            <linearGradient id="pp-body" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={p.cTop} />
+              <stop offset="55%" stopColor={p.cMid} />
+              <stop offset="100%" stopColor={p.cBot} />
+            </linearGradient>
+            <linearGradient id="pp-silver" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#e1e4e8" />
+              <stop offset="50%" stopColor="#c6cbd2" />
+              <stop offset="100%" stopColor="#aab0b8" />
+            </linearGradient>
+          </defs>
+
+          {/* Contoured Pocket Pro Outer Shell with Arched Top & Flared Lower Grip Lobes */}
+          <path
+            d="M 54 14 Q 250 2 446 14 C 474 16 490 42 492 92 L 496 205 C 497 258 468 292 420 292 C 388 292 372 284 352 284 H 148 C 128 284 112 292 80 292 C 32 292 3 258 4 205 L 8 92 C 10 42 26 16 54 14 Z"
+            fill="url(#pp-body)"
+            stroke={p.stroke}
+            strokeWidth="2.2"
+          />
+
+          {/* ONE-PIECE Continuous T-Shaped Winged Silver Metallic Shield (Exact match to pocketpro.gif) */}
+          <path
+            d="M 56 18 Q 250 8 444 18 A 22 22 0 0 1 466 38 L 470 112 A 14 14 0 0 1 456 126 H 398 A 22 22 0 0 0 376 148 V 248 A 28 28 0 0 1 348 276 H 152 A 28 28 0 0 1 124 248 V 148 A 22 22 0 0 0 102 126 H 44 A 14 14 0 0 1 30 112 L 34 38 A 22 22 0 0 1 56 18 Z"
+            fill="url(#pp-silver)"
+            stroke="#7d838b"
+            strokeWidth="2"
+          />
+
+          {/* 4 Recessed Metallic Screw Bosses on the Silver Shield */}
+          {[
+            [52, 34],
+            [448, 34],
+            [148, 252],
+            [352, 252]
+          ].map(([cx, cy], idx) => (
+            <g key={idx}>
+              <circle cx={cx} cy={cy} r="5.5" fill="#9fa5ae" stroke="#6c727a" strokeWidth="1" />
+              <circle cx={cx} cy={cy} r="3.2" fill="#cfd3d9" />
+            </g>
+          ))}
+
+          {/* Top "TIGER" Logo on the Silver Shield Arch */}
+          <text
+            x="250"
+            y="26"
+            textAnchor="middle"
+            fill="#1e2228"
+            fontFamily="sans-serif"
+            fontWeight="900"
+            fontSize="9.5"
+            letterSpacing="2.5"
+          >
+            TIGER
+          </text>
+
+          {/* Left Wing: 4 Angled Horizontal Speaker Slots */}
+          <g transform="rotate(10 78 76)">
+            {[0, 1, 2, 3].map((i) => (
+              <rect
+                key={i}
+                x="54"
+                y={54 + i * 11}
+                width="46"
+                height="5"
+                rx="2.5"
+                fill="#22262e"
+              />
+            ))}
+          </g>
+
+          {/* Center 4-Polygon 3D Sunken Chamfered Screen Inset (outer 130..370, 32..224 -> inner 150..350, 48..208) */}
+          <polygon points="130,32 370,32 350,48 150,48" fill="#8d939c" />
+          <polygon points="130,32 150,48 150,208 130,224" fill="#9fa5ae" />
+          <polygon points="370,32 370,224 350,208 350,48" fill="#e6e9ed" />
+          <polygon points="150,208 350,208 370,224 130,224" fill="#b7bdc5" />
+          <rect
+            x="148"
+            y="46"
+            width="204"
+            height="164"
+            rx="3"
+            fill={isBacklightActive ? '#092e20' : '#181b20'}
+            stroke="#363b44"
+            strokeWidth="1.5"
+          />
+
+          {/* Embossed "game.com POCKET PRO" on the Silver Chin */}
+          <text
+            x="250"
+            y="244"
+            textAnchor="middle"
+            fill="#7a8089"
+            fontFamily="monospace"
+            fontWeight="900"
+            fontSize="15"
+            letterSpacing="-0.5"
+          >
+            game.com
+          </text>
+          <text
+            x="250"
+            y="256"
+            textAnchor="middle"
+            fill="#7a8089"
+            fontFamily="sans-serif"
+            fontWeight="800"
+            fontSize="7.5"
+            letterSpacing="2.5"
+          >
+            POCKET PRO
+          </text>
+
+          {/* Right Silver Wing Labels for ON/OFF, MENU, PAUSE (angled -14deg) */}
+          <g transform="rotate(-14 422 50)">
+            <text x="416" y="38" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              ON/OFF
+            </text>
+          </g>
+          <g transform="rotate(-14 426 84)">
+            <text x="426" y="75" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              MENU
+            </text>
+          </g>
+          <g transform="rotate(-14 430 112)">
+            <text x="430" y="103" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              PAUSE
+            </text>
+          </g>
+
+          {/* Lower-Left Grip Circular D-Pad Well (cx=76, cy=196, r=52) */}
+          <circle
+            cx="76"
+            cy="196"
+            r="52"
+            fill={p.wellFill}
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1.5"
+          />
+
+          {/* Lower-Right Grip Circular 2x2 Action Button Well (cx=424, cy=196, r=52) */}
+          <circle
+            cx="424"
+            cy="196"
+            r="52"
+            fill={p.wellFill}
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1.5"
+          />
+        </svg>
+
+        {/* LCD Screen at exact (150, 48) -> (200x160) in 500x300 space */}
+        <div
+          style={{
+            left: `${(150 / 500) * 100}%`,
+            top: `${(48 / 300) * 100}%`,
+            width: `${(200 / 500) * 100}%`,
+            height: `${(160 / 300) * 100}%`
+          }}
+          className="absolute overflow-hidden flex items-center justify-center"
+        >
+          <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
+        </div>
+
+        {/* Interactive Cross D-Pad at (cx=76, cy=196, r=45) */}
+        <div
+          ref={dpadRef}
+          onPointerDown={handleDpadPointerDown}
+          onPointerMove={handleDpadPointerMove}
+          onPointerUp={handleDpadPointerUp}
+          onPointerCancel={handleDpadPointerUp}
+          onLostPointerCapture={handleDpadPointerUp}
+          style={{
+            left: `${((76 - 45) / 500) * 100}%`,
+            top: `${((196 - 45) / 300) * 100}%`,
+            width: `${(90 / 500) * 100}%`,
+            height: `${(90 / 300) * 100}%`
+          }}
+          className="absolute rounded-full bg-gradient-to-b from-[#494e58] via-[#343840] to-[#23262c] border border-black shadow-[0_4px_8px_rgba(0,0,0,0.75)] touch-none cursor-pointer"
+          aria-label="Pocket Pro Directional Pad"
+        >
+          <div
+            className={`absolute left-[33%] right-[33%] top-[9%] bottom-[9%] rounded-sm bg-[#3d424b] border border-white/10 ${
+              activeButtons.up
+                ? '-translate-y-[3%] bg-[#555c69]'
+                : activeButtons.down
+                ? 'translate-y-[3%] bg-[#555c69]'
+                : ''
+            }`}
+          />
+          <div
+            className={`absolute top-[33%] bottom-[33%] left-[9%] right-[9%] rounded-sm bg-[#3d424b] border border-white/10 ${
+              activeButtons.left
+                ? '-translate-x-[3%] bg-[#555c69]'
+                : activeButtons.right
+                ? 'translate-x-[3%] bg-[#555c69]'
+                : ''
+            }`}
+          />
+          <div className="absolute inset-[36%] rounded-full bg-[#2b2f37] shadow-inner pointer-events-none" />
+        </div>
+
+        {/* Right Wing Stacked Buttons: Round ON/OFF, Angled Oval MENU, Angled Oval PAUSE */}
+        <button
+          type="button"
+          onClick={() => {
+            system.powerToggle();
+            onStateChange?.();
+          }}
+          style={{
+            left: `${((418 - 10) / 500) * 100}%`,
+            top: `${((52 - 10) / 300) * 100}%`,
+            width: `${(20 / 500) * 100}%`,
+            height: `${(20 / 300) * 100}%`,
+            background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
+            borderColor: p.btnBorder
+          }}
+          className="absolute rounded-full border shadow active:scale-90 transition-transform cursor-pointer"
+          title={system.isPoweredOn ? 'ON/OFF (Power Off)' : 'ON/OFF (Power On)'}
+          aria-label="ON/OFF Power Button"
+        />
+
+        <button
+          type="button"
+          {...bindButtonPointer('menu')}
+          style={{
+            left: `${((426 - 19) / 500) * 100}%`,
+            top: `${((84 - 6) / 300) * 100}%`,
+            width: `${(38 / 500) * 100}%`,
+            height: `${(12 / 300) * 100}%`,
+            background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
+            borderColor: p.btnBorder
+          }}
+          className="absolute -rotate-14 rounded-full border shadow active:scale-95 transition-transform cursor-pointer touch-none"
+          title="MENU (Enter)"
+          aria-label="MENU Button"
+        />
+
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            bindButtonPointer('pause').onPointerDown(e);
+            system.pauseToggle();
+            onStateChange?.();
+          }}
+          onPointerUp={bindButtonPointer('pause').onPointerUp}
+          onPointerCancel={bindButtonPointer('pause').onPointerCancel}
+          onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
+          style={{
+            left: `${((430 - 19) / 500) * 100}%`,
+            top: `${((112 - 6) / 300) * 100}%`,
+            width: `${(38 / 500) * 100}%`,
+            height: `${(12 / 300) * 100}%`,
+            background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
+            borderColor: p.btnBorder
+          }}
+          className="absolute -rotate-14 rounded-full border shadow active:scale-95 transition-transform cursor-pointer touch-none"
+          title="PAUSE (Space)"
+          aria-label="PAUSE Button"
+        />
+
+        {/* Interactive 2x2 [A, B / C, D] Round Buttons inside Lower-Right Grip Well (cx=424, cy=196) */}
+        {(
+          [
+            { id: 'a', cx: 403, cy: 175 },
+            { id: 'b', cx: 445, cy: 175 },
+            { id: 'c', cx: 403, cy: 217 },
+            { id: 'd', cx: 445, cy: 217 }
+          ] as const
+        ).map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            {...bindButtonPointer(b.id)}
+            style={{
+              left: `${((b.cx - 17) / 500) * 100}%`,
+              top: `${((b.cy - 17) / 300) * 100}%`,
+              width: `${(34 / 500) * 100}%`,
+              height: `${(34 / 300) * 100}%`,
+              fontSize: `${Math.max(9, Math.round(12 * S))}px`
+            }}
+            className={`absolute rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
+              activeButtons[b.id]
+                ? 'scale-92 bg-[#1c1f24] text-amber-300 border-black shadow-inner'
+                : 'bg-gradient-to-b from-[#555b68] via-[#3c414b] to-[#252830] text-zinc-100 border-black shadow-[0_3px_5px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.28)]'
+            }`}
+            aria-label={`Button ${b.id.toUpperCase()}`}
+          >
+            {b.id.toUpperCase()}
+          </button>
+        ))}
+
+        {/* #71-520 Backlit Model Signature Teal Arched "LIGHT" Button on Silver Chin */}
+        {isBacklitModel && (
+          <button
+            type="button"
+            onClick={toggleBacklight}
+            style={{
+              left: `${(202 / 500) * 100}%`,
+              top: `${(260 / 300) * 100}%`,
+              width: `${(96 / 500) * 100}%`,
+              height: `${(16 / 300) * 100}%`,
+              fontSize: `${Math.max(7, Math.round(8.5 * S))}px`,
+              background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
+              borderColor: p.btnBorder
+            }}
+            className="absolute rounded-t-full rounded-b-sm border text-white font-black tracking-widest uppercase flex items-center justify-center shadow active:scale-95 cursor-pointer"
+            title="Toggle Pocket Pro Backlight (#71-520)"
+          >
+            LIGHT
+          </button>
+        )}
       </div>
     </div>
   );

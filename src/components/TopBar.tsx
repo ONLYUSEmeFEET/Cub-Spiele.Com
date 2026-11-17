@@ -934,6 +934,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    system.setTouchOrientation('horizontal');
                     if (system.settings.consoleModel === 'minimal') {
                       system.setConsoleModel('original');
                     } else {
@@ -942,28 +943,33 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onUpdate();
                   }}
                   className={`px-2 py-1.5 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer ${
-                    system.settings.viewMode === 'touch' && system.settings.consoleModel !== 'minimal'
+                    system.settings.viewMode === 'touch' &&
+                    system.settings.consoleModel !== 'minimal' &&
+                    system.settings.touchOrientation !== 'vertical'
                       ? 'bg-indigo-600 border-indigo-600 text-white'
                       : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                   }`}
                 >
                   <Gamepad2 className="w-3 h-3 shrink-0" />
-                  <span>Console</span>
+                  <span>Handheld</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
+                    system.setTouchOrientation('vertical');
                     system.setConsoleModel('minimal');
                     onUpdate();
                   }}
                   className={`px-2 py-1.5 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer ${
-                    system.settings.viewMode === 'touch' && system.settings.consoleModel === 'minimal'
+                    system.settings.viewMode === 'touch' &&
+                    (system.settings.consoleModel === 'minimal' ||
+                      system.settings.touchOrientation === 'vertical')
                       ? 'bg-indigo-600 border-indigo-600 text-white'
                       : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                   }`}
                 >
                   <Smartphone className="w-3 h-3 shrink-0" />
-                  <span>Minimal</span>
+                  <span>Vertical</span>
                 </button>
               </div>
 
@@ -1008,6 +1014,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                       label: '1999 Pocket Pro (Pink)',
                       sub: '#71-510 Translucent',
                       dot: '#ec4899'
+                    },
+                    {
+                      id: 'minimal',
+                      label: 'Vertical Pocket (Classic)',
+                      sub: 'Portrait Handheld',
+                      dot: '#eab308'
                     }
                   ] as const
                 ).map((m) => {
@@ -1018,6 +1030,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       key={m.id}
                       type="button"
                       onClick={() => {
+                        system.setTouchOrientation(m.id === 'minimal' ? 'vertical' : 'horizontal');
                         system.setConsoleModel(m.id);
                         onUpdate();
                       }}
@@ -1152,7 +1165,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                                 : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                             }`}
                           >
-                            {scale}× LCD
+                            {scale}×
                           </button>
                         );
                       })}

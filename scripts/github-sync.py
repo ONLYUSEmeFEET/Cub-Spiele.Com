@@ -79,6 +79,10 @@ def sync_workspace_to_stage():
     run([GIT_EXE, "config", "user.name", "AJ Ryan"], check=False)
     run([GIT_EXE, "config", "user.email", "onlyusemefeet@gmail.com"], check=False)
 
+    # Fetch latest remote main and advance HEAD to origin/main before staging workspace files
+    run([GIT_EXE, "fetch", "origin", "main"], check=False)
+    run([GIT_EXE, "reset", "--soft", "origin/main"], check=False)
+
     exclude_root = {
         ".git", ".aistudio", "node_modules", "dist", "release", "roms",
         "Applications", "Firmware", "Other_Emulators", "build", "coverage"
