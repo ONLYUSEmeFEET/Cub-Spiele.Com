@@ -257,9 +257,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerLeave}
-          className={`block touch-none ${
-            system.settings.stylusCursor ? 'cursor-none' : 'cursor-crosshair'
-          }`}
+          className="block touch-none cursor-crosshair"
           style={{
             width: `${canvasWidth}px`,
             height: `${canvasHeight}px`,
@@ -302,33 +300,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         }}
       />
 
-      {/* Custom Stylus Cursor (Mouse hover) */}
-      {system.settings.stylusCursor && cursorPos.visible && !vStylusPos.visible && (
-        <div
-          className="pointer-events-none absolute z-30 transition-transform duration-75"
-          style={{
-            left: cursorPos.x + 7,
-            top: cursorPos.y + 7,
-            transform: `translate(-2px, -2px) ${cursorPos.isDown ? 'scale(0.92) translate(1px, 2px)' : 'scale(1)'}`
-          }}
-        >
-          <svg width="34" height="34" viewBox="0 0 36 36" fill="none" className="drop-shadow-[2px_4px_4px_rgba(0,0,0,0.65)]">
-            {/* Stylus tip contact point */}
-            <circle
-              cx="3"
-              cy="3"
-              r={cursorPos.isDown ? '3.2' : '2'}
-              fill={cursorPos.isDown ? '#e11d48' : '#18181b'}
-            />
-            {/* Original Tiger crimson/charcoal stylus body */}
-            <path d="M2.5 5.5L8.5 3.5L32 27L27 32L2.5 5.5Z" fill="#27272a" stroke="#52525b" strokeWidth="1" />
-            <path d="M5.5 4.5L8.5 3.5L32 27L29.5 29.5L5.5 4.5Z" fill="#9f1239" />
-            <path d="M2.5 5.5L5.5 2.5L8.5 5.5L5.5 8.5L2.5 5.5Z" fill="#d4d4d8" />
-          </svg>
-        </div>
-      )}
-
-      {/* Virtual Stylus Reticle & Tip (Keyboard / Controller Stylus) */}
+      {/* Virtual Stylus Reticle (Keyboard / Controller Stylus) */}
       {system.isPoweredOn && vStylusPos.visible && (
         <div
           className="pointer-events-none absolute z-30"
@@ -370,22 +342,6 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
               stroke="#09090b"
               strokeWidth="1"
             />
-          </svg>
-
-          {/* Angled Stylus Pen Tip */}
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 36 36"
-            fill="none"
-            className="absolute left-0 top-0 drop-shadow-[2px_3px_3px_rgba(0,0,0,0.65)]"
-            style={{
-              transform: vStylusPos.isDown ? 'translate(0px, 1px) scale(0.93)' : 'translate(2px, 2px)'
-            }}
-          >
-            <path d="M2.5 5.5L8.5 3.5L32 27L27 32L2.5 5.5Z" fill="#27272a" stroke="#e4e4e7" strokeWidth="1" />
-            <path d="M5.5 4.5L8.5 3.5L32 27L29.5 29.5L5.5 4.5Z" fill={vStylusPos.isDown ? '#e11d48' : '#be123c'} />
-            <path d="M2.5 5.5L5.5 2.5L8.5 5.5L5.5 8.5L2.5 5.5Z" fill="#f4f4f5" />
           </svg>
 
           {/* Compact Grid Cell / Mode Indicator */}

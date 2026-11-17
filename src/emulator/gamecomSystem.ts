@@ -104,7 +104,9 @@ const RECENT_GAMES_STORAGE_KEY = 'cub_spiele_recent_games_v2';
 const TWO_SHADE_STORAGE_KEY = 'cub_spiele_two_shade_v2';
 const GHOSTING_SETTINGS_STORAGE_KEY = 'cub_spiele_ghosting_v2';
 const INPUT_SETTINGS_STORAGE_KEY = 'cub_spiele_input_settings_v1';
-const VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v2';
+const VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v3';
+const VIEW_MODE_P2_STORAGE_KEY = 'cub_spiele_view_mode_v3_p2';
+const LEGACY_V2_VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v2';
 const LEGACY_VIEW_MODE_STORAGE_KEY = 'cub_spiele_view_mode_v1';
 const SCREEN_SYNC_CHANNEL_NAME = 'cub_spiele_screen_sync_v1';
 
@@ -285,7 +287,7 @@ export class GameComSystem {
     viewMode: getDefaultViewModeForPlatform(),
     theme: 'dark',
     screenScale: 3,
-    screenFitMode: 'scale',
+    screenFitMode: 'full',
     integerScaling: true,
     touchScaleMode: 'auto',
     touchScale: 2.5,
@@ -514,7 +516,6 @@ export class GameComSystem {
     }
     window.addEventListener('storage', (ev) => {
       if (
-        ev.key === VIEW_MODE_STORAGE_KEY ||
         ev.key === TWO_SHADE_STORAGE_KEY ||
         ev.key === GHOSTING_SETTINGS_STORAGE_KEY ||
         ev.key === INPUT_SETTINGS_STORAGE_KEY
@@ -808,12 +809,14 @@ export class GameComSystem {
           this.settings.theme = parsedI.theme;
         }
       }
+      const viewKey = this.getViewStorageKey();
+      const rawOwnView = localStorage.getItem(viewKey);
       const rawView =
+        rawOwnView ||
         localStorage.getItem(VIEW_MODE_STORAGE_KEY) ||
+        localStorage.getItem(LEGACY_V2_VIEW_MODE_STORAGE_KEY) ||
         localStorage.getItem(LEGACY_VIEW_MODE_STORAGE_KEY);
-      const isMigratedFromLegacy =
-        !localStorage.getItem(VIEW_MODE_STORAGE_KEY) &&
-        Boolean(localStorage.getItem(LEGACY_VIEW_MODE_STORAGE_KEY));
+      const isMigratedFromLegacy = !rawOwnView;
 
       if (rawView) {
         const parsedV = JSON.parse(rawView);
@@ -825,8 +828,10 @@ export class GameComSystem {
         if (typeof parsedV?.screenScale === 'number' && parsedV.screenScale >= 1 && parsedV.screenScale <= 8) {
           this.settings.screenScale = Math.round(parsedV.screenScale);
         }
-        if (parsedV?.screenFitMode === 'scale' || parsedV?.screenFitMode === 'full') {
+        if (!isMigratedFromLegacy && (parsedV?.screenFitMode === 'scale' || parsedV?.screenFitMode === 'full')) {
           this.settings.screenFitMode = parsedV.screenFitMode;
+        } else {
+          this.settings.screenFitMode = 'full';
         }
         if (typeof parsedV?.integerScaling === 'boolean') {
           this.settings.integerScaling = parsedV.integerScaling;
@@ -965,10 +970,14 @@ export class GameComSystem {
     return this.setTheme(this.settings.theme === 'dark' ? 'light' : 'dark');
   }
 
+  private getViewStorageKey(): string {
+    return this.linkCable.instanceId === 2 ? VIEW_MODE_P2_STORAGE_KEY : VIEW_MODE_STORAGE_KEY;
+  }
+
   public saveViewSettingsToStorage() {
     try {
       localStorage.setItem(
-        VIEW_MODE_STORAGE_KEY,
+        this.getViewStorageKey(),
         JSON.stringify({
           viewMode: this.settings.viewMode,
           screenScale: this.settings.screenScale,
@@ -984,7 +993,6 @@ export class GameComSystem {
           showBottomBar: this.settings.showBottomBar
         })
       );
-      this.broadcastScreenSettingsUpdate();
     } catch {
       // Ignore storage errors
     }

@@ -884,7 +884,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono text-zinc-400">
-                      {isFullFit ? 'Full' : `${system.settings.screenScale}×`}
+                      {isFullFit ? 'Auto-Fit' : `${system.settings.screenScale}×`}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                   </span>
@@ -902,7 +902,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                               key={scale}
                               type="button"
                               onClick={() => {
-                                system.setScreenFitMode('scale');
                                 system.setScreenScale(scale);
                                 onUpdate();
                               }}
@@ -930,7 +929,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                         }`}
                       >
                         <Maximize2 className="w-3 h-3" />
-                        <span>Full (Fit Window)</span>
+                        <span>Auto-Fit (Window)</span>
                       </button>
                     </div>
                     <div className={dividerClass} />

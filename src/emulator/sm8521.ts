@@ -851,13 +851,14 @@ export class SM8521CPU {
           this.remotePort3ReadsInState = 0;
           this.m_p_ram[SM8521_P3] =
             (this.m_p_ram[SM8521_P3] & ~0x0c) | ((this.remotePort3Bits & 0x03) << 2);
-        } else if (this.linkConnected && this.linkWaitFrames < 600) {
+        } else if (this.linkConnected && (this.linkWaitFrames < 600 || (this.enhancedLinkMode && this.linkPeerHealthy))) {
           // Fighters Megamix open_h2hx & exchg_openx ($6CE0..$6F35 in Bank $25) decrement their $0162/$0163
           // 16-bit timeout counter ($0163=hi, $0164=lo) across frames; keep $0164 nonzero while waiting!
           if ((this.mmu[2] === 0x20 || this.mmu[2] === 5) && this.mmu[3] === 0x25 && this.m_PC >= 0x6ce0 && this.m_PC < 0x6f35) {
             this.linkFrameHadWait = true;
             if (this.m_p_ram[0x0162] === 0x01 && this.m_p_ram[0x0164] > 0 && this.m_p_ram[0x0164] < 0x60) {
               this.m_p_ram[0x0164] = 0x60;
+              this.linkShieldInterventions++;
             }
           }
           // Enhanced Link Mode: shield MKT P3 timeout counter ($02D3 in Bank 34/35 $7C48/$7E11) while peer is healthy
@@ -1626,7 +1627,7 @@ export class SM8521CPU {
           this.uartRxCooldown = 48;
           this.uartRxStaleCycles = 0;
           this.linkWaitFrames = 0;
-        } else if (rxHead === rxTail && this.uartRxFifo.length === 0 && this.linkWaitFrames < 600) {
+        } else if (rxHead === rxTail && this.uartRxFifo.length === 0 && (this.linkWaitFrames < 600 || (this.enhancedLinkMode && this.linkPeerHealthy))) {
           this.uartPollsThisFrame++;
           this.linkFrameHadWait = true;
           // Mortal Kombat Trilogy $8E31 ($8E36..$8F8F in Bank 39): stabilize VBlank timeout snapshot in $0208
