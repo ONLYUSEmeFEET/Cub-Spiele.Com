@@ -9,6 +9,14 @@ AUTHOR & LEAD DEVELOPER
 - AJ Ryan (@ONLYUSEmeFEET)
 
 
+AI DEVELOPMENT ASSISTANCE
+-------------------------
+- Artificial intelligence coding and research assistants (including Google
+  Antigravity / Gemini) were used to assist with SM8521 disassembly, hardware
+  bug diagnosis, TypeScript/React implementation, UI refinement, and release
+  automation under human direction and verification.
+
+
 HISTORICAL PRESERVATION & COMMUNITY ARCHIVES
 -------------------------------------------
 - Diskman (Brandon Cobb) — "Diskman Presents / The end of the game.com"
