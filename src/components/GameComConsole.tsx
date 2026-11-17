@@ -3,7 +3,7 @@ import { GameComSystem } from '../emulator/gamecomSystem';
 import { GameComButtons } from '../emulator/types';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../emulator/lcd';
 import { LCDScreen } from './LCDScreen';
-import { Power, Menu, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Menu, Pause, Volume2, VolumeX } from 'lucide-react';
 
 interface TouchViewProps {
   system: GameComSystem;
@@ -167,26 +167,6 @@ export const TouchView: React.FC<TouchViewProps> = ({
     system.setButton(btn, false);
     onStateChange?.();
   };
-
-  // Isolated Power toggle placed away from D-Pad, action buttons, and bottom system strip
-  const powerButton = (
-    <button
-      onClick={() => {
-        system.powerToggle();
-        onStateChange?.();
-      }}
-      className={`px-2.5 py-1 rounded-full border text-[10px] font-semibold tracking-wide flex items-center gap-1.5 transition active:scale-95 cursor-pointer select-none touch-none ${
-        system.isPoweredOn
-          ? 'bg-[#be123c] hover:bg-[#e11d48] text-white border-[#881337] shadow-sm'
-          : 'bg-[#d9dcd2] hover:bg-[#cdd1c4] text-zinc-800 border-zinc-400/80 dark:bg-[#262a34] dark:hover:bg-[#313643] dark:text-zinc-200 dark:border-zinc-700'
-      }`}
-      title={system.isPoweredOn ? 'Power Off' : 'Power On'}
-      aria-label={system.isPoweredOn ? 'Power Off' : 'Power On'}
-    >
-      <Power className="w-3 h-3 shrink-0" />
-      <span>Power</span>
-    </button>
-  );
 
   // Compact system buttons (Menu, Sound, Pause) styled cleanly as tactile pills
   const renderSystemButtons = (variant: 'horizontal-corner' | 'vertical-bottom') => (
@@ -522,11 +502,8 @@ export const TouchView: React.FC<TouchViewProps> = ({
         <div
           className={`flex flex-row items-center ${sz.horizFrame} rounded-2xl bg-[#e6e8df] dark:bg-black border border-zinc-300 dark:border-zinc-900 shadow-lg dark:shadow-2xl transition-colors`}
         >
-          {/* Left Wing: Isolated Power in top-left corner, separated from D-Pad */}
-          <div className={`flex flex-col items-center justify-between self-stretch ${sz.wingLeft} py-1`}>
-            <div className="w-full flex justify-start pb-4">
-              {powerButton}
-            </div>
+          {/* Left Wing: D-Pad */}
+          <div className={`flex flex-col items-center justify-center self-stretch ${sz.wingLeft} py-1`}>
             <div className="flex-1 flex items-center justify-center">
               {dpadControl}
             </div>
@@ -555,11 +532,6 @@ export const TouchView: React.FC<TouchViewProps> = ({
         <div
           className={`flex flex-col items-center ${sz.vertFrame} rounded-2xl bg-[#e6e8df] dark:bg-black border border-zinc-300 dark:border-zinc-900 shadow-lg dark:shadow-2xl transition-colors w-full`}
         >
-          {/* Isolated Top-Left Power Row above the screen */}
-          <div className="w-full flex items-center justify-start px-0.5">
-            {powerButton}
-          </div>
-
           {/* Top Minimal Screen Border */}
           <div className="bg-[#dce0d5] dark:bg-black p-1.5 rounded-xl border border-zinc-300 dark:border-zinc-900 transition-colors">
             <LCDScreen

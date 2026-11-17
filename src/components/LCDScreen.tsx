@@ -301,7 +301,7 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
       />
 
       {/* Virtual Stylus Reticle (Keyboard / Controller Stylus) */}
-      {system.isPoweredOn && vStylusPos.visible && (
+      {system.isPoweredOn && system.settings.showStylusReticle && vStylusPos.visible && (
         <div
           className="pointer-events-none absolute z-30"
           style={{

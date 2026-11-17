@@ -298,6 +298,7 @@ export class GameComSystem {
     vsync: false,
     showTouchGrid: false,
     touchGridOpacity: 0.0,
+    showStylusReticle: false,
     viewMode: getDefaultViewModeForPlatform(),
     theme: 'dark',
     screenScale: 3,
@@ -1136,6 +1137,9 @@ export class GameComSystem {
           this.settings.touchGridOpacity = op;
           this.settings.showTouchGrid = op > 0;
         }
+        if (typeof parsedV?.showStylusReticle === 'boolean') {
+          this.settings.showStylusReticle = parsedV.showStylusReticle;
+        }
         if (!isMigratedFromLegacy && typeof parsedV?.showBottomBar === 'boolean') {
           this.settings.showBottomBar = parsedV.showBottomBar;
         } else {
@@ -1253,6 +1257,7 @@ export class GameComSystem {
           pixelGrid: this.settings.pixelGrid,
           vsync: this.settings.vsync,
           touchGridOpacity: this.settings.touchGridOpacity,
+          showStylusReticle: this.settings.showStylusReticle,
           showBottomBar: this.settings.showBottomBar
         })
       );

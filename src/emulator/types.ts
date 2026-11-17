@@ -321,6 +321,7 @@ export interface EmulatorSettings {
   vsync: boolean;
   showTouchGrid: boolean;
   touchGridOpacity: number;
+  showStylusReticle: boolean;
   viewMode: 'screen-only' | 'touch';
   theme: 'light' | 'dark';
   screenScale: number;

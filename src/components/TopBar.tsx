@@ -1170,6 +1170,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                         <Check className="w-3.5 h-3.5 text-indigo-500" />
                       )}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        system.settings.showStylusReticle = !system.settings.showStylusReticle;
+                        system.saveViewSettingsToStorage();
+                        onUpdate();
+                      }}
+                      className={itemClass}
+                    >
+                      <span>Virtual Stylus Reticle</span>
+                      {system.settings.showStylusReticle && (
+                        <Check className="w-3.5 h-3.5 text-indigo-500" />
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
@@ -1868,6 +1883,23 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span>Stylus</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => {
+            system.powerToggle();
+            onUpdate();
+          }}
+          className={`p-1.5 rounded transition-colors ${
+            system.isPoweredOn
+              ? 'text-rose-600 dark:text-rose-400 hover:bg-zinc-200 dark:hover:bg-zinc-900'
+              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-900'
+          }`}
+          title={system.isPoweredOn ? 'Power Off (Alt+P)' : 'Power On (Alt+P)'}
+          aria-label={system.isPoweredOn ? 'Power Off' : 'Power On'}
+        >
+          <Power className="w-3.5 h-3.5" />
+        </button>
 
         <button
           type="button"
