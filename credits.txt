@@ -20,11 +20,18 @@ AI DEVELOPMENT ASSISTANCE
 HISTORICAL PRESERVATION & COMMUNITY ARCHIVES
 -------------------------------------------
 - Diskman (Brandon Cobb) — "Diskman Presents / The end of the game.com"
-  * https://www.diskman.com/
-  * Invaluable Tiger Game.Com historical preservation archive documenting
-    hardware specifications, commercial and unreleased prototype release
-    histories, cartridge scans, developer interviews, music rips, and
-    community archival resources.
+  * https://www.diskman.com/presents/gamecom/
+  * Invaluable Tiger Game.Com historical preservation archive providing the
+    scanned cartridge label artwork (`gamecom_cartridge_labels.pdf`), original
+    PDF instruction manuals, game descriptions and catalog metadata, released
+    console model references (Original #71-500, Pocket Pro #71-510, and
+    Backlit Pocket Pro #71-520), unreleased prototype documentation, developer
+    interviews, music rips, and TV commercials.
+
+- Internet Archive (`archive.org`)
+  * https://archive.org/
+  * Community digital preservation collections and CORS metadata/download APIs
+    supported by the Online ROM Repository scanner.
 
 
 HARDWARE, ARCHITECTURE & EMULATION REFERENCES

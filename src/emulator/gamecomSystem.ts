@@ -17,13 +17,23 @@ import { TigerWebLinkManager } from './tigerWebLink';
 import { VirtualModemManager } from './virtualModem';
 import { RetroAchievementsEngine } from './retroAchievements';
 import { OnlineLeaderboardManager } from './onlineLeaderboard';
-import { resolveKnownGameByGameIdOrTitle } from './cartridge';
+import { resolveKnownGameByGameIdOrTitle, loadCartridgeFromBuffer } from './cartridge';
+import {
+  OnlineRomEntry,
+  scanRomRepositoryUrl,
+  deduplicateOnlineRomEntries,
+  fetchOnlineRomBytes,
+  loadPersistedRepositoryState,
+  savePersistedRepositoryState
+} from './romRepository';
 import {
   GameComButtons,
   TouchPoint,
   VirtualStylusState,
   CartridgeInfo,
   EmulatorSettings,
+  GameComConsoleModel,
+  BezelZoomMode,
   CheatToggles,
   CPURegisters,
   RecentGameEntry,
@@ -194,9 +204,13 @@ export class GameComSystem {
   public slot2: CartridgeInfo | null = null;
   public activeSlot: 1 | 2 = 1;
 
-  // Recently played ROMs list
+  // Recently played ROMs list & Online Repository Library
   public recentGames: RecentGameEntry[] = [];
   private loadedCartridgeCache: Map<string, CartridgeInfo> = new Map();
+  public repositoryUrls: string[] = [];
+  public onlineLibrary: OnlineRomEntry[] = [];
+  public isScanningRepository: boolean = false;
+  public loadingOnlineGameId: string | null = null;
 
   // System states
   public isPoweredOn: boolean = false;
@@ -308,6 +322,8 @@ export class GameComSystem {
     touchScale: 2.5,
     touchControlSize: 'standard',
     touchOrientation: 'auto',
+    consoleModel: 'original',
+    bezelZoom: 'auto',
     showBottomBar: false,
     contrast: 1.0,
     volume: 0.2,
@@ -501,6 +517,7 @@ export class GameComSystem {
       this.loadedCartridgeCache.set(c.id, c);
     }
     this.loadRecentGamesFromStorage();
+    this.loadOnlineRepositoryFromStorage();
     this.loadDisplaySettingsFromStorage();
     this.initScreenSettingsMirrorSync();
     this.loadPreloadedCartridges();
@@ -1124,6 +1141,26 @@ export class GameComSystem {
         ) {
           this.settings.touchOrientation = parsedV.touchOrientation;
         }
+        if (
+          parsedV?.consoleModel === 'original' ||
+          parsedV?.consoleModel === 'pocketpro_backlit' ||
+          parsedV?.consoleModel === 'pocketpro_purple' ||
+          parsedV?.consoleModel === 'pocketpro_green' ||
+          parsedV?.consoleModel === 'pocketpro_blue' ||
+          parsedV?.consoleModel === 'pocketpro_pink' ||
+          parsedV?.consoleModel === 'minimal'
+        ) {
+          this.settings.consoleModel = parsedV.consoleModel;
+        }
+        if (
+          parsedV?.bezelZoom === 'auto' ||
+          parsedV?.bezelZoom === 'full-system' ||
+          parsedV?.bezelZoom === 'mid' ||
+          parsedV?.bezelZoom === 'closeup' ||
+          parsedV?.bezelZoom === 'scale'
+        ) {
+          this.settings.bezelZoom = parsedV.bezelZoom;
+        }
         if (typeof parsedV?.pixelGrid === 'boolean') {
           this.settings.pixelGrid = parsedV.pixelGrid;
           this.lcd.pixelGrid = parsedV.pixelGrid;
@@ -1254,6 +1291,8 @@ export class GameComSystem {
           touchScale: this.settings.touchScale,
           touchControlSize: this.settings.touchControlSize,
           touchOrientation: this.settings.touchOrientation,
+          consoleModel: this.settings.consoleModel,
+          bezelZoom: this.settings.bezelZoom,
           pixelGrid: this.settings.pixelGrid,
           vsync: this.settings.vsync,
           touchGridOpacity: this.settings.touchGridOpacity,
@@ -1326,6 +1365,23 @@ export class GameComSystem {
   public setTouchOrientation(orientation: 'auto' | 'horizontal' | 'vertical') {
     this.settings.touchOrientation = orientation;
     this.settings.viewMode = 'touch';
+    this.saveViewSettingsToStorage();
+  }
+
+  public setConsoleModel(model: GameComConsoleModel) {
+    this.settings.consoleModel = model;
+    this.settings.viewMode = 'touch';
+    this.saveViewSettingsToStorage();
+  }
+
+  public setBezelZoom(zoom: BezelZoomMode) {
+    this.settings.bezelZoom = zoom;
+    this.settings.viewMode = 'touch';
+    if (zoom === 'auto') {
+      this.settings.touchScaleMode = 'auto';
+    } else if (zoom === 'scale') {
+      this.settings.touchScaleMode = 'scale';
+    }
     this.saveViewSettingsToStorage();
   }
 
@@ -1560,11 +1616,87 @@ export class GameComSystem {
     const cached =
       this.loadedCartridgeCache.get(entry.id) ||
       PRELOADED_CARTRIDGES.find((p) => p.id === entry.id || p.title === entry.title);
-    if (!cached) {
-      return false;
+    if (cached) {
+      await this.insertCartridge(cached, slot, true);
+      return true;
     }
-    await this.insertCartridge(cached, slot, true);
-    return true;
+    const onlineMatch = this.onlineLibrary.find(
+      (item) => item.title.toLowerCase() === entry.title.toLowerCase() || entry.id.startsWith(`${item.gameId}_`)
+    );
+    if (onlineMatch) {
+      await this.loadOnlineRomEntry(onlineMatch, slot);
+      return true;
+    }
+    return false;
+  }
+
+  public loadOnlineRepositoryFromStorage() {
+    const persisted = loadPersistedRepositoryState();
+    this.repositoryUrls = persisted.repositoryUrls;
+    this.onlineLibrary = persisted.entries;
+  }
+
+  public async addRomRepositoryUrl(
+    rawUrl: string
+  ): Promise<{ addedCount: number; totalCount: number }> {
+    const trimmed = rawUrl.trim();
+    if (!trimmed) {
+      throw new Error('Please enter a valid online ROM repository URL.');
+    }
+    this.isScanningRepository = true;
+    try {
+      const discovered = await scanRomRepositoryUrl(trimmed);
+      if (discovered.length === 0) {
+        throw new Error('No valid Game.Com ROMs (.bin, .tgc, .rom, .zip) found at this URL.');
+      }
+      if (!this.repositoryUrls.includes(trimmed)) {
+        this.repositoryUrls = [...this.repositoryUrls, trimmed];
+      }
+      this.onlineLibrary = deduplicateOnlineRomEntries([...this.onlineLibrary, ...discovered]);
+      savePersistedRepositoryState({
+        repositoryUrls: this.repositoryUrls,
+        entries: this.onlineLibrary
+      });
+      return { addedCount: discovered.length, totalCount: this.onlineLibrary.length };
+    } finally {
+      this.isScanningRepository = false;
+    }
+  }
+
+  public removeRomRepositoryUrl(urlToRemove: string) {
+    this.repositoryUrls = this.repositoryUrls.filter((u) => u !== urlToRemove);
+    this.onlineLibrary = deduplicateOnlineRomEntries(
+      this.onlineLibrary.filter((e) => e.repoUrl !== urlToRemove)
+    );
+    savePersistedRepositoryState({
+      repositoryUrls: this.repositoryUrls,
+      entries: this.onlineLibrary
+    });
+  }
+
+  public clearAllRomRepositories() {
+    this.repositoryUrls = [];
+    this.onlineLibrary = [];
+    savePersistedRepositoryState({
+      repositoryUrls: [],
+      entries: []
+    });
+  }
+
+  public async loadOnlineRomEntry(
+    entry: OnlineRomEntry,
+    slot: 1 | 2 = 1
+  ): Promise<CartridgeInfo> {
+    this.loadingOnlineGameId = entry.gameId;
+    try {
+      const bytes = await fetchOnlineRomBytes(entry);
+      const cart = loadCartridgeFromBuffer(bytes, entry.fileName, entry.downloadUrl);
+      this.loadedCartridgeCache.set(cart.id, cart);
+      await this.insertCartridge(cart, slot, true);
+      return cart;
+    } finally {
+      this.loadingOnlineGameId = null;
+    }
   }
 
   private async loadPreloadedCartridges() {

@@ -68,39 +68,107 @@ def align(val: int, alignment: int) -> int:
 
 
 def render_icon_rgba(size: int) -> bytes:
-    """Renders the Cub Spiele.Com handheld icon at any square resolution as RGBA bytes."""
+    """Renders a faithful 1997 Original Game.Com horizontal handheld icon at any square resolution as RGBA bytes."""
     rows = bytearray()
     for y in range(size):
         rows.append(0)  # PNG filter type 0 (None)
-        ny = y / float(size)
+        ny = (y + 0.5) / float(size)
         for x in range(size):
-            nx = x / float(size)
-            dx = min(nx, 1.0 - nx)
-            dy = min(ny, 1.0 - ny)
-            if dx + dy < 0.095:
+            nx = (x + 0.5) / float(size)
+
+            # Rounded square app icon background (deep slate/indigo vignette)
+            rx = max(0.0, abs(nx - 0.5) - 0.36)
+            ry = max(0.0, abs(ny - 0.5) - 0.36)
+            if rx * rx + ry * ry > 0.125 * 0.125:
                 rows.extend((0, 0, 0, 0))
                 continue
 
-            # Outer metallic bezel
-            r, g, b, a = 158, 166, 178, 255
-            if 0.06 <= nx <= 0.94 and 0.06 <= ny <= 0.94:
-                r, g, b = 30, 34, 44
+            # Subtle dark app-tile background
+            r, g, b, a = 15, 18, 25, 255
 
-            # Olive-green STN LCD screen area
-            if 0.125 <= nx <= 0.875 and 0.125 <= ny <= 0.66:
-                r, g, b = 185, 196, 138
-                gx = int(nx * 32)
-                gy = int(ny * 32)
-                if (gx + gy) % 4 == 0 and 0.18 <= nx <= 0.81 and 0.18 <= ny <= 0.60:
-                    r, g, b = 111, 124, 78
-                if 0.28 <= nx <= 0.72 and 0.25 <= ny <= 0.52 and ((gx - 9) // 2 + (gy - 8) // 2) % 2 == 0:
-                    r, g, b = 25, 35, 16
+            # Handheld console outer charcoal body (0.04..0.96 x, 0.14..0.88 y) with rounded corners
+            cx = max(0.0, abs(nx - 0.5) - 0.38)
+            cy = max(0.0, abs(ny - 0.51) - 0.29)
+            if cx * cx + cy * cy <= 0.08 * 0.08:
+                # Charcoal outer shell gradient
+                r, g, b = 34, 38, 45
+                if ny < 0.18:
+                    r, g, b = 52, 57, 66
 
-            # Left D-Pad & Right Crimson Action Buttons
-            if 0.74 <= ny <= 0.88 and 0.18 <= nx <= 0.36:
-                r, g, b = 210, 214, 222
-            if 0.74 <= ny <= 0.88 and 0.64 <= nx <= 0.82:
-                r, g, b = 225, 29, 72
+                # Inner brushed silver metallic faceplate (0.08..0.92 x, 0.18..0.74 y)
+                sx = max(0.0, abs(nx - 0.5) - 0.36)
+                sy = max(0.0, abs(ny - 0.46) - 0.22)
+                if sx * sx + sy * sy <= 0.055 * 0.055:
+                    shade = int(206 - (ny - 0.18) * 55)
+                    r, g, b = shade, shade + 4, shade + 9
+
+                    # Top-left speaker dot matrix (0.11..0.24 x, 0.23..0.33 y)
+                    if 0.11 <= nx <= 0.24 and 0.23 <= ny <= 0.33:
+                        gx = int((nx - 0.11) * 48)
+                        gy = int((ny - 0.23) * 48)
+                        if gx % 2 == 0 and gy % 2 == 0:
+                            r, g, b = 36, 40, 48
+
+                    # Bottom-left circular recessed 8-way D-Pad (center 0.185, 0.53, radius 0.095)
+                    dpx = nx - 0.185
+                    dpy = ny - 0.53
+                    dp_dist2 = dpx * dpx + dpy * dpy
+                    if dp_dist2 <= 0.098 * 0.098:
+                        r, g, b = 115, 122, 132  # recessed rim
+                        if dp_dist2 <= 0.086 * 0.086:
+                            r, g, b = 28, 32, 38  # black D-Pad disc
+                            if (abs(dpx) <= 0.025 and abs(dpy) <= 0.072) or (
+                                abs(dpy) <= 0.025 and abs(dpx) <= 0.072
+                            ):
+                                r, g, b = 48, 54, 64  # raised cross arms
+
+                    # Center sunken 3D-beveled LCD frame (0.29..0.71 x, 0.22..0.68 y)
+                    if 0.29 <= nx <= 0.71 and 0.22 <= ny <= 0.68:
+                        # Bevel frame
+                        r, g, b = (120, 126, 136) if (nx + ny < 0.98) else (218, 222, 228)
+                        # Inner Olive-Green STN LCD screen (0.315..0.685 x, 0.245..0.655 y)
+                        if 0.315 <= nx <= 0.685 and 0.245 <= ny <= 0.655:
+                            r, g, b = 185, 196, 138  # #b9c48a reflective olive
+                            lx = int((nx - 0.315) / 0.37 * 26)
+                            ly = int((ny - 0.245) / 0.41 * 22)
+                            # Subtle touch-grid lines
+                            if lx % 4 == 0 or ly % 4 == 0:
+                                r, g, b = 166, 178, 120
+                            # Classic dark-olive pixel motif in center of screen
+                            if 6 <= lx <= 19 and 5 <= ly <= 16:
+                                if (
+                                    ly in (5, 16)
+                                    or lx in (6, 19)
+                                    or (8 <= lx <= 17 and ly in (8, 13))
+                                    or (lx in (9, 16) and 8 <= ly <= 13)
+                                ):
+                                    r, g, b = 25, 35, 16
+
+                    # Top-right round blue ON/OFF button (center 0.78, 0.26, radius 0.028)
+                    if (nx - 0.78) ** 2 + (ny - 0.26) ** 2 <= 0.028 ** 2:
+                        r, g, b = 37, 99, 235
+
+                    # Middle-right 4 action buttons [A, B] & [C, D] in angled arrangement
+                    for bx, by in (
+                        (0.77, 0.43),
+                        (0.86, 0.39),
+                        (0.78, 0.55),
+                        (0.87, 0.51),
+                    ):
+                        if (nx - bx) ** 2 + (ny - by) ** 2 <= 0.033 ** 2:
+                            r, g, b = 32, 36, 44
+
+                    # Bottom-right 3 blue pill buttons [MENU][SOUND][PAUSE]
+                    if 0.66 <= ny <= 0.695 and (
+                        0.73 <= nx <= 0.78 or 0.795 <= nx <= 0.845 or 0.86 <= nx <= 0.91
+                    ):
+                        r, g, b = 37, 99, 235
+
+                # Bottom charcoal stylus dock (0.22..0.78 x, 0.78..0.83 y)
+                if 0.22 <= nx <= 0.78 and 0.785 <= ny <= 0.825:
+                    r, g, b = 18, 20, 25
+                    if 0.44 <= nx <= 0.56 and 0.795 <= ny <= 0.815:
+                        r, g, b = 190, 24, 60  # subtle crimson stylus badge accent
 
             rows.extend((r, g, b, a))
     return bytes(rows)
@@ -135,34 +203,17 @@ def generate_macos_icns(png_128: bytes, png_256: bytes, png_512: bytes) -> bytes
 def generate_cub_spiele_ico() -> tuple[bytes, bytes]:
     width, height = 32, 32
     pixels = bytearray(width * height * 4)
+    raw_32 = render_icon_rgba(32)
+    stride = 1 + width * 4
 
     for y in range(height):
         src_y = height - 1 - y
+        row_off = src_y * stride + 1
         for x in range(width):
             idx = (y * width + x) * 4
-            dx = min(x, width - 1 - x)
-            dy = min(src_y, height - 1 - src_y)
-            if dx + dy < 3:
-                pixels[idx:idx + 4] = bytes([0, 0, 0, 0])
-                continue
-
-            r, g, b, a = 158, 166, 178, 255
-            if 2 <= x <= 29 and 2 <= src_y <= 29:
-                r, g, b = 30, 34, 44
-
-            if 4 <= x <= 27 and 4 <= src_y <= 21:
-                r, g, b = 185, 196, 138
-                if (x + src_y) % 4 == 0 and 6 <= x <= 25 and 6 <= src_y <= 19:
-                    r, g, b = 111, 124, 78
-                if 9 <= x <= 22 and 8 <= src_y <= 16 and ((x - 9) // 2 + (src_y - 8) // 2) % 2 == 0:
-                    r, g, b = 25, 35, 16
-
-            if 24 <= src_y <= 27 and 6 <= x <= 11:
-                r, g, b = 210, 214, 222
-            if 24 <= src_y <= 27 and 21 <= x <= 26:
-                r, g, b = 225, 29, 72
-
-            pixels[idx:idx + 4] = bytes([b, g, r, a])
+            p_off = row_off + x * 4
+            r, g, b, a = raw_32[p_off : p_off + 4]
+            pixels[idx : idx + 4] = bytes([b, g, r, a])
 
     and_mask = bytes(128)
     bih = struct.pack(

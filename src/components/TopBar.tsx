@@ -73,6 +73,7 @@ interface TopBarProps {
 
 type MenuId = 'file' | 'emulation' | 'view' | 'display' | 'settings' | 'tools' | null;
 type SubMenuId =
+  | 'library'
   | 'recent'
   | 'save-slots'
   | 'speed'
@@ -110,6 +111,8 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const [openMenu, setOpenMenu] = useState<MenuId>(null);
   const [openSubMenu, setOpenSubMenu] = useState<SubMenuId>(null);
+  const [repoUrlInput, setRepoUrlInput] = useState('');
+  const [isAddingRepo, setIsAddingRepo] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const slot1InputRef = useRef<HTMLInputElement>(null);
   const slot2InputRef = useRef<HTMLInputElement>(null);
@@ -161,6 +164,41 @@ export const TopBar: React.FC<TopBarProps> = ({
     await system.launchRecentGame(entry, slot);
     closeMenus();
     onUpdate();
+  };
+
+  const handleLaunchOnlineGame = async (
+    entry: typeof system.onlineLibrary[number],
+    slot: 1 | 2
+  ) => {
+    try {
+      closeMenus();
+      onShowToast?.(`Loading ${entry.title}...`);
+      onUpdate();
+      await system.loadOnlineRomEntry(entry, slot);
+      onShowToast?.(`Loaded ${entry.title} into Slot ${slot}`);
+      onUpdate();
+    } catch (err) {
+      onShowToast?.((err as Error).message || `Failed to load ${entry.title}`);
+      onUpdate();
+    }
+  };
+
+  const handleAddRepositoryUrl = async () => {
+    const trimmed = repoUrlInput.trim();
+    if (!trimmed || isAddingRepo) return;
+    setIsAddingRepo(true);
+    try {
+      const res = await system.addRomRepositoryUrl(trimmed);
+      setRepoUrlInput('');
+      onShowToast?.(
+        `Scanned repository: ${res.addedCount} ROMs found (${res.totalCount} unique games in Library)`
+      );
+      onUpdate();
+    } catch (err) {
+      onShowToast?.((err as Error).message || 'Failed to scan ROM repository URL');
+    } finally {
+      setIsAddingRepo(false);
+    }
   };
 
   const handleFullscreen = () => {
@@ -303,75 +341,113 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </span>
               </button>
 
-              {/* Recent Games Submenu */}
+              {/* Online Library Submenu (single entry per discovered game) */}
               <div
                 className="relative"
-                onMouseEnter={() => setOpenSubMenu('recent')}
+                onMouseEnter={() => setOpenSubMenu('library')}
                 onMouseLeave={() => setOpenSubMenu(null)}
               >
                 <button
                   type="button"
                   onClick={() =>
-                    setOpenSubMenu((prev) => (prev === 'recent' ? null : 'recent'))
+                    setOpenSubMenu((prev) => (prev === 'library' ? null : 'library'))
                   }
                   className={itemClass}
                 >
                   <span className="flex items-center gap-2">
-                    <History className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Recent Games</span>
+                    <Gamepad2 className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>
+                      Library
+                      {system.onlineLibrary.length > 0
+                        ? ` (${system.onlineLibrary.length})`
+                        : ''}
+                    </span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
-                {openSubMenu === 'recent' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-72 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
-                    {system.recentGames.length === 0 ? (
-                      <div className="px-3 py-2 text-[11px] text-zinc-400">
-                        No recent cartridges
+                {openSubMenu === 'library' && (
+                  <div className="absolute left-full top-0 ml-0.5 w-80 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                    {system.onlineLibrary.length === 0 ? (
+                      <div className="px-3 py-2 space-y-1.5">
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          No online repository configured yet. Add a Game.Com ROM repository URL in{' '}
+                          <strong>Settings</strong> or <strong>Game Library</strong>.
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenLibrary();
+                            closeMenus();
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium text-center"
+                        >
+                          Open Game Library &amp; Repositories...
+                        </button>
                       </div>
                     ) : (
                       <>
-                        {system.recentGames.slice(0, 8).map((entry) => (
-                          <div
-                            key={entry.id}
-                            className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleLaunchRecent(entry, 1)}
-                              className="flex-1 text-left truncate text-[12px]"
-                              title={entry.title}
+                        <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-900">
+                          {system.onlineLibrary.map((entry) => (
+                            <div
+                              key={entry.gameId}
+                              className="px-2.5 py-1.5 flex items-center justify-between gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-900"
                             >
-                              {entry.title}
-                            </button>
-                            <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => handleLaunchRecent(entry, 1)}
-                                className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 hover:bg-indigo-600 hover:text-white text-[10px]"
+                                onClick={() => handleLaunchOnlineGame(entry, 1)}
+                                className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                                title={`${entry.title} (${entry.year}) — ${entry.publisher}`}
                               >
-                                S1
+                                {entry.labelImage ? (
+                                  <img
+                                    src={entry.labelImage}
+                                    alt={entry.title}
+                                    className="w-9 h-5 object-cover rounded border border-zinc-300 dark:border-zinc-700 shrink-0"
+                                  />
+                                ) : (
+                                  <Disc className="w-4 h-4 text-zinc-400 shrink-0" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-[12px] font-medium text-zinc-900 dark:text-zinc-100">
+                                    {entry.title}
+                                  </div>
+                                  <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">
+                                    {entry.year} · {entry.genre}
+                                  </div>
+                                </div>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleLaunchRecent(entry, 2)}
-                                className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 hover:bg-indigo-600 hover:text-white text-[10px]"
-                              >
-                                S2
-                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleLaunchOnlineGame(entry, 1)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 hover:bg-indigo-600 hover:text-white text-[10px]"
+                                  title="Load & Play in Slot 1"
+                                >
+                                  S1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleLaunchOnlineGame(entry, 2)}
+                                  className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 hover:bg-indigo-600 hover:text-white text-[10px]"
+                                  title="Load into Slot 2"
+                                >
+                                  S2
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                         <div className={dividerClass} />
                         <button
                           type="button"
                           onClick={() => {
-                            system.clearRecentGames();
-                            onUpdate();
+                            onOpenLibrary();
+                            closeMenus();
                           }}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 text-rose-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-[11px]"
+                          className="w-full px-3 py-1.5 flex items-center justify-between text-indigo-600 dark:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-[11px] font-medium"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Clear Recent History</span>
+                          <span>Browse Visual Game Library...</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </>
                     )}
@@ -837,357 +913,308 @@ export const TopBar: React.FC<TopBarProps> = ({
             View
           </button>
           {openMenu === 'view' && (
-            <div className={`${dropdownClass} w-64`}>
-              <div className={sectionLabelClass}>Layout</div>
-              <div className="px-3 py-1 grid grid-cols-2 gap-1.5">
+            <div className={`${dropdownClass} w-72`}>
+              <div className={sectionLabelClass}>View Mode</div>
+              <div className="px-3 py-1 grid grid-cols-3 gap-1">
                 <button
                   type="button"
                   onClick={() => {
                     system.setViewMode('screen-only');
                     onUpdate();
                   }}
-                  className={`px-2 py-1 rounded border text-[11px] flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`px-2 py-1.5 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     system.settings.viewMode === 'screen-only'
                       ? 'bg-indigo-600 border-indigo-600 text-white'
                       : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                   }`}
                 >
-                  <Monitor className="w-3 h-3" />
-                  <span>Screen-Only</span>
+                  <Monitor className="w-3 h-3 shrink-0" />
+                  <span>Screen</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    system.setViewMode('touch');
+                    if (system.settings.consoleModel === 'minimal') {
+                      system.setConsoleModel('original');
+                    } else {
+                      system.setViewMode('touch');
+                    }
                     onUpdate();
                   }}
-                  className={`px-2 py-1 rounded border text-[11px] flex items-center justify-center gap-1.5 transition-colors ${
-                    system.settings.viewMode === 'touch'
+                  className={`px-2 py-1.5 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                    system.settings.viewMode === 'touch' && system.settings.consoleModel !== 'minimal'
                       ? 'bg-indigo-600 border-indigo-600 text-white'
                       : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                   }`}
                 >
-                  <Smartphone className="w-3 h-3" />
-                  <span>Touch View</span>
+                  <Gamepad2 className="w-3 h-3 shrink-0" />
+                  <span>Console</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    system.setConsoleModel('minimal');
+                    onUpdate();
+                  }}
+                  className={`px-2 py-1.5 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                    system.settings.viewMode === 'touch' && system.settings.consoleModel === 'minimal'
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                  }`}
+                >
+                  <Smartphone className="w-3 h-3 shrink-0" />
+                  <span>Minimal</span>
                 </button>
               </div>
 
+              {/* Released Console Hardware Models */}
               <div className={dividerClass} />
+              <div className={sectionLabelClass}>Console Model (Bezel &amp; Controls)</div>
+              <div className="px-2 py-0.5 space-y-0.5">
+                {(
+                  [
+                    {
+                      id: 'original',
+                      label: '1997 Original Game.Com',
+                      sub: '#71-500 Dual-Slot',
+                      dot: '#9ca3af'
+                    },
+                    {
+                      id: 'pocketpro_backlit',
+                      label: '1999 Pocket Pro Backlit',
+                      sub: '#71-520 Teal Light',
+                      dot: '#06b6d4'
+                    },
+                    {
+                      id: 'pocketpro_purple',
+                      label: '1998 Pocket Pro (Purple)',
+                      sub: '#71-510 Translucent',
+                      dot: '#8b5cf6'
+                    },
+                    {
+                      id: 'pocketpro_green',
+                      label: '1999 Pocket Pro (Green)',
+                      sub: '#71-510 Translucent',
+                      dot: '#10b981'
+                    },
+                    {
+                      id: 'pocketpro_blue',
+                      label: '1999 Pocket Pro (Blue)',
+                      sub: '#71-510 Translucent',
+                      dot: '#3b82f6'
+                    },
+                    {
+                      id: 'pocketpro_pink',
+                      label: '1999 Pocket Pro (Pink)',
+                      sub: '#71-510 Translucent',
+                      dot: '#ec4899'
+                    }
+                  ] as const
+                ).map((m) => {
+                  const active =
+                    system.settings.viewMode === 'touch' && system.settings.consoleModel === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        system.setConsoleModel(m.id);
+                        onUpdate();
+                      }}
+                      className={`w-full px-2.5 py-1 rounded flex items-center justify-between text-left transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-indigo-600/15 text-indigo-600 dark:text-indigo-300 font-semibold'
+                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20"
+                          style={{ backgroundColor: m.dot }}
+                        />
+                        <span className="truncate text-[11px]">{m.label}</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-400 shrink-0 ml-1">
+                        {active ? <Check className="w-3.5 h-3.5 text-indigo-500" /> : m.sub}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-              {/* Screen-Only Size & Scaling Submenu */}
-              <div
-                className="relative"
-                onMouseEnter={() => setOpenSubMenu('view-screen-size')}
-                onMouseLeave={() => setOpenSubMenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenSubMenu((prev) =>
-                      prev === 'view-screen-size' ? null : 'view-screen-size'
-                    )
-                  }
-                  className={itemClass}
-                >
-                  <span className="flex items-center gap-2">
-                    <Monitor className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Screen Size</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-zinc-400">
-                      {isFullFit ? 'Auto-Fit' : `${system.settings.screenScale}×`}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
-                  </span>
-                </button>
-                {openSubMenu === 'view-screen-size' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-60 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
-                    <div className={sectionLabelClass}>Screen-Only Size (200×160)</div>
-                    <div className="px-3 py-1 space-y-1.5">
-                      <div className="grid grid-cols-4 gap-1">
-                        {SCREEN_SCALES.map((scale) => {
-                          const active =
-                            !isFullFit && system.settings.screenScale === scale;
-                          return (
-                            <button
-                              key={scale}
-                              type="button"
-                              onClick={() => {
-                                system.setScreenScale(scale);
-                                onUpdate();
-                              }}
-                              className={`py-1 rounded border text-[11px] font-mono transition-colors ${
-                                active
-                                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                                  : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                              }`}
-                            >
-                              {scale}×
-                            </button>
-                          );
-                        })}
-                      </div>
+              {/* Inline Zoom / Scale Controls */}
+              <div className={dividerClass} />
+              {system.settings.viewMode === 'screen-only' ? (
+                <>
+                  <div className={sectionLabelClass}>Screen Scale (200×160)</div>
+                  <div className="px-3 py-1 space-y-1.5">
+                    <div className="grid grid-cols-5 gap-1">
                       <button
                         type="button"
                         onClick={() => {
-                          system.setScreenFitMode(isFullFit ? 'scale' : 'full');
+                          system.setScreenFitMode('full');
                           onUpdate();
                         }}
-                        className={`w-full py-1 rounded border text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                        className={`py-1 rounded border text-[11px] font-medium transition-colors cursor-pointer ${
                           isFullFit
                             ? 'bg-indigo-600 border-indigo-600 text-white'
                             : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                         }`}
                       >
-                        <Maximize2 className="w-3 h-3" />
-                        <span>Auto-Fit (Window)</span>
+                        Auto
                       </button>
+                      {[2, 3, 4, 5].map((scale) => {
+                        const active = !isFullFit && system.settings.screenScale === scale;
+                        return (
+                          <button
+                            key={scale}
+                            type="button"
+                            onClick={() => {
+                              system.setScreenScale(scale);
+                              onUpdate();
+                            }}
+                            className={`py-1 rounded border text-[11px] font-mono transition-colors cursor-pointer ${
+                              active
+                                ? 'bg-indigo-600 border-indigo-600 text-white'
+                                : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                            }`}
+                          >
+                            {scale}×
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div className={dividerClass} />
                     <button
                       type="button"
                       onClick={() => {
                         system.toggleIntegerScaling();
                         onUpdate();
                       }}
-                      className={itemClass}
+                      className="w-full px-2 py-1 rounded border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900 flex items-center justify-between text-[11px] cursor-pointer"
                     >
-                      <span>
-                        Scaling:{' '}
-                        <strong className="font-semibold">
-                          {system.settings.integerScaling ? 'Integer' : 'Non-Integer'}
-                        </strong>
-                      </span>
-                      <span className="text-[10px] text-zinc-400">
-                        {system.settings.integerScaling ? 'Sharp' : 'Smooth'}
+                      <span>Integer Pixel Scaling</span>
+                      <span className="font-mono text-[10px] text-indigo-500">
+                        {system.settings.integerScaling ? 'ON (Sharp)' : 'OFF (Smooth)'}
                       </span>
                     </button>
                   </div>
-                )}
-              </div>
-
-              {/* Touch Screen Size, Layout Orientation & Controls Submenu */}
-              <div
-                className="relative"
-                onMouseEnter={() => setOpenSubMenu('view-touch-size')}
-                onMouseLeave={() => setOpenSubMenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenSubMenu((prev) =>
-                      prev === 'view-touch-size' ? null : 'view-touch-size'
-                    )
-                  }
-                  className={itemClass}
-                >
-                  <span className="flex items-center gap-2">
-                    <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Touch Screen</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-zinc-400 capitalize">
-                      {isTouchAuto ? 'Auto' : isTouchFull ? 'Full' : `${system.settings.touchScale}×`} ·{' '}
-                      {touchOrientation === 'auto' ? 'Auto' : touchOrientation === 'horizontal' ? 'Horiz' : 'Vert'}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
-                  </span>
-                </button>
-                {openSubMenu === 'view-touch-size' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-64 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
-                    <div className={sectionLabelClass}>Touch Screen Size (200×160)</div>
-                    <div className="px-3 py-1 space-y-1.5">
-                      <div className="grid grid-cols-4 gap-1">
-                        {TOUCH_SCALES.map((scale) => {
-                          const active =
-                            !isTouchAuto &&
-                            !isTouchFull &&
-                            Math.abs(system.settings.touchScale - scale) < 0.05;
-                          return (
-                            <button
-                              key={scale}
-                              type="button"
-                              onClick={() => {
-                                system.setTouchScale(scale);
-                                onUpdate();
-                              }}
-                              className={`py-1 rounded border text-[11px] font-mono transition-colors ${
-                                active
-                                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                                  : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                              }`}
-                            >
-                              {scale}×
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="grid grid-cols-2 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            system.setTouchScaleMode('auto');
-                            onUpdate();
-                          }}
-                          className={`py-1 rounded border text-[11px] font-medium transition-colors ${
-                            isTouchAuto
-                              ? 'bg-indigo-600 border-indigo-600 text-white'
-                              : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                          }`}
-                        >
-                          Auto Fit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            system.setTouchScaleMode(isTouchFull ? 'auto' : 'full');
-                            onUpdate();
-                          }}
-                          className={`py-1 rounded border text-[11px] font-medium flex items-center justify-center gap-1 transition-colors ${
-                            isTouchFull
-                              ? 'bg-indigo-600 border-indigo-600 text-white'
-                              : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                          }`}
-                        >
-                          <Maximize2 className="w-3 h-3" />
-                          <span>Full</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className={dividerClass} />
-                    <div className={sectionLabelClass}>Touch Orientation</div>
-                    <div className="px-3 py-1 grid grid-cols-3 gap-1">
-                      {(['auto', 'horizontal', 'vertical'] as const).map((orient) => {
-                        const active = touchOrientation === orient;
+                </>
+              ) : (
+                <>
+                  <div className={sectionLabelClass}>Console Zoom &amp; Framing</div>
+                  <div className="px-3 py-1 space-y-1.5">
+                    <div className="grid grid-cols-4 gap-1">
+                      {(
+                        [
+                          { id: 'auto', label: 'Auto' },
+                          { id: 'full-system', label: 'Full' },
+                          { id: 'mid', label: 'Mid' },
+                          { id: 'closeup', label: 'Close' }
+                        ] as const
+                      ).map((z) => {
+                        const active = (system.settings.bezelZoom || 'auto') === z.id;
                         return (
                           <button
-                            key={orient}
+                            key={z.id}
                             type="button"
                             onClick={() => {
-                              system.setTouchOrientation(orient);
+                              system.setBezelZoom(z.id);
                               onUpdate();
                             }}
-                            className={`py-1 rounded border text-[11px] capitalize transition-colors ${
+                            className={`py-1 rounded border text-[11px] font-medium transition-colors cursor-pointer ${
                               active
-                                ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                                ? 'bg-indigo-600 border-indigo-600 text-white'
                                 : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                             }`}
                           >
-                            {orient === 'horizontal' ? 'Horiz' : orient === 'vertical' ? 'Vert' : 'Auto'}
+                            {z.label}
                           </button>
                         );
                       })}
                     </div>
-
-                    <div className={dividerClass} />
-                    <div className={sectionLabelClass}>Touch Control Size</div>
-                    <div className="px-3 py-1 grid grid-cols-3 gap-1">
-                      {(['compact', 'standard', 'large'] as const).map((ctrlSize) => {
-                        const active = system.settings.touchControlSize === ctrlSize;
+                    <div className="grid grid-cols-4 gap-1">
+                      {[1, 2, 3, 4].map((scale) => {
+                        const active =
+                          system.settings.bezelZoom === 'scale' &&
+                          Math.abs(system.settings.touchScale - scale) < 0.1;
                         return (
                           <button
-                            key={ctrlSize}
+                            key={scale}
                             type="button"
                             onClick={() => {
-                              system.setTouchControlSize(ctrlSize);
+                              system.setTouchScale(scale);
+                              system.setBezelZoom('scale');
                               onUpdate();
                             }}
-                            className={`py-1 rounded border text-[11px] capitalize transition-colors ${
+                            className={`py-1 rounded border text-[11px] font-mono transition-colors cursor-pointer ${
                               active
-                                ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                                ? 'bg-indigo-600 border-indigo-600 text-white'
                                 : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
                             }`}
                           >
-                            {ctrlSize}
+                            {scale}× LCD
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                )}
-              </div>
+                </>
+              )}
 
-              {/* Overlays Submenu */}
-              <div
-                className="relative"
-                onMouseEnter={() => setOpenSubMenu('view-display')}
-                onMouseLeave={() => setOpenSubMenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenSubMenu((prev) =>
-                      prev === 'view-display' ? null : 'view-display'
-                    )
-                  }
-                  className={itemClass}
-                >
-                  <span className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Overlays</span>
+              {/* Overlays & Window Controls */}
+              <div className={dividerClass} />
+              <div className="px-3 py-1 space-y-1">
+                <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span>Touch Grid Visibility</span>
+                  <span className="font-mono tabular-nums">
+                    {Math.round(system.settings.touchGridOpacity * 100)}%
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
-                </button>
-                {openSubMenu === 'view-display' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-64 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
-                    <div className="px-3 py-1.5 space-y-1">
-                      <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                        <span>Touch Grid Visibility</span>
-                        <span className="font-mono tabular-nums">
-                          {Math.round(system.settings.touchGridOpacity * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={Math.round(system.settings.touchGridOpacity * 100)}
-                        onChange={(e) => {
-                          const pct = Number(e.target.value);
-                          system.settings.touchGridOpacity = pct / 100;
-                          system.settings.showTouchGrid = pct > 0;
-                          system.saveViewSettingsToStorage();
-                          onUpdate();
-                        }}
-                        className="w-full accent-indigo-500 h-1.5 cursor-pointer"
-                        aria-label="Touch Grid Visibility"
-                      />
-                    </div>
-
-                    <div className={dividerClass} />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        system.toggleScoreOverlay();
-                        onUpdate();
-                      }}
-                      className={itemClass}
-                    >
-                      <span>Score Display Overlay</span>
-                      {system.settings.showScoreOverlay && (
-                        <Check className="w-3.5 h-3.5 text-indigo-500" />
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        system.settings.showStylusReticle = !system.settings.showStylusReticle;
-                        system.saveViewSettingsToStorage();
-                        onUpdate();
-                      }}
-                      className={itemClass}
-                    >
-                      <span>Virtual Stylus Reticle</span>
-                      {system.settings.showStylusReticle && (
-                        <Check className="w-3.5 h-3.5 text-indigo-500" />
-                      )}
-                    </button>
-                  </div>
-                )}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(system.settings.touchGridOpacity * 100)}
+                  onChange={(e) => {
+                    const pct = Number(e.target.value);
+                    system.settings.touchGridOpacity = pct / 100;
+                    system.settings.showTouchGrid = pct > 0;
+                    system.saveViewSettingsToStorage();
+                    onUpdate();
+                  }}
+                  className="w-full accent-indigo-500 h-1.5 cursor-pointer"
+                  aria-label="Touch Grid Visibility"
+                />
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  system.toggleScoreOverlay();
+                  onUpdate();
+                }}
+                className={itemClass}
+              >
+                <span>Score Display Overlay</span>
+                {system.settings.showScoreOverlay && (
+                  <Check className="w-3.5 h-3.5 text-indigo-500" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  system.settings.showStylusReticle = !system.settings.showStylusReticle;
+                  system.saveViewSettingsToStorage();
+                  onUpdate();
+                }}
+                className={itemClass}
+              >
+                <span>Virtual Stylus Reticle</span>
+                {system.settings.showStylusReticle && (
+                  <Check className="w-3.5 h-3.5 text-indigo-500" />
+                )}
+              </button>
 
               <div className={dividerClass} />
 
@@ -1561,6 +1588,57 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Check className="w-3.5 h-3.5 text-indigo-500" />
                 )}
               </button>
+
+              <div className={dividerClass} />
+              <div className={sectionLabelClass}>Online ROM Repository</div>
+
+              <div className="px-3 py-1.5 space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="url"
+                    value={repoUrlInput}
+                    onChange={(e) => setRepoUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddRepositoryUrl();
+                      }
+                    }}
+                    placeholder="https://archive.org/download/..."
+                    className="flex-1 min-w-0 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-[11px] text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={isAddingRepo || !repoUrlInput.trim()}
+                    onClick={handleAddRepositoryUrl}
+                    className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-[11px] font-medium shrink-0 cursor-pointer"
+                  >
+                    {isAddingRepo ? '...' : 'Add'}
+                  </button>
+                </div>
+                {system.repositoryUrls.length > 0 && (
+                  <div className="space-y-1 pt-0.5">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                      <span>
+                        {system.repositoryUrls.length} repo
+                        {system.repositoryUrls.length === 1 ? '' : 's'} ·{' '}
+                        {system.onlineLibrary.length} games
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          system.clearAllRomRepositories();
+                          onUpdate();
+                        }}
+                        className="text-rose-500 hover:underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

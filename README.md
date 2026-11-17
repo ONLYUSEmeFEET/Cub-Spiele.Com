@@ -1,14 +1,14 @@
 # Cub Spiele.Com — Cycle-Accurate Tiger GameCom / Game.Com (SM8521) Emulator
 
-**Cub Spiele.Com** (`v0.1.12`) is a cycle-accurate standalone **Tiger GameCom** (**Game.Com**) emulator for the 1997 **Tiger Electronics** handheld console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + SG0/SG1/SG2 audio engine, dual cartridge bays with hardware `P3` chip-select isolation, **Tiger Web Link** (`gclink`), **Virtual Hayes AT Modem** (`Internet`), and a competitive **Multi-Player High Score Vault, Online Leaderboards & Hardcore Mode Ecosystem**.
+**Cub Spiele.Com** (`v0.1.13`) is a cycle-accurate standalone **Tiger GameCom** (**Game.Com**) emulator for the 1997 **Tiger Electronics** handheld console, powered by a Sharp **SM8521** 8/16-bit microcontroller core (4.9152 MHz), hardware DMA blitter, 16KB 2-bpp STN passive-matrix LCD scanline renderer, 8-bit `SGDA ($004E)` DAC + SG0/SG1/SG2 audio engine, dual cartridge bays with hardware `P3` chip-select isolation, **Tiger Web Link** (`gclink`), **Virtual Hayes AT Modem** (`Internet`), and a competitive **Multi-Player High Score Vault, Online Leaderboards & Hardcore Mode Ecosystem**.
 
 ## Play Online (Latest Web Version)
 - **Web Emulator (GitHub Pages)**: [https://onlyusemefeet.github.io/Cub-Spiele.Com/](https://onlyusemefeet.github.io/Cub-Spiele.Com/) — automatically built and deployed from `main`.
 
-## Supported Platforms (`v0.1.12`)
-- **Windows 10 / 11 (x64)**: Self-Contained Single-File 64-bit PE32+ GUI executable (`CubSpieleCom.exe`, embedding the offline emulator bundle and BIOS) and Portable Archive (`CubSpieleCom-v0.1.12-win64.zip`)
-- **macOS 11+ (Universal)**: Native macOS Application Bundle (`Cub Spiele.Com.app` inside `CubSpieleCom-v0.1.12-macos-universal.zip`) with Universal Mach-O (`Apple Silicon ARM64` + `Intel x86_64`) support
-- **Android 8.0+ & Mobile Touch**: Android Universal Package (`CubSpieleCom-v0.1.12-android.apk`), Capacitor runtime config, and offline-capable Progressive Web App (`manifest.webmanifest` + Service Worker) with multi-touch D-Pad/A/B/C/D and 13×10 resistive touchscreen support
+## Supported Platforms (`v0.1.13`)
+- **Windows 10 / 11 (x64)**: Self-Contained Single-File 64-bit PE32+ GUI executable (`CubSpieleCom.exe`, embedding the offline emulator bundle and BIOS) and Portable Archive (`CubSpieleCom-v0.1.13-win64.zip`)
+- **macOS 11+ (Universal)**: Native macOS Application Bundle (`Cub Spiele.Com.app` inside `CubSpieleCom-v0.1.13-macos-universal.zip`) with Universal Mach-O (`Apple Silicon ARM64` + `Intel x86_64`) support
+- **Android 8.0+ & Mobile Touch**: Android Universal Package (`CubSpieleCom-v0.1.13-android.apk`), Capacitor runtime config, and offline-capable Progressive Web App (`manifest.webmanifest` + Service Worker) with multi-touch D-Pad/A/B/C/D and 13×10 resistive touchscreen support
 
 ## Key Features
 - **Full Retail, Prototype & `.zip` ROM Compatibility**: Supports `.bin`, `.tgc`, `.rom`, and `.zip` cartridge archives across the official Game.Com library (including *Sonic Jam*, *Resident Evil 2*, *Fighters Megamix*, *Duke Nukem 3D*, and *Lights Out*) as well as the unreleased prototype *Castlevania: Symphony of the Night* (`$0448`) with double-buffered VRAM page-flip synchronization and `MMU1..MMU4` cartridge detection.

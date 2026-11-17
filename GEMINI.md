@@ -31,8 +31,8 @@ The interface follows standalone handheld emulators such as **mGBA**, offering:
 <<<<<<< HEAD
 | `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.1.7-win64.zip` + macOS/Android builds. |
 =======
-| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.1.12-win64.zip` + macOS/Android builds. |
->>>>>>> 73782a7 (v0.1.12: Fix Fighters Megamix and MKT linked VS playability in Enhanced Link Mode)
+| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.1.13-win64.zip` + macOS/Android builds. |
+>>>>>>> 73782a7 (v0.1.13: Fix Fighters Megamix and MKT linked VS playability in Enhanced Link Mode)
 
 ---
 

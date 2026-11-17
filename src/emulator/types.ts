@@ -306,6 +306,17 @@ export interface InputBindingsConfig {
   gamepad: Partial<Record<InputActionId, number[]>>;
 }
 
+export type GameComConsoleModel =
+  | 'original'
+  | 'pocketpro_backlit'
+  | 'pocketpro_purple'
+  | 'pocketpro_green'
+  | 'pocketpro_blue'
+  | 'pocketpro_pink'
+  | 'minimal';
+
+export type BezelZoomMode = 'auto' | 'full-system' | 'mid' | 'closeup' | 'scale';
+
 export interface EmulatorSettings {
   palette: LCDPaletteId;
   /** Two user-selected hex shades [Light/Background Shade 0, Dark/Foreground Shade 3] */
@@ -331,6 +342,8 @@ export interface EmulatorSettings {
   touchScale: number;
   touchControlSize: 'compact' | 'standard' | 'large';
   touchOrientation: 'auto' | 'horizontal' | 'vertical';
+  consoleModel: GameComConsoleModel;
+  bezelZoom: BezelZoomMode;
   showBottomBar: boolean;
   contrast: number;
   volume: number;
