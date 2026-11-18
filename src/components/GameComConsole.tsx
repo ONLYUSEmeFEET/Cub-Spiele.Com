@@ -271,10 +271,20 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               />
             ))}
 
-            {/* Top "game.com" Geometric Wordmark */}
+            {/* Top "game.com" Geometric Wordmark + Planet Ring + TM */}
             <g transform="translate(97, 19) scale(0.55)">
-              <GameComWordmarkPaths fill="#1e2229" dotFill="#be123c" />
+              <GameComWordmarkPaths fill="#111317" dotFill="#111317" withPlanetRing />
             </g>
+            <text
+              x="226"
+              y="28"
+              fill="#2c313a"
+              fontFamily="sans-serif"
+              fontWeight="700"
+              fontSize="5.5"
+            >
+              TM
+            </text>
 
             {/* 4-Polygon 3D Sunken Chamfered Screen Frame (outer 48..272, 38..214 -> inner 60..260, 44..204) */}
             <polygon points="48,38 272,38 260,44 60,44" fill="#828891" />
@@ -293,60 +303,98 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             />
 
             {/* Bottom of Silver Shield: "TIGER" */}
-            <g transform="translate(133, 219) scale(0.5)">
-              <TigerWordmarkPaths fill="#2c313a" />
+            <g transform="translate(136, 219) scale(0.5)">
+              <TigerWordmarkPaths fill="#1c2026" />
             </g>
 
-            {/* Recessed Circular D-Pad Well (Left: cx=86, cy=338, r=54) */}
+            {/* Recessed Circular D-Pad Well with Beveled Rim (Left: cx=86, cy=338, r=54) */}
             <circle
               cx="86"
               cy="338"
-              r="54"
+              r="55.5"
+              fill="#2e333c"
+              stroke="#4b5260"
+              strokeWidth="1.2"
+            />
+            <circle
+              cx="86"
+              cy="338"
+              r="53"
               fill="url(#vp-well)"
-              stroke="#333842"
+              stroke="#14171c"
               strokeWidth="1.5"
             />
 
-            {/* Two Angled Pill Recesses for [A, B] & [C, D] (Right: matching 1997 Original style) */}
+            {/* Two Angled (-15deg) Double-Beveled Stadium Recesses for [A, B] & [C, D] */}
             <g transform="rotate(-15 232 314)">
               <rect
                 x="182"
-                y="290"
+                y="291"
                 width="100"
-                height="48"
-                rx="24"
-                fill="url(#vp-well)"
-                stroke="#333842"
+                height="46"
+                rx="23"
+                fill="#2e333c"
+                stroke="#4b5260"
                 strokeWidth="1.5"
+              />
+              <rect
+                x="185"
+                y="294"
+                width="94"
+                height="40"
+                rx="20"
+                fill="url(#vp-well)"
+                stroke="#14171c"
+                strokeWidth="1.2"
               />
             </g>
             <g transform="rotate(-15 240 368)">
               <rect
                 x="190"
-                y="344"
+                y="345"
                 width="100"
-                height="48"
-                rx="24"
-                fill="url(#vp-well)"
-                stroke="#333842"
+                height="46"
+                rx="23"
+                fill="#2e333c"
+                stroke="#4b5260"
                 strokeWidth="1.5"
+              />
+              <rect
+                x="193"
+                y="348"
+                width="94"
+                height="40"
+                rx="20"
+                fill="url(#vp-well)"
+                stroke="#14171c"
+                strokeWidth="1.2"
               />
             </g>
 
-            {/* Center/Bottom System Pill Labels */}
-            <text x="58" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+            {/* Continuous Recessed Trough & Crisp System Pill Labels */}
+            <rect
+              x="30"
+              y="438"
+              width="266"
+              height="24"
+              rx="12"
+              fill="#111318"
+              stroke="#333842"
+              strokeWidth="1.2"
+            />
+            <text x="58" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
               ON/OFF
             </text>
-            <text x="118" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+            <text x="118" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
               MENU
             </text>
-            <text x="168" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+            <text x="168" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
               SOUND
             </text>
-            <text x="218" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+            <text x="218" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
               PAUSE
             </text>
-            <text x="268" y="435" textAnchor="middle" fill="#9ca3af" fontSize="7.5" fontWeight="700" letterSpacing="1">
+            <text x="268" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
               LIGHT
             </text>
 
@@ -435,7 +483,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
                 height: `${(38 / 510) * 100}%`,
                 fontSize: `${Math.max(10, Math.round(13 * S))}px`
               }}
-              className={`absolute rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
+              className={`absolute -rotate-15 rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
                 activeButtons[b.id]
                   ? 'scale-92 bg-[#111317] text-amber-300 border-black shadow-inner'
                   : 'bg-gradient-to-b from-[#3b404a] via-[#252930] to-[#16181d] text-zinc-100 border-black shadow-[0_3px_6px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.25)]'
@@ -584,9 +632,9 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               strokeWidth="2.2"
             />
 
-            {/* Full-Width Brushed Silver Metallic Upper Faceplate with Swooping Lower Seam */}
+            {/* Full-Width Brushed Silver Metallic Upper Faceplate with Accurate Lower Seam */}
             <path
-              d="M 36 18 Q 280 7 524 18 C 538 21 545 34 545 52 L 543 196 Q 542 204 532 206 L 414 220 H 146 Q 86 226 30 218 Q 16 216 15 204 L 15 52 C 15 34 22 21 36 18 Z"
+              d="M 36 18 Q 280 7 524 18 C 538 21 545 34 545 52 L 543 211 Q 542 217 532 218 L 412 230 H 146 Q 86 234 30 222 Q 16 219 15 208 L 15 52 C 15 34 22 21 36 18 Z"
               fill="url(#orig-silver)"
               stroke="#787f87"
               strokeWidth="1.8"
@@ -594,17 +642,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
             {/* Top "game.com" Geometric Wordmark + Saturn Ring Accent + TM */}
             <g transform="translate(216, 12) scale(0.56)">
-              <GameComWordmarkPaths fill="#111317" dotFill="#111317" />
-              <ellipse
-                cx="129"
-                cy="21"
-                rx="9"
-                ry="3.2"
-                transform="rotate(-24 129 21)"
-                fill="none"
-                stroke="#111317"
-                strokeWidth="2.2"
-              />
+              <GameComWordmarkPaths fill="#111317" dotFill="#111317" withPlanetRing />
             </g>
             <text
               x="346"
@@ -617,14 +655,14 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               TM
             </text>
 
-            {/* Deep 4-Polygon Trapezoidal Chamfered Screen Inset (outer 154..406, 36..218 -> inner 180..380, 48..208) */}
-            <polygon points="154,36 406,36 380,48 180,48" fill="#899099" />
-            <polygon points="154,36 180,48 180,208 154,218" fill="#a5abb4" />
-            <polygon points="406,36 406,218 380,208 380,48" fill="#eceff2" />
-            <polygon points="180,208 380,208 406,218 154,218" fill="#bdc3cb" />
+            {/* Deep 4-Polygon Trapezoidal Chamfered Screen Inset (outer 154..406, 34..216 -> inner 180..380, 46..206) */}
+            <polygon points="154,34 406,34 380,46 180,46" fill="#899099" />
+            <polygon points="154,34 180,46 180,206 154,216" fill="#a5abb4" />
+            <polygon points="406,34 406,216 380,206 380,46" fill="#eceff2" />
+            <polygon points="180,206 380,206 406,216 154,216" fill="#bdc3cb" />
             <rect
               x="178"
-              y="46"
+              y="44"
               width="204"
               height="164"
               rx="2"
@@ -634,7 +672,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             />
 
             {/* Bottom "TIGER" Wordmark directly below screen bevel */}
-            <g transform="translate(254, 222) scale(0.48)">
+            <g transform="translate(254, 219) scale(0.5)">
               <TigerWordmarkPaths fill="#1c2026" />
             </g>
 
@@ -669,82 +707,92 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               strokeWidth="1.5"
             />
 
-            {/* Top-Right Round ON/OFF Bezel Ring + Label */}
+            {/* Top-Right Round ON/OFF Bezel Ring + Crisp Label */}
             <circle
-              cx="444"
-              cy="52"
-              r="12.5"
+              cx="442"
+              cy="50"
+              r="12"
               fill="#1d2128"
               stroke="#7e858f"
               strokeWidth="1.5"
             />
             <text
-              x="462"
-              y="55"
-              fill="#2c313a"
+              x="460"
+              y="53"
+              fill="#1a1d24"
               fontFamily="sans-serif"
               fontWeight="800"
-              fontSize="7.5"
-              letterSpacing="0.8"
+              fontSize="8"
+              letterSpacing="0.9"
             >
               ON/OFF
             </text>
 
-            {/* Middle-Right Two Angled (-16deg) Silver-Beveled Stadium Wells for [A, B] and [C, D] */}
-            <g transform="rotate(-16 472 114)">
+            {/* Middle-Right Two Angled (-15deg) Sleek Silver-Beveled Stadium Wells for [A, B] (cy=104) and [C, D] (cy=150) */}
+            <g transform="rotate(-15 466 104)">
               <rect
-                x="422"
-                y="92"
-                width="100"
-                height="44"
-                rx="22"
-                fill="#b8bec6"
-                stroke="#7a808a"
-                strokeWidth="1.6"
+                x="419"
+                y="86"
+                width="94"
+                height="36"
+                rx="18"
+                fill="#a8aeb7"
+                stroke="#686e78"
+                strokeWidth="1.5"
               />
               <rect
-                x="425"
-                y="95"
-                width="94"
-                height="38"
-                rx="19"
+                x="422"
+                y="89"
+                width="88"
+                height="30"
+                rx="15"
                 fill="#cdd2d8"
-                stroke="#eaedf0"
+                stroke="#eceff2"
                 strokeWidth="1"
               />
             </g>
-            <g transform="rotate(-16 480 166)">
+            <g transform="rotate(-15 474 150)">
               <rect
-                x="430"
-                y="144"
-                width="100"
-                height="44"
-                rx="22"
-                fill="#b8bec6"
-                stroke="#7a808a"
-                strokeWidth="1.6"
+                x="427"
+                y="132"
+                width="94"
+                height="36"
+                rx="18"
+                fill="#a8aeb7"
+                stroke="#686e78"
+                strokeWidth="1.5"
               />
               <rect
-                x="433"
-                y="147"
-                width="94"
-                height="38"
-                rx="19"
+                x="430"
+                y="135"
+                width="88"
+                height="30"
+                rx="15"
                 fill="#cdd2d8"
-                stroke="#eaedf0"
+                stroke="#eceff2"
                 strokeWidth="1"
               />
             </g>
 
-            {/* Bottom-Right Labels for [MENU] [SOUND] [PAUSE] along the swooping silver seam */}
-            <g transform="rotate(-6 478 202)">
-              <text x="438" y="196" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+            {/* Continuous Recessed Seam Trough & Crisp Well-Spaced Labels for [MENU] [SOUND] [PAUSE] */}
+            <g transform="rotate(-5.5 478 214)">
+              <rect
+                x="412"
+                y="207"
+                width="131"
+                height="14"
+                rx="7"
+                fill="#6d737d"
+                stroke="#525760"
+                strokeWidth="1.2"
+              />
+              <text x="434" y="201" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="7.2" fontWeight="800" letterSpacing="0.9">
                 MENU
               </text>
-              <text x="478" y="196" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              <text x="477" y="201" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="7.2" fontWeight="800" letterSpacing="0.9">
                 SOUND
               </text>
-              <text x="518" y="196" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              <text x="520" y="201" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="7.2" fontWeight="800" letterSpacing="0.9">
                 PAUSE
               </text>
             </g>
@@ -752,7 +800,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             {/* Lower Charcoal Grip Dock & Horizontal Recessed Tiger Stylus */}
             <rect
               x="108"
-              y="248"
+              y="252"
               width="348"
               height="28"
               rx="14"
@@ -762,26 +810,26 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             />
             {/* Tapered Black Stylus Pen Body */}
             <path
-              d="M 118 262 L 158 253 H 424 C 436 253 444 257 444 262 C 444 267 436 271 424 271 H 158 Z"
+              d="M 118 266 L 158 257 H 424 C 436 257 444 261 444 266 C 444 271 436 275 424 275 H 158 Z"
               fill="#1d2026"
               stroke="#08090b"
               strokeWidth="1.2"
             />
             {/* Finger-grip recess with 3 tactile dots */}
-            <rect x="218" y="254" width="38" height="16" rx="4" fill="#2a2e36" stroke="#111317" strokeWidth="1" />
-            <circle cx="228" cy="262" r="1.2" fill="#525864" />
-            <circle cx="234" cy="262" r="1.2" fill="#525864" />
-            <circle cx="240" cy="262" r="1.2" fill="#525864" />
-            <g transform="translate(268, 257) scale(0.45)">
+            <rect x="218" y="258" width="38" height="16" rx="4" fill="#2a2e36" stroke="#111317" strokeWidth="1" />
+            <circle cx="228" cy="266" r="1.2" fill="#525864" />
+            <circle cx="234" cy="266" r="1.2" fill="#525864" />
+            <circle cx="240" cy="266" r="1.2" fill="#525864" />
+            <g transform="translate(268, 261) scale(0.45)">
               <TigerWordmarkPaths fill="#b8bec7" />
             </g>
           </svg>
 
-          {/* LCD Screen at exact (180, 48) -> (200x160) in 560x320 space */}
+          {/* LCD Screen at exact (180, 46) -> (200x160) in 560x320 space */}
           <div
             style={{
               left: `${(180 / 560) * 100}%`,
-              top: `${(48 / 320) * 100}%`,
+              top: `${(46 / 320) * 100}%`,
               width: `${(200 / 560) * 100}%`,
               height: `${(160 / 320) * 100}%`
             }}
@@ -828,7 +876,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             <div className="absolute inset-[36%] rounded-full bg-[#16191e] shadow-inner pointer-events-none" />
           </div>
 
-          {/* Interactive Round Blue ON/OFF Button at (cx=444, cy=52, r=9) */}
+          {/* Interactive Round Blue ON/OFF Button at (cx=442, cy=50, r=8.5) */}
           <button
             type="button"
             onClick={() => {
@@ -836,10 +884,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               onStateChange?.();
             }}
             style={{
-              left: `${((444 - 9) / 560) * 100}%`,
-              top: `${((52 - 9) / 320) * 100}%`,
-              width: `${(18 / 560) * 100}%`,
-              height: `${(18 / 320) * 100}%`
+              left: `${((442 - 8.5) / 560) * 100}%`,
+              top: `${((50 - 8.5) / 320) * 100}%`,
+              width: `${(17 / 560) * 100}%`,
+              height: `${(17 / 320) * 100}%`
             }}
             className={`absolute rounded-full border transition-transform active:scale-90 cursor-pointer ${
               system.isPoweredOn
@@ -850,13 +898,13 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             aria-label="ON/OFF Power Button"
           />
 
-          {/* Interactive Angled A, B, C, D Action Buttons */}
+          {/* Interactive Angled A, B, C, D Action Buttons (r=14.5 inside sleek 94x36 stadiums) */}
           {(
             [
-              { id: 'a', cx: 449, cy: 121 },
-              { id: 'b', cx: 495, cy: 107 },
-              { id: 'c', cx: 457, cy: 173 },
-              { id: 'd', cx: 503, cy: 159 }
+              { id: 'a', cx: 444, cy: 110 },
+              { id: 'b', cx: 488, cy: 98 },
+              { id: 'c', cx: 452, cy: 156 },
+              { id: 'd', cx: 496, cy: 144 }
             ] as const
           ).map((b) => (
             <button
@@ -864,13 +912,13 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               type="button"
               {...bindButtonPointer(b.id)}
               style={{
-                left: `${((b.cx - 17) / 560) * 100}%`,
-                top: `${((b.cy - 17) / 320) * 100}%`,
-                width: `${(34 / 560) * 100}%`,
-                height: `${(34 / 320) * 100}%`,
-                fontSize: `${Math.max(9, Math.round(11.5 * S))}px`
+                left: `${((b.cx - 14.5) / 560) * 100}%`,
+                top: `${((b.cy - 14.5) / 320) * 100}%`,
+                width: `${(29 / 560) * 100}%`,
+                height: `${(29 / 320) * 100}%`,
+                fontSize: `${Math.max(8, Math.round(9.5 * S))}px`
               }}
-              className={`absolute rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
+              className={`absolute -rotate-15 rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
                 activeButtons[b.id]
                   ? 'scale-92 bg-[#111317] text-amber-300 border-black shadow-inner'
                   : 'bg-gradient-to-b from-[#363b44] via-[#22252b] to-[#121418] text-zinc-100 border-black shadow-[0_3px_5px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.28)]'
@@ -881,17 +929,17 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             </button>
           ))}
 
-          {/* Interactive Bottom-Right Blue Pill Buttons along the seam: [MENU] [SOUND] [PAUSE] */}
+          {/* Interactive Bottom-Right Blue Pill Buttons inside the recessed seam trough: [MENU] [SOUND] [PAUSE] */}
           <button
             type="button"
             {...bindButtonPointer('menu')}
             style={{
-              left: `${(421 / 560) * 100}%`,
-              top: `${(207 / 320) * 100}%`,
-              width: `${(35 / 560) * 100}%`,
-              height: `${(10.5 / 320) * 100}%`
+              left: `${(417 / 560) * 100}%`,
+              top: `${(213 / 320) * 100}%`,
+              width: `${(34 / 560) * 100}%`,
+              height: `${(9.5 / 320) * 100}%`
             }}
-            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] shadow active:scale-95 cursor-pointer touch-none"
+            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
             title="MENU (Enter)"
             aria-label="MENU Button"
           />
@@ -907,12 +955,12 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onPointerCancel={bindButtonPointer('sound').onPointerCancel}
             onLostPointerCapture={bindButtonPointer('sound').onLostPointerCapture}
             style={{
-              left: `${(461 / 560) * 100}%`,
-              top: `${(203 / 320) * 100}%`,
-              width: `${(35 / 560) * 100}%`,
-              height: `${(10.5 / 320) * 100}%`
+              left: `${(460 / 560) * 100}%`,
+              top: `${(209 / 320) * 100}%`,
+              width: `${(34 / 560) * 100}%`,
+              height: `${(9.5 / 320) * 100}%`
             }}
-            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] shadow active:scale-95 cursor-pointer touch-none"
+            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
             title="SOUND (Mute / Unmute)"
             aria-label="SOUND Button"
           />
@@ -928,12 +976,12 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onPointerCancel={bindButtonPointer('pause').onPointerCancel}
             onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
             style={{
-              left: `${(501 / 560) * 100}%`,
-              top: `${(199 / 320) * 100}%`,
-              width: `${(35 / 560) * 100}%`,
-              height: `${(10.5 / 320) * 100}%`
+              left: `${(503 / 560) * 100}%`,
+              top: `${(205 / 320) * 100}%`,
+              width: `${(34 / 560) * 100}%`,
+              height: `${(9.5 / 320) * 100}%`
             }}
-            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] shadow active:scale-95 cursor-pointer touch-none"
+            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
             title="PAUSE (Space)"
             aria-label="PAUSE Button"
           />
@@ -1127,40 +1175,59 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             POCKET PRO
           </text>
 
-          {/* Right Silver Wing Labels for ON/OFF, MENU, PAUSE (angled -14deg) */}
+          {/* Right Silver Wing Recessed Sockets & Crisp Labels for ON/OFF, MENU, PAUSE (angled -14deg) */}
+          <circle cx="418" cy="52" r="11.5" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
           <g transform="rotate(-14 422 50)">
-            <text x="416" y="38" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+            <text x="415" y="37" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
               ON/OFF
             </text>
           </g>
           <g transform="rotate(-14 426 84)">
-            <text x="426" y="75" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+            <rect x="405" y="77" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="426" y="73" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
               MENU
             </text>
           </g>
           <g transform="rotate(-14 430 112)">
-            <text x="430" y="103" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+            <rect x="409" y="105" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="430" y="101" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
               PAUSE
             </text>
           </g>
 
-          {/* Lower-Left Grip Circular D-Pad Well (cx=72, cy=198, r=47 — completely OFF silver plate) */}
+          {/* Lower-Left Grip Double-Rimmed Circular D-Pad Well (cx=72, cy=198, r=47 — completely OFF silver plate) */}
           <circle
             cx="72"
             cy="198"
-            r="47"
+            r="48.5"
+            fill="rgba(0,0,0,0.35)"
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth="1.2"
+          />
+          <circle
+            cx="72"
+            cy="198"
+            r="46.5"
             fill={p.wellFill}
-            stroke="rgba(255,255,255,0.12)"
+            stroke="rgba(0,0,0,0.65)"
             strokeWidth="1.5"
           />
 
-          {/* Lower-Right Grip Circular 2x2 Action Button Well (cx=428, cy=198, r=47 — completely OFF silver plate) */}
+          {/* Lower-Right Grip Double-Rimmed Circular 2x2 Action Button Well (cx=428, cy=198, r=47 — completely OFF silver plate) */}
           <circle
             cx="428"
             cy="198"
-            r="47"
+            r="48.5"
+            fill="rgba(0,0,0,0.35)"
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth="1.2"
+          />
+          <circle
+            cx="428"
+            cy="198"
+            r="46.5"
             fill={p.wellFill}
-            stroke="rgba(255,255,255,0.12)"
+            stroke="rgba(0,0,0,0.65)"
             strokeWidth="1.5"
           />
         </svg>

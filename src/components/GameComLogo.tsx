@@ -3,6 +3,7 @@ import React from 'react';
 export interface GameComWordmarkProps {
   fill?: string;
   dotFill?: string;
+  withPlanetRing?: boolean;
   stroke?: string;
   strokeWidth?: number;
   highlightFill?: string;
@@ -12,11 +13,12 @@ export interface GameComWordmarkProps {
 
 /**
  * Authentic 1997 Tiger Game.Com geometric micro-tech "game.com" wordmark
- * in a 216x34 coordinate space (baseline at y=24, x-height y=4..24, g descender to y=32).
+ * in a 228x34 coordinate space (baseline at y=24, x-height y=4..24, g descender to y=32).
  */
 export const GameComWordmarkPaths: React.FC<GameComWordmarkProps> = ({
   fill = '#1e2228',
   dotFill,
+  withPlanetRing = false,
   stroke,
   strokeWidth = 0
 }) => {
@@ -48,8 +50,20 @@ export const GameComWordmarkPaths: React.FC<GameComWordmarkProps> = ({
         d="M 103 4 H 115 A 6 6 0 0 1 121 10 V 16 H 102.5 V 17.5 A 1.5 1.5 0 0 0 104 19 H 120 V 24 H 103 A 6 6 0 0 1 97 18 V 10 A 6 6 0 0 1 103 4 Z M 104 9 A 1.5 1.5 0 0 0 102.5 10.5 V 12 H 115.5 V 10.5 A 1.5 1.5 0 0 0 114 9 H 104 Z"
       />
 
-      {/* '.' (x: 126..132, y: 18..24) */}
+      {/* '.' (x: 126..132, y: 18..24) + optional 1997 planet ring */}
       <rect x="126" y="18" width="6" height="6" rx="1.2" fill={dot} />
+      {withPlanetRing && (
+        <ellipse
+          cx="129"
+          cy="21"
+          rx="9"
+          ry="3.2"
+          transform="rotate(-24 129 21)"
+          fill="none"
+          stroke={dot}
+          strokeWidth="2.2"
+        />
+      )}
 
       {/* 'c' (x: 137..159, y: 4..24) */}
       <path d="M 143 4 H 158 V 9 H 144 A 1.5 1.5 0 0 0 142.5 10.5 V 17.5 A 1.5 1.5 0 0 0 144 19 H 158 V 24 H 143 A 6 6 0 0 1 137 18 V 10 A 6 6 0 0 1 143 4 Z" />
@@ -83,8 +97,8 @@ export const GameComLogo: React.FC<GameComWordmarkProps> = ({
 );
 
 /**
- * Authentic Tiger Electronics TIGER wordmark with signature speed-bar tail.
- * ViewBox 0 0 112 18.
+ * Authentic Tiger Electronics TIGER wordmark with seamless connected loop-tail and ® dot.
+ * ViewBox 0 0 88 18.
  */
 export const TigerWordmarkPaths: React.FC<{ fill?: string }> = ({ fill = '#1e2228' }) => (
   <g fill={fill}>
@@ -95,12 +109,18 @@ export const TigerWordmarkPaths: React.FC<{ fill?: string }> = ({ fill = '#1e222
       fontWeight="900"
       fontStyle="italic"
       fontSize="15"
-      letterSpacing="2.2"
+      letterSpacing="1.6"
     >
       TIGER
     </text>
-    {/* Signature horizontal speed-bar tail extending right from R */}
-    <rect x="78" y="10.5" width="24" height="2.4" rx="1.2" />
-    <circle cx="106" cy="11.7" r="1.4" />
+    {/* Seamless loop-tail extending from the bottom-right leg of R */}
+    <path
+      d="M 55 11.6 H 76 A 1.5 1.5 0 0 0 76 8.6 H 71"
+      fill="none"
+      stroke={fill}
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    />
+    <circle cx="81" cy="11.2" r="1.5" />
   </g>
 );

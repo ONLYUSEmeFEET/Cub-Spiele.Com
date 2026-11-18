@@ -278,7 +278,7 @@ def build_windows_bootstrap_ps1() -> bytes:
         "}else{\n"
         "  $fi=Get-Item -LiteralPath $exe\n"
         "  $stamp=\"$($fi.Length)_$($fi.LastWriteTimeUtc.Ticks)\"\n"
-        "  $rtDir=Join-Path $baseWork \"runtime-$($fi.Length)\"\n"
+        "  $rtDir=Join-Path $baseWork \"runtime-$($fi.Length)-$($fi.LastWriteTimeUtc.Ticks)\"\n"
         "  $stampFile=Join-Path $rtDir '.cub_stamp'\n"
         "  $rtApp=Join-Path $rtDir 'app\\index.html'\n"
         "  if(-not ((Test-Path -LiteralPath $rtApp) -and (Test-Path -LiteralPath $stampFile) -and ((Get-Content -LiteralPath $stampFile -Raw) -eq $stamp))){\n"
@@ -1377,11 +1377,20 @@ def main():
             "title": "Cub Spiele.Com v0.2.0 — Authentic Handheld Console Shells, Proportional Scaling, Vertical Pocket View & ROM Library",
             "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "highlights": [
-                "Hardware-accurate interactive console shells for all released Tiger Game.Com models: 1997 Original (#71-500), 1998/1999 Pocket Pro Translucent (#71-510 Purple, Green, Blue, Pink) with one-piece continuous winged silver shield, and 1999 Backlit Pocket Pro (#71-520) with interactive teal EL LIGHT button",
+                "Hardware-accurate interactive console shells for all released Tiger Game.Com models: 1997 Original (#71-500), 1998/1999 Pocket Pro Translucent (#71-510 Purple, Green, Blue, Pink) with one-piece continuous winged silver shield, and 1999 Backlit Pocket Pro (#71-520) with universal Pocket LIGHT button",
                 "RetroArch-style uniform proportional handheld scaling (Auto, Full, Mid, Close, and 1x-4x) where the console shell, 3D screen bezel, 200x160 LCD, D-Pad, and action buttons scale together in exact lockstep",
                 "Restored Vertical Pocket (Classic) portrait handheld view combining an Analogue Pocket vertical form factor with 1997 Tiger Game.Com brushed-silver and charcoal hardware styling and accessible thumb controls",
                 "Added Game.Com Library & Preservation Vault with Online ROM Repository scanning (Internet Archive support), high-res scanned cartridge label artwork, original PDF instruction manuals, and Historical Preservation Archive",
-                "Streamlined single-dropdown View menu and updated multi-platform application icons and credits"
+                "Streamlined single-dropdown View menu, Light Mode consistency across all dialogs, and automated single-source-of-truth version verification"
+            ],
+        },
+        {
+            "tag": "v0.1.13",
+            "title": "Cub Spiele.Com v0.1.13 — Fighters Megamix & Mortal Kombat Trilogy Enhanced Link Playability & Non-Blocking Peer Discovery",
+            "publishedAt": "2026-11-17T23:14:11Z",
+            "highlights": [
+                "Fixed Fighters Megamix and Mortal Kombat Trilogy 2-Player linked VS playability in Enhanced Link Mode",
+                "Replaced full-subnet LAN probing with non-blocking loopback/peer discovery so launching a 2nd instance never disrupts host Wi-Fi or router NAT tables"
             ],
         },
         {
