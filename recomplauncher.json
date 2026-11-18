@@ -1,0 +1,151 @@
+{
+  "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+  "format": 1,
+  "name": "Cub Spiele.Com",
+  "repo": "ONLYUSEmeFEET/Cub-Spiele.Com",
+  "start": {
+    "program": ["CubSpieleCom.exe", "Cub Spiele.Com.app"],
+    "args": []
+  },
+  "saves": [
+    "{local}/CubSpieleCom/Profile",
+    "{config}/Cub Spiele.Com/gamecom_nvram_8kb.sav"
+  ],
+  "folders": {
+    "saves": "{local}/CubSpieleCom/Profile",
+    "logs": "{local}/CubSpieleCom"
+  },
+  "actions": [
+    {
+      "label": "Open Profile & Saves Folder",
+      "open": "saves"
+    }
+  ],
+  "looks": {
+    "allowed": false,
+    "reason": "Cub Spiele.Com includes built-in 1997 STN LCD color presets, pixel grid, contrast, and ghosting controls in its Display menu."
+  },
+  "groups": [
+    { "id": "Emulation", "advanced": true }
+  ],
+  "settings": [
+    {
+      "id": "window_mode",
+      "label": "Window Mode",
+      "help": "Start in a resizable desktop window or full screen.",
+      "group": "Display",
+      "in": "args",
+      "choices": [
+        { "label": "Windowed (Default)", "args": [] },
+        { "label": "Fullscreen", "args": ["--fullscreen"] }
+      ],
+      "defaults": { "window_mode": "Windowed (Default)" }
+    },
+    {
+      "id": "view_mode",
+      "label": "Layout Mode",
+      "help": "Choose compact Screen-Only viewport or Touch View with handheld controls.",
+      "group": "Display",
+      "in": "args",
+      "choices": [
+        { "label": "Screen-Only Mode", "args": ["--screen-only"] },
+        { "label": "Touch View", "args": ["--touch-view"] }
+      ],
+      "defaults": { "view_mode": "Screen-Only Mode" }
+    },
+    {
+      "id": "screen_scale",
+      "label": "Screen Scale",
+      "help": "Viewport scaling in Screen-Only Mode.",
+      "group": "Display",
+      "in": "args",
+      "choices": [
+        { "label": "Fit Window (Full)", "args": ["--scale", "full"] },
+        { "label": "2x Integer", "args": ["--scale", "2"] },
+        { "label": "3x Integer", "args": ["--scale", "3"] },
+        { "label": "4x Integer", "args": ["--scale", "4"] }
+      ],
+      "defaults": { "screen_scale": "Fit Window (Full)" }
+    },
+    {
+      "id": "palette",
+      "label": "LCD Color Preset",
+      "help": "Select the passive-matrix STN LCD color palette.",
+      "group": "Display",
+      "in": "args",
+      "choices": [
+        { "label": "Original Olive Green (1997)", "args": ["--palette", "original"] },
+        { "label": "Pocket Pro EL Backlight", "args": ["--palette", "pocket_pro_el"] },
+        { "label": "Pocket Pro FSTN", "args": ["--palette", "pocket_pro_fstn"] },
+        { "label": "Pocket Warm", "args": ["--palette", "pocket_warm"] },
+        { "label": "Transflective", "args": ["--palette", "transflective"] }
+      ],
+      "defaults": { "palette": "Original Olive Green (1997)" }
+    },
+    {
+      "id": "pixel_grid",
+      "label": "LCD Pixel Grid",
+      "help": "Render sub-pixel LCD matrix grid lines.",
+      "group": "Display",
+      "in": "args",
+      "choices": [
+        { "label": "On", "args": ["--pixel-grid", "on"] },
+        { "label": "Off", "args": ["--pixel-grid", "off"] }
+      ],
+      "defaults": { "pixel_grid": "On" }
+    },
+    {
+      "id": "vsync",
+      "label": "V-Sync Latch",
+      "help": "Sync LCD frame updates to VBlank instead of scanline-accurate mid-frame timing.",
+      "group": "Display",
+      "in": "args",
+      "choices": [
+        { "label": "Off (Scanline Accurate)", "args": ["--vsync", "off"] },
+        { "label": "On", "args": ["--vsync", "on"] }
+      ],
+      "defaults": { "vsync": "Off (Scanline Accurate)" }
+    },
+    {
+      "id": "volume",
+      "label": "Master Volume",
+      "help": "Hardware SM8521 audio output volume (0% to 100%).",
+      "group": "Audio",
+      "in": "args",
+      "slider": { "min": 0, "max": 100, "step": 5 },
+      "args": ["--volume", "{value}"],
+      "defaults": { "volume": "20" }
+    },
+    {
+      "id": "hardcore",
+      "label": "Competitive Hardcore Mode",
+      "help": "Disables rewind and save-state loading for verified leaderboard runs.",
+      "group": "Emulation",
+      "advanced": true,
+      "in": "args",
+      "choices": [
+        { "label": "Off", "args": ["--softcore"] },
+        { "label": "On (Competitive)", "args": ["--hardcore"] }
+      ],
+      "defaults": { "hardcore": "Off" }
+    },
+    {
+      "id": "fast_boot",
+      "label": "Fast Boot Cartridge",
+      "help": "Automatically skips the BIOS globe animation when a cartridge is loaded.",
+      "group": "Emulation",
+      "advanced": true,
+      "in": "args",
+      "choices": [
+        { "label": "Off", "args": ["--fast-boot", "off"] },
+        { "label": "On", "args": ["--fast-boot", "on"] }
+      ],
+      "defaults": { "fast_boot": "Off" }
+    }
+  ],
+  "exit_codes": {
+    "0": "ok",
+    "1": "Could not locate CubSpieleCom.exe.",
+    "2": "Could not extract or open the Cub Spiele.Com runtime."
+  }
+}

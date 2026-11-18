@@ -292,6 +292,46 @@ def build_windows_bootstrap_ps1() -> bytes:
         "}\n"
         "if(-not $appHtml -or -not (Test-Path -LiteralPath $appHtml)){exit 2}\n"
         "$fileUrl=[System.Uri]::new($appHtml).AbsoluteUri\n"
+        "$q=@()\n"
+        "$isRecomp=($env:RECOMPLAUNCHER -eq '1')\n"
+        "if($isRecomp){\n"
+        "  $q+='recomp=1'\n"
+        "  if($env:RECOMPLAUNCHER_VERSION){$q+='recomp_version='+[Uri]::EscapeDataString($env:RECOMPLAUNCHER_VERSION)}\n"
+        "  if($env:RECOMPLAUNCHER_MODE){$q+='recomp_mode='+[Uri]::EscapeDataString($env:RECOMPLAUNCHER_MODE)}\n"
+        "  if($env:RECOMPLAUNCHER_PAD){$q+='recomp_pad='+[Uri]::EscapeDataString($env:RECOMPLAUNCHER_PAD)}\n"
+        "}\n"
+        "$wantFs=($isRecomp -and $env:RECOMPLAUNCHER_MODE -eq 'bigpicture')\n"
+        "$rawCmd=$env:CUB_LAUNCH_ARGS\n"
+        "if($rawCmd){\n"
+        "  $tokens=@();$cur='';$inQ=$false;$first=$true\n"
+        "  for($idx=0;$idx -lt $rawCmd.Length;$idx++){\n"
+        "    $ch=$rawCmd[$idx]\n"
+        "    if($ch -eq '\"'){$inQ=-not $inQ;continue}\n"
+        "    if(-not $inQ -and [char]::IsWhiteSpace($ch)){\n"
+        "      if($cur.Length -gt 0){if($first){$first=$false}else{$tokens+=$cur};$cur=''}\n"
+        "    }else{$cur+=$ch}\n"
+        "  }\n"
+        "  if($cur.Length -gt 0 -and -not $first){$tokens+=$cur}\n"
+        "  for($i=0;$i -lt $tokens.Count;$i++){\n"
+        "    $t=$tokens[$i]\n"
+        "    if($t -eq '--fullscreen'){$wantFs=$true;$q+='fullscreen=1'}\n"
+        "    elseif($t -eq '--windowed'){$wantFs=$false;$q+='fullscreen=0'}\n"
+        "    elseif($t -eq '--screen-only'){$q+='view=screen-only'}\n"
+        "    elseif($t -eq '--touch-view'){$q+='view=touch'}\n"
+        "    elseif($t -eq '--hardcore'){$q+='hardcore=1'}\n"
+        "    elseif($t -eq '--softcore'){$q+='hardcore=0'}\n"
+        "    elseif($t -eq '--rom' -and $i+1 -lt $tokens.Count){$rp=$tokens[++$i];if(Test-Path -LiteralPath $rp){$q+='rom='+[Uri]::EscapeDataString([System.Uri]::new((Resolve-Path -LiteralPath $rp).Path).AbsoluteUri)}}\n"
+        "    elseif($t -eq '--rom2' -and $i+1 -lt $tokens.Count){$rp=$tokens[++$i];if(Test-Path -LiteralPath $rp){$q+='rom2='+[Uri]::EscapeDataString([System.Uri]::new((Resolve-Path -LiteralPath $rp).Path).AbsoluteUri)}}\n"
+        "    elseif($t -eq '--scale' -and $i+1 -lt $tokens.Count){$q+='scale='+[Uri]::EscapeDataString($tokens[++$i])}\n"
+        "    elseif($t -eq '--palette' -and $i+1 -lt $tokens.Count){$q+='palette='+[Uri]::EscapeDataString($tokens[++$i])}\n"
+        "    elseif($t -eq '--pixel-grid' -and $i+1 -lt $tokens.Count){$q+='pixel_grid='+[Uri]::EscapeDataString($tokens[++$i])}\n"
+        "    elseif($t -eq '--vsync' -and $i+1 -lt $tokens.Count){$q+='vsync='+[Uri]::EscapeDataString($tokens[++$i])}\n"
+        "    elseif($t -eq '--volume' -and $i+1 -lt $tokens.Count){$q+='volume='+[Uri]::EscapeDataString($tokens[++$i])}\n"
+        "    elseif($t -eq '--fast-boot' -and $i+1 -lt $tokens.Count){$q+='fast_boot='+[Uri]::EscapeDataString($tokens[++$i])}\n"
+        "    elseif(-not $t.StartsWith('-') -and ($t -match '\\.(bin|tgc|rom|zip)$') -and (Test-Path -LiteralPath $t)){$q+='rom='+[Uri]::EscapeDataString([System.Uri]::new((Resolve-Path -LiteralPath $t).Path).AbsoluteUri)}\n"
+        "  }\n"
+        "}\n"
+        "if($q.Count -gt 0){$fileUrl=$fileUrl+'?'+($q -join '&')}\n"
         "$profileDir=Join-Path $baseWork 'Profile'\n"
         "$null=New-Item -ItemType Directory -Path $profileDir -Force\n"
         "$browsers=@(\n"
@@ -310,7 +350,8 @@ def build_windows_bootstrap_ps1() -> bytes:
         "    '--autoplay-policy=no-user-gesture-required',\n"
         "    \"`\"--user-data-dir=$profileDir`\"\"\n"
         "  )\n"
-        "  Start-Process -FilePath $chosen -ArgumentList $argsList\n"
+        "  if($wantFs){$argsList+='--start-fullscreen'}\n"
+        "  if($isRecomp){Start-Process -FilePath $chosen -ArgumentList $argsList -Wait}else{Start-Process -FilePath $chosen -ArgumentList $argsList}\n"
         "}else{\n"
         "  Start-Process -FilePath $appHtml\n"
         "}\n"
@@ -372,65 +413,77 @@ def build_pe64_gui_executable(dib_icon: bytes, embedded_zip_payload: bytes | Non
     rva_rdata = 0x2000
     rdata = bytearray(0x200)
 
-    # IAT (0x0000..0x003F) & ILT (0x0040..0x007F)
-    rva_hn_getmod = rva_rdata + 0x00E0
-    rva_hn_setenv = rva_rdata + 0x0100
-    rva_hn_create = rva_rdata + 0x0120
-    rva_hn_exit = rva_rdata + 0x0138
-    rva_hn_shell = rva_rdata + 0x0150
+    # IAT (0x0000..0x0047) & ILT (0x0048..0x008F)
+    rva_hn_getmod = rva_rdata + 0x00F0
+    rva_hn_setenv = rva_rdata + 0x0110
+    rva_hn_create = rva_rdata + 0x0130
+    rva_hn_exit = rva_rdata + 0x0148
+    rva_hn_getcmd = rva_rdata + 0x0158
+    rva_hn_wait = rva_rdata + 0x0170
+    rva_hn_shell = rva_rdata + 0x0188
 
-    rva_name_k32 = rva_rdata + 0x00C0
-    rva_name_s32 = rva_rdata + 0x00D0
+    rva_name_k32 = rva_rdata + 0x00D0
+    rva_name_s32 = rva_rdata + 0x00E0
 
-    rva_str_env = rva_rdata + 0x0168
-    rva_str_open = rva_rdata + 0x0180
-    rva_str_ps_exe = rva_rdata + 0x0190
+    rva_str_env = rva_rdata + 0x01A0
+    rva_str_args_env = rva_rdata + 0x01B0
+    rva_str_open = rva_rdata + 0x01C8
+    rva_str_ps_exe = rva_rdata + 0x01D0
 
-    # IAT KERNEL32 (4 entries + null) at 0x0000
-    struct.pack_into('<QQQQQ', rdata, 0x0000, rva_hn_getmod, rva_hn_setenv, rva_hn_create, rva_hn_exit, 0)
-    # IAT SHELL32 (1 entry + null) at 0x0028
-    struct.pack_into('<QQ', rdata, 0x0028, rva_hn_shell, 0)
+    # IAT KERNEL32 (6 entries + null) at 0x0000
+    struct.pack_into('<QQQQQQQ', rdata, 0x0000, rva_hn_getmod, rva_hn_setenv, rva_hn_create, rva_hn_exit, rva_hn_getcmd, rva_hn_wait, 0)
+    # IAT SHELL32 (1 entry + null) at 0x0038
+    struct.pack_into('<QQ', rdata, 0x0038, rva_hn_shell, 0)
 
-    # ILT KERNEL32 at 0x0040
-    struct.pack_into('<QQQQQ', rdata, 0x0040, rva_hn_getmod, rva_hn_setenv, rva_hn_create, rva_hn_exit, 0)
-    # ILT SHELL32 at 0x0068
-    struct.pack_into('<QQ', rdata, 0x0068, rva_hn_shell, 0)
+    # ILT KERNEL32 at 0x0048
+    struct.pack_into('<QQQQQQQ', rdata, 0x0048, rva_hn_getmod, rva_hn_setenv, rva_hn_create, rva_hn_exit, rva_hn_getcmd, rva_hn_wait, 0)
+    # ILT SHELL32 at 0x0080
+    struct.pack_into('<QQ', rdata, 0x0080, rva_hn_shell, 0)
 
-    # Import Directory Descriptors at 0x0080 (3 * 20 = 60 bytes)
-    struct.pack_into('<IIIII', rdata, 0x0080, rva_rdata + 0x0040, 0, 0, rva_name_k32, rva_rdata + 0x0000)
-    struct.pack_into('<IIIII', rdata, 0x0094, rva_rdata + 0x0068, 0, 0, rva_name_s32, rva_rdata + 0x0028)
-    struct.pack_into('<IIIII', rdata, 0x00A8, 0, 0, 0, 0, 0)
+    # Import Directory Descriptors at 0x0090 (3 * 20 = 60 bytes)
+    struct.pack_into('<IIIII', rdata, 0x0090, rva_rdata + 0x0048, 0, 0, rva_name_k32, rva_rdata + 0x0000)
+    struct.pack_into('<IIIII', rdata, 0x00A4, rva_rdata + 0x0080, 0, 0, rva_name_s32, rva_rdata + 0x0038)
+    struct.pack_into('<IIIII', rdata, 0x00B8, 0, 0, 0, 0, 0)
 
-    rdata[0x00C0:0x00CD] = b'KERNEL32.dll\x00'
-    rdata[0x00D0:0x00DC] = b'SHELL32.dll\x00'
+    rdata[0x00D0:0x00DD] = b'KERNEL32.dll\x00'
+    rdata[0x00E0:0x00EC] = b'SHELL32.dll\x00'
 
-    struct.pack_into('<H', rdata, 0x00E0, 0)
-    rdata[0x00E2:0x00F5] = b'GetModuleFileNameA\x00'
+    struct.pack_into('<H', rdata, 0x00F0, 0)
+    rdata[0x00F2:0x0105] = b'GetModuleFileNameA\x00'
 
-    struct.pack_into('<H', rdata, 0x0100, 0)
-    rdata[0x0102:0x011A] = b'SetEnvironmentVariableA\x00'
+    struct.pack_into('<H', rdata, 0x0110, 0)
+    rdata[0x0112:0x012A] = b'SetEnvironmentVariableA\x00'
 
-    struct.pack_into('<H', rdata, 0x0120, 0)
-    rdata[0x0122:0x0131] = b'CreateProcessA\x00'
+    struct.pack_into('<H', rdata, 0x0130, 0)
+    rdata[0x0132:0x0141] = b'CreateProcessA\x00'
 
-    struct.pack_into('<H', rdata, 0x0138, 0)
-    rdata[0x013A:0x0146] = b'ExitProcess\x00'
+    struct.pack_into('<H', rdata, 0x0148, 0)
+    rdata[0x014A:0x0156] = b'ExitProcess\x00'
 
-    struct.pack_into('<H', rdata, 0x0150, 0)
-    rdata[0x0152:0x0160] = b'ShellExecuteA\x00'
+    struct.pack_into('<H', rdata, 0x0158, 0)
+    rdata[0x015A:0x016A] = b'GetCommandLineA\x00'
 
-    rdata[0x0168:0x0175] = b'CUB_EXE_PATH\x00'
-    rdata[0x0180:0x0185] = b'open\x00'
-    rdata[0x0190:0x019F] = b'powershell.exe\x00'
+    struct.pack_into('<H', rdata, 0x0170, 0)
+    rdata[0x0172:0x0186] = b'WaitForSingleObject\x00'
 
-    rdata_vsize = 0x1A0
+    struct.pack_into('<H', rdata, 0x0188, 0)
+    rdata[0x018A:0x0198] = b'ShellExecuteA\x00'
+
+    rdata[0x01A0:0x01AD] = b'CUB_EXE_PATH\x00'
+    rdata[0x01B0:0x01C0] = b'CUB_LAUNCH_ARGS\x00'
+    rdata[0x01C8:0x01CD] = b'open\x00'
+    rdata[0x01D0:0x01DF] = b'powershell.exe\x00'
+
+    rdata_vsize = 0x1E0
     rdata_padded = bytes(rdata)
 
     rva_iat_getmod = rva_rdata + 0x0000
     rva_iat_setenv = rva_rdata + 0x0008
     rva_iat_create = rva_rdata + 0x0010
     rva_iat_exit = rva_rdata + 0x0018
-    rva_iat_shell = rva_rdata + 0x0028
+    rva_iat_getcmd = rva_rdata + 0x0020
+    rva_iat_wait = rva_rdata + 0x0028
+    rva_iat_shell = rva_rdata + 0x0038
 
     # --- 2. Build writable .data section ---
     rva_data = rva_rdata + align(rdata_vsize, sect_align)  # 0x3000
@@ -484,6 +537,12 @@ def build_pe64_gui_executable(dib_icon: bytes, embedded_zip_payload: bytes | Non
     emit_rip_rel(b'\x48\x8D\x15', rva_exe_buf)        # lea rdx, [exePathBuf]
     emit_rip_rel(b'\xFF\x15', rva_iat_setenv)         # call SetEnvironmentVariableA
 
+    # SetEnvironmentVariableA("CUB_LAUNCH_ARGS", GetCommandLineA())
+    emit_rip_rel(b'\xFF\x15', rva_iat_getcmd)         # call GetCommandLineA -> rax
+    emit_rip_rel(b'\x48\x8D\x0D', rva_str_args_env)   # lea rcx, ["CUB_LAUNCH_ARGS"]
+    emit(b'\x48\x89\xC2')                             # mov rdx, rax
+    emit_rip_rel(b'\xFF\x15', rva_iat_setenv)         # call SetEnvironmentVariableA
+
     # CreateProcessA(NULL, cmdLineBuf, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startupInfo, &processInfo)
     emit(b'\x31\xC9')                                 # xor ecx, ecx
     emit_rip_rel(b'\x48\x8D\x15', rva_cmd_line)       # lea rdx, [cmdLineBuf]
@@ -499,10 +558,10 @@ def build_pe64_gui_executable(dib_icon: bytes, embedded_zip_payload: bytes | Non
     emit(b'\x48\x89\x44\x24\x48')                     # mov [rsp+0x48], rax
     emit_rip_rel(b'\xFF\x15', rva_iat_create)         # call CreateProcessA
 
-    # If CreateProcessA succeeded (eax != 0), skip ShellExecuteA fallback
+    # If CreateProcessA succeeded (eax != 0), wait on child process and exit
     emit(b'\x85\xC0')                                 # test eax, eax
     jcc_pos = len(text)
-    emit(b'\x75\x00')                                 # jnz exit_label
+    emit(b'\x75\x00')                                 # jnz wait_and_exit_label
 
     # Fallback: ShellExecuteA(NULL, "open", "powershell.exe", psArgs, NULL, SW_HIDE)
     emit(b'\x31\xC9')                                 # xor ecx, ecx
@@ -512,9 +571,18 @@ def build_pe64_gui_executable(dib_icon: bytes, embedded_zip_payload: bytes | Non
     emit(b'\x48\xC7\x44\x24\x20\x00\x00\x00\x00')     # mov qword ptr [rsp+0x20], 0
     emit(b'\x48\xC7\x44\x24\x28\x00\x00\x00\x00')     # mov qword ptr [rsp+0x28], SW_HIDE (0)
     emit_rip_rel(b'\xFF\x15', rva_iat_shell)          # call ShellExecuteA
+    jmp_exit_pos = len(text)
+    emit(b'\xEB\x00')                                 # jmp exit_label
+
+    wait_pos = len(text)
+    text[jcc_pos + 1] = wait_pos - (jcc_pos + 2)
+    # WaitForSingleObject(processInfo.hProcess, INFINITE)
+    emit_rip_rel(b'\x48\x8B\x0D', rva_process_info)   # mov rcx, [processInfo.hProcess]
+    emit(b'\xBA\xFF\xFF\xFF\xFF')                     # mov edx, 0xFFFFFFFF
+    emit_rip_rel(b'\xFF\x15', rva_iat_wait)           # call WaitForSingleObject
 
     exit_pos = len(text)
-    text[jcc_pos + 1] = exit_pos - (jcc_pos + 2)
+    text[jmp_exit_pos + 1] = exit_pos - (jmp_exit_pos + 2)
 
     # ExitProcess(0)
     emit(b'\x31\xC9')                                 # xor ecx, ecx
@@ -1083,6 +1151,9 @@ def build_windows_embedded_payload_zip(version: str) -> bytes:
         credits_path = os.path.join(ROOT_DIR, 'credits.txt')
         if os.path.exists(credits_path):
             zf.write(credits_path, 'credits.txt')
+        recomp_path = os.path.join(ROOT_DIR, 'recomplauncher.json')
+        if os.path.exists(recomp_path):
+            zf.write(recomp_path, 'recomplauncher.json')
         compete_rom_path = os.path.join(ROOT_DIR, 'compete_test.bin')
         if os.path.exists(compete_rom_path):
             zf.write(compete_rom_path, 'compete_test.bin')
@@ -1127,6 +1198,9 @@ STANDALONE HANDHELD EMULATOR FEATURES:
         credits_path = os.path.join(ROOT_DIR, 'credits.txt')
         if os.path.exists(credits_path):
             zf.write(credits_path, 'credits.txt')
+        recomp_path = os.path.join(ROOT_DIR, 'recomplauncher.json')
+        if os.path.exists(recomp_path):
+            zf.write(recomp_path, 'recomplauncher.json')
         compete_rom_path = os.path.join(ROOT_DIR, 'compete_test.bin')
         if os.path.exists(compete_rom_path):
             zf.write(compete_rom_path, 'compete_test.bin')
@@ -1192,19 +1266,66 @@ APP_HTML="$DIR/Resources/app/index.html"
 PROFILE_DIR="$HOME/Library/Application Support/CubSpieleCom/Profile"
 mkdir -p "$PROFILE_DIR"
 
+QUERY=""
+add_q() {
+  if [ -z "$QUERY" ]; then QUERY="$1"; else QUERY="$QUERY&$1"; fi
+}
+WANT_FS=0
+if [ "$RECOMPLAUNCHER" = "1" ]; then
+  add_q "recomp=1"
+  [ -n "$RECOMPLAUNCHER_VERSION" ] && add_q "recomp_version=$RECOMPLAUNCHER_VERSION"
+  [ -n "$RECOMPLAUNCHER_MODE" ] && add_q "recomp_mode=$RECOMPLAUNCHER_MODE"
+  [ -n "$RECOMPLAUNCHER_PAD" ] && add_q "recomp_pad=$RECOMPLAUNCHER_PAD"
+  [ "$RECOMPLAUNCHER_MODE" = "bigpicture" ] && WANT_FS=1
+fi
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --fullscreen) WANT_FS=1; add_q "fullscreen=1" ;;
+    --windowed) WANT_FS=0; add_q "fullscreen=0" ;;
+    --screen-only) add_q "view=screen-only" ;;
+    --touch-view) add_q "view=touch" ;;
+    --hardcore) add_q "hardcore=1" ;;
+    --softcore) add_q "hardcore=0" ;;
+    --scale) shift; [ -n "$1" ] && add_q "scale=$1" ;;
+    --palette) shift; [ -n "$1" ] && add_q "palette=$1" ;;
+    --pixel-grid) shift; [ -n "$1" ] && add_q "pixel_grid=$1" ;;
+    --vsync) shift; [ -n "$1" ] && add_q "vsync=$1" ;;
+    --volume) shift; [ -n "$1" ] && add_q "volume=$1" ;;
+    --fast-boot) shift; [ -n "$1" ] && add_q "fast_boot=$1" ;;
+    --rom) shift; [ -f "$1" ] && add_q "rom=file://$(cd "$(dirname "$1")" && pwd)/$(basename "$1")" ;;
+    --rom2) shift; [ -f "$1" ] && add_q "rom2=file://$(cd "$(dirname "$1")" && pwd)/$(basename "$1")" ;;
+  esac
+  shift
+done
+APP_URL="file://$APP_HTML"
+[ -n "$QUERY" ] && APP_URL="$APP_URL?$QUERY"
+FS_FLAG=""
+[ "$WANT_FS" = "1" ] && FS_FLAG="--start-fullscreen"
+
 for BROWSER in \\
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\
   "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \\
   "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \\
   "/Applications/Chromium.app/Contents/MacOS/Chromium"; do
   if [ -x "$BROWSER" ]; then
-    exec "$BROWSER" \\
-      --app="file://$APP_HTML" \\
-      --window-size=920,760 \\
-      --allow-file-access-from-files \\
-      --autoplay-policy=no-user-gesture-required \\
-      --user-data-dir="$PROFILE_DIR" >/dev/null 2>&1 &
-    exit 0
+    if [ "$RECOMPLAUNCHER" = "1" ]; then
+      exec "$BROWSER" \\
+        --app="$APP_URL" \\
+        --window-size=920,760 \\
+        $FS_FLAG \\
+        --allow-file-access-from-files \\
+        --autoplay-policy=no-user-gesture-required \\
+        --user-data-dir="$PROFILE_DIR"
+    else
+      exec "$BROWSER" \\
+        --app="$APP_URL" \\
+        --window-size=920,760 \\
+        $FS_FLAG \\
+        --allow-file-access-from-files \\
+        --autoplay-policy=no-user-gesture-required \\
+        --user-data-dir="$PROFILE_DIR" >/dev/null 2>&1 &
+      exit 0
+    fi
   fi
 done
 
@@ -1240,6 +1361,9 @@ NVRAM & HIGH SCORE VAULT LOCATION:
 
     app_root = 'Cub Spiele.Com.app/Contents'
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        recomp_path = os.path.join(ROOT_DIR, 'recomplauncher.json')
+        if os.path.exists(recomp_path):
+            zf.write(recomp_path, 'recomplauncher.json')
         zf.writestr(f'{app_root}/Info.plist', info_plist)
         zf.writestr(f'{app_root}/PkgInfo', b'APPL????')
         zf.writestr(f'{app_root}/Resources/icon.icns', icns_bytes)

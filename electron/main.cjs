@@ -31,20 +31,107 @@ let mainWindow = null;
 let secondWindow = null;
 let lanServerPort = 3197;
 let pendingStartupRomPath = null;
+let pendingStartupRom2Path = null;
 
-// Check if a .bin, .tgc, .rom, or .zip file was passed via Explorer/Finder file association
-function extractRomArg(argv) {
-  for (const arg of argv.slice(1)) {
-    if (arg && !arg.startsWith('-') && /\.(bin|tgc|rom|zip)$/i.test(arg)) {
-      if (fs.existsSync(arg)) {
-        return path.resolve(arg);
-      }
-    }
-  }
+function parseBooleanFlag(val) {
+  if (!val) return null;
+  const v = String(val).trim().toLowerCase();
+  if (v === '1' || v === 'true' || v === 'on' || v === 'yes') return true;
+  if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false;
   return null;
 }
 
-pendingStartupRomPath = extractRomArg(process.argv);
+const recompLauncherInfo = {
+  active: process.env.RECOMPLAUNCHER === '1',
+  version: process.env.RECOMPLAUNCHER_VERSION || null,
+  mode: process.env.RECOMPLAUNCHER_MODE === 'bigpicture' ? 'bigpicture' : 'desktop',
+  pad:
+    process.env.RECOMPLAUNCHER_PAD === 'xbox' || process.env.RECOMPLAUNCHER_PAD === 'playstation'
+      ? process.env.RECOMPLAUNCHER_PAD
+      : null
+};
+
+function parseLaunchCli(argv) {
+  const opts = {
+    rom1: null,
+    rom2: null,
+    fullscreen: null,
+    viewMode: null,
+    scale: null,
+    palette: null,
+    pixelGrid: null,
+    vsync: null,
+    volume: null,
+    hardcore: null,
+    fastBoot: null
+  };
+
+  const args = argv.slice(1);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg) continue;
+    if (arg === '--fullscreen') {
+      opts.fullscreen = true;
+    } else if (arg === '--windowed') {
+      opts.fullscreen = false;
+    } else if (arg === '--screen-only') {
+      opts.viewMode = 'screen-only';
+    } else if (arg === '--touch-view') {
+      opts.viewMode = 'touch';
+    } else if (arg === '--hardcore') {
+      opts.hardcore = true;
+    } else if (arg === '--softcore') {
+      opts.hardcore = false;
+    } else if (arg === '--rom' && args[i + 1]) {
+      const candidate = path.resolve(args[++i]);
+      if (fs.existsSync(candidate)) opts.rom1 = candidate;
+    } else if (arg.startsWith('--rom=')) {
+      const candidate = path.resolve(arg.slice(6));
+      if (fs.existsSync(candidate)) opts.rom1 = candidate;
+    } else if (arg === '--rom2' && args[i + 1]) {
+      const candidate = path.resolve(args[++i]);
+      if (fs.existsSync(candidate)) opts.rom2 = candidate;
+    } else if (arg.startsWith('--rom2=')) {
+      const candidate = path.resolve(arg.slice(7));
+      if (fs.existsSync(candidate)) opts.rom2 = candidate;
+    } else if (arg === '--scale' && args[i + 1]) {
+      opts.scale = args[++i];
+    } else if (arg.startsWith('--scale=')) {
+      opts.scale = arg.slice(8);
+    } else if (arg === '--palette' && args[i + 1]) {
+      opts.palette = args[++i];
+    } else if (arg.startsWith('--palette=')) {
+      opts.palette = arg.slice(10);
+    } else if (arg === '--pixel-grid' && args[i + 1]) {
+      opts.pixelGrid = parseBooleanFlag(args[++i]);
+    } else if (arg.startsWith('--pixel-grid=')) {
+      opts.pixelGrid = parseBooleanFlag(arg.slice(13));
+    } else if (arg === '--vsync' && args[i + 1]) {
+      opts.vsync = parseBooleanFlag(args[++i]);
+    } else if (arg.startsWith('--vsync=')) {
+      opts.vsync = parseBooleanFlag(arg.slice(8));
+    } else if (arg === '--volume' && args[i + 1]) {
+      const n = Number(args[++i]);
+      if (!Number.isNaN(n)) opts.volume = Math.max(0, Math.min(100, n));
+    } else if (arg.startsWith('--volume=')) {
+      const n = Number(arg.slice(9));
+      if (!Number.isNaN(n)) opts.volume = Math.max(0, Math.min(100, n));
+    } else if (arg === '--fast-boot' && args[i + 1]) {
+      opts.fastBoot = parseBooleanFlag(args[++i]);
+    } else if (arg.startsWith('--fast-boot=')) {
+      opts.fastBoot = parseBooleanFlag(arg.slice(12));
+    } else if (!arg.startsWith('-') && /\.(bin|tgc|rom|zip)$/i.test(arg)) {
+      if (!opts.rom1 && fs.existsSync(arg)) {
+        opts.rom1 = path.resolve(arg);
+      }
+    }
+  }
+  return opts;
+}
+
+const launchOptions = parseLaunchCli(process.argv);
+pendingStartupRomPath = launchOptions.rom1;
+pendingStartupRom2Path = launchOptions.rom2;
 
 function getNvramBackupPath() {
   const userDataDir = app.getPath('userData');
@@ -230,15 +317,22 @@ async function promptAndLoadRom(slot = 1) {
 }
 
 function createWindow() {
+  const startFullscreen =
+    launchOptions.fullscreen === true ||
+    (recompLauncherInfo.active &&
+      recompLauncherInfo.mode === 'bigpicture' &&
+      launchOptions.fullscreen !== false);
+
   mainWindow = new BrowserWindow({
     width: 920,
     height: 760,
     minWidth: 680,
     minHeight: 580,
+    fullscreen: startFullscreen,
     title: 'Cub Spiele.Com',
     backgroundColor: '#111319',
     icon: getPlatformIconPath(),
-    autoHideMenuBar: false,
+    autoHideMenuBar: startFullscreen,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -266,6 +360,15 @@ function createWindow() {
         bytes: Array.from(data)
       });
       pendingStartupRomPath = null;
+    }
+    if (pendingStartupRom2Path && fs.existsSync(pendingStartupRom2Path)) {
+      const data2 = fs.readFileSync(pendingStartupRom2Path);
+      mainWindow.webContents.send('desktop:rom-loaded', {
+        name: path.basename(pendingStartupRom2Path),
+        slot: 2,
+        bytes: Array.from(data2)
+      });
+      pendingStartupRom2Path = null;
     }
   });
 
@@ -919,7 +1022,9 @@ ipcMain.handle('desktop:get-info', () => ({
   chromeVersion: process.versions.chrome,
   nodeVersion: process.versions.node,
   appVersion: app.getVersion(),
-  nvramPath: getNvramBackupPath()
+  nvramPath: getNvramBackupPath(),
+  recompLauncher: recompLauncherInfo,
+  launchOptions
 }));
 
 ipcMain.handle('desktop:open-rom-dialog', async (_event, slot = 1) => {

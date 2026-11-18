@@ -18,6 +18,7 @@ import { VirtualModemModal } from './components/VirtualModemModal';
 import { AboutModal } from './components/AboutModal';
 import { SaveStatesModal } from './components/SaveStatesModal';
 import { GameComButtons } from './emulator/types';
+import { parseRecompLaunchContext, RecompLaunchContext } from './emulator/recompLauncher';
 
 export function App() {
   const [system] = useState<GameComSystem>(() => new GameComSystem());
@@ -177,6 +178,95 @@ export function App() {
     return () => {
       clearInterval(interval);
       unsubscribeRomLoaded?.();
+    };
+  }, [system, forceUpdate, showToast]);
+
+  // RecompLauncher runtime integration (CLI flags, Big Picture mode, and ROM auto-loading)
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyLaunchContext = async (ctx: RecompLaunchContext) => {
+      if (cancelled) return;
+
+      if (ctx.viewMode) {
+        system.setViewMode(ctx.viewMode);
+      }
+      if (ctx.screenScale === 'full') {
+        system.setScreenFitMode('full');
+      } else if (typeof ctx.screenScale === 'number') {
+        system.setScreenScale(ctx.screenScale);
+      }
+      if (ctx.palette) {
+        system.applyScreenPreset(ctx.palette, false);
+      }
+      if (ctx.pixelGrid !== null) {
+        system.settings.pixelGrid = ctx.pixelGrid;
+      }
+      if (ctx.vsync !== null && system.settings.vsync !== ctx.vsync) {
+        system.toggleVsync();
+      }
+      if (ctx.volume !== null) {
+        const vol = Math.max(0, Math.min(1, ctx.volume / 100));
+        system.settings.volume = vol;
+        system.sound.setVolume(vol);
+      }
+      if (ctx.hardcore !== null && system.retroAchievements.config.hardcoreMode !== ctx.hardcore) {
+        system.toggleHardcoreMode();
+      }
+      if (ctx.fastBoot !== null && system.settings.fastBoot !== ctx.fastBoot) {
+        system.toggleFastBoot();
+      }
+      if (ctx.isRecompLauncher && ctx.mode === 'bigpicture') {
+        system.settings.backgroundInput = false;
+        system.settings.showBottomBar = false;
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } else if (ctx.fullscreen === true && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+
+      const loadRomFromUrl = async (romUrl: string, slot: 1 | 2) => {
+        try {
+          const resp = await fetch(romUrl);
+          if (!resp.ok) return;
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          const urlPath = decodeURIComponent(romUrl.split('?')[0]);
+          const fileName = urlPath.split(/[\\/]/).pop() || `cart${slot}.tgc`;
+          const file = new File([buf], fileName);
+          const cart = await system.loadRomFromFile(file, slot);
+          if (!cancelled) {
+            showToast(`Loaded "${cart.title}" into Slot ${slot}`);
+          }
+        } catch {
+          // Ignore unreachable local file URLs
+        }
+      };
+
+      if (ctx.romUrl) {
+        await loadRomFromUrl(ctx.romUrl, 1);
+      }
+      if (ctx.rom2Url) {
+        await loadRomFromUrl(ctx.rom2Url, 2);
+      }
+
+      if (!cancelled) {
+        forceUpdate();
+      }
+    };
+
+    const desktop = (window as any).gamecomDesktop;
+    if (desktop && typeof desktop.getInfo === 'function') {
+      desktop
+        .getInfo()
+        .then((info: any) => applyLaunchContext(parseRecompLaunchContext(info)))
+        .catch(() => applyLaunchContext(parseRecompLaunchContext()));
+    } else {
+      applyLaunchContext(parseRecompLaunchContext());
+    }
+
+    return () => {
+      cancelled = true;
     };
   }, [system, forceUpdate, showToast]);
 
