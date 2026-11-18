@@ -203,9 +203,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
     totalH > availH ||
     (!isVerticalPocket && model === 'original' && bezelZoom !== 'full-system');
 
-  // Shift the console vertically so the 200x160 LCD screen is prioritized at the viewport center
-  // (and on 1997 Original, the bottom stylus dock is deprioritized at the bottom edge).
-  const focusShiftY = isZoomedIn ? Math.round((baseH / 2 - screenCenterY) * S) : 0;
+  // Shift horizontal consoles vertically when zoomed so the 200x160 LCD screen is centered
+  // (excluding Vertical Pocket mode, which keeps the full portrait body centered for button access).
+  const focusShiftY =
+    !isVerticalPocket && isZoomedIn ? Math.round((baseH / 2 - screenCenterY) * S) : 0;
 
   const isBacklightActive = system.settings.palette === 'pocket_pro_el';
 
