@@ -488,7 +488,7 @@ export const RomLibraryModal: React.FC<RomLibraryModalProps> = ({
                     <div>
                       {/* Cartridge Label Artwork Header */}
                       {game.labelImage && (
-                        <div className="relative bg-zinc-950 p-2 border-b border-zinc-300 dark:border-zinc-800 overflow-hidden">
+                        <div className="relative bg-zinc-200/80 dark:bg-zinc-950 p-2 border-b border-zinc-300 dark:border-zinc-800 overflow-hidden">
                           <img
                             src={game.labelImage}
                             alt={`${game.title} Cartridge Label`}

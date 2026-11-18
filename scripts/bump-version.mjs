@@ -42,6 +42,16 @@ if (nextVersion === current) {
 pkg.version = nextVersion;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
+const lockPath = path.join(rootDir, 'package-lock.json');
+if (fs.existsSync(lockPath)) {
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  lock.version = nextVersion;
+  if (lock.packages && lock.packages['']) {
+    lock.packages[''].version = nextVersion;
+  }
+  fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n', 'utf8');
+}
+
 const swPath = path.join(rootDir, 'public', 'sw.js');
 if (fs.existsSync(swPath)) {
   const sw = fs.readFileSync(swPath, 'utf8').replace(

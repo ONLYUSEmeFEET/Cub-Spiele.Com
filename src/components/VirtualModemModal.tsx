@@ -35,34 +35,34 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-100 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/75 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-4 py-3">
           <div className="flex items-center gap-2">
-            <Radio className="w-4 h-4 text-emerald-400" />
+            <Radio className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <h2 className="text-sm font-semibold">Virtual Hayes AT Modem (Internet Cart)</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-lg p-1 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-4 space-y-4 text-xs">
-          <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 px-3 py-2.5">
             <div>
-              <div className="font-medium text-zinc-200">
+              <div className="font-medium text-zinc-800 dark:text-zinc-200">
                 Status:{' '}
                 <span
                   className={
                     !modem.enabled
-                      ? 'text-zinc-400'
+                      ? 'text-zinc-500 dark:text-zinc-400'
                       : modem.state === 'connected'
-                        ? 'text-emerald-400'
-                        : 'text-amber-400'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
                   }
                 >
                   {!modem.enabled
@@ -72,7 +72,7 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                       : 'Ready (Hayes AT Command Mode)'}
                 </span>
               </div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                 TX: {modem.txBytes} B &middot; RX: {modem.rxBytes} B
               </div>
             </div>
@@ -84,7 +84,7 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                     modem.hangUp();
                     onUpdate();
                   }}
-                  className="inline-flex items-center gap-1 rounded-md bg-rose-600/90 px-2.5 py-1.5 font-medium text-white hover:bg-rose-500"
+                  className="inline-flex items-center gap-1 rounded-md bg-rose-600/90 px-2.5 py-1.5 font-medium text-white hover:bg-rose-500 cursor-pointer"
                 >
                   <PhoneOff className="w-3.5 h-3.5" />
                   Hang Up
@@ -97,10 +97,10 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                   setTick((t) => t + 1);
                   onUpdate();
                 }}
-                className={`rounded-md px-2.5 py-1.5 font-medium ${
+                className={`rounded-md px-2.5 py-1.5 font-medium cursor-pointer ${
                   modem.enabled
                     ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'bg-zinc-700 text-zinc-200 hover:bg-zinc-600'
+                    : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600'
                 }`}
               >
                 {modem.enabled ? 'Enabled' : 'Disabled'}
@@ -109,7 +109,7 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-[11px] font-medium text-zinc-400">
+            <label className="block text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
               Optional WebSocket-to-Telnet/BBS Bridge URL (leave blank for built-in Cub Spiele.Com BBS)
             </label>
             <div className="flex gap-2">
@@ -118,7 +118,7 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                 value={wsUrlInput}
                 onChange={(e) => setWsUrlInput(e.target.value)}
                 placeholder="ws://localhost:8080"
-                className="flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                className="flex-1 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
               />
               <button
                 type="button"
@@ -127,7 +127,7 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                   setTick((t) => t + 1);
                   onUpdate();
                 }}
-                className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-medium text-zinc-200 hover:bg-zinc-700"
+                className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
               >
                 Apply
               </button>
@@ -135,7 +135,7 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
           </div>
 
           <form onSubmit={handleSendText} className="space-y-1.5">
-            <label className="block text-[11px] font-medium text-zinc-400">
+            <label className="block text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
               Send Text to Game.Com Terminal (UART RX)
             </label>
             <div className="flex gap-2">
@@ -144,11 +144,11 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                 value={sendInput}
                 onChange={(e) => setSendInput(e.target.value)}
                 placeholder="Type text to display on Game.Com screen..."
-                className="flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                className="flex-1 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
               />
               <button
                 type="submit"
-                className="inline-flex items-center gap-1 rounded-md bg-zinc-800 border border-zinc-700 px-3 py-1.5 font-medium text-zinc-200 hover:bg-zinc-700"
+                className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
                 Send
@@ -158,22 +158,22 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-zinc-400">AT / Serial Activity Log</span>
+              <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">AT / Serial Activity Log</span>
               <button
                 type="button"
                 onClick={() => {
                   modem.reset();
                   setTick((t) => t + 1);
                 }}
-                className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200"
+                className="inline-flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3" />
                 Reset Modem
               </button>
             </div>
-            <div className="h-36 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2 font-mono text-[11px] space-y-1">
+            <div className="h-36 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-2 font-mono text-[11px] space-y-1">
               {modem.log.length === 0 ? (
-                <div className="text-zinc-600">
+                <div className="text-zinc-500 dark:text-zinc-600">
                   Waiting for AT commands from Internet (USA) cartridge (e.g. ATZ, ATDT)...
                 </div>
               ) : (
@@ -182,15 +182,15 @@ export const VirtualModemModal: React.FC<VirtualModemModalProps> = ({
                     <span
                       className={
                         entry.dir === 'tx'
-                          ? 'text-sky-400'
+                          ? 'text-sky-600 dark:text-sky-400'
                           : entry.dir === 'rx'
-                            ? 'text-emerald-400'
-                            : 'text-amber-400'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-amber-600 dark:text-amber-400'
                       }
                     >
                       [{entry.dir.toUpperCase()}]
                     </span>{' '}
-                    <span className="text-zinc-300">{entry.text}</span>
+                    <span className="text-zinc-800 dark:text-zinc-300">{entry.text}</span>
                   </div>
                 ))
               )}

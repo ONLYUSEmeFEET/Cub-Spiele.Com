@@ -50,14 +50,14 @@ const FALLBACK_MANIFEST: ReleasesManifest = {
   releases: [
     {
       tag: APP_VERSION_TAG,
-      title: `Cub Spiele.Com ${APP_VERSION_TAG} — Dedicated Display Menu, Compact View Submenus, LCD Sliders & Tools Reorganization`,
-      publishedAt: '2026-11-15T04:12:00Z',
+      title: `Cub Spiele.Com ${APP_VERSION_TAG} — Authentic Handheld Console Shells, Proportional Scaling, Vertical Pocket View & ROM Library`,
+      publishedAt: '2026-11-18T00:00:00Z',
       isLatest: true,
       commitRef: `HEAD (tag: ${APP_VERSION_TAG})`,
       highlights: [
-        'Added dedicated Display menu in TopBar consolidating Screen Color Presets, Custom Screen Colors, LCD Contrast (0%–100%), LCD Ghosting (0%–100%), and LCD Pixel Grid',
-        'Compacted View menu into flyout submenus (Screen Size, Touch Layout Size, Overlays) and removed redundant display controls from Settings',
-        'Moved Advanced Mode toggle into Tools above Advanced Tools, with self-contained 810 KB Windows EXE, .zip ROM loading, Touch scaling, and About dialog'
+        'Hardware-accurate interactive console shells for 1997 Original (#71-500), Pocket Pro (#71-510/#71-520), and Vertical Pocket (Classic) with authentic game.com logos and universal Pocket LIGHT button',
+        'RetroArch-style uniform proportional handheld scaling (Auto, Full, Mid, Close, and 1×–4×) where shell, bezel, LCD, and buttons scale in lockstep',
+        'Game.Com Library & Preservation Vault with Online ROM Repository scanning, high-res cartridge labels, PDF manuals, and Light/Dark Mode consistency'
       ],
       assets: [
         {
