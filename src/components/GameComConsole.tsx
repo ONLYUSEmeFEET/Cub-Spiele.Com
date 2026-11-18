@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import { GameComButtons, GameComConsoleModel } from '../emulator/types';
 import { LCDScreen } from './LCDScreen';
+import { GameComWordmarkPaths, TigerWordmarkPaths } from './GameComLogo';
 
 interface GameComConsoleProps {
   system: GameComSystem;
@@ -270,19 +271,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               />
             ))}
 
-            {/* Top "game.com" Header */}
-            <text
-              x="160"
-              y="34"
-              textAnchor="middle"
-              fill="#1e2229"
-              fontFamily="monospace"
-              fontWeight="900"
-              fontSize="14"
-              letterSpacing="-0.5"
-            >
-              game<tspan fill="#be123c">.</tspan>com
-            </text>
+            {/* Top "game.com" Geometric Wordmark */}
+            <g transform="translate(97, 19) scale(0.55)">
+              <GameComWordmarkPaths fill="#1e2229" dotFill="#be123c" />
+            </g>
 
             {/* 4-Polygon 3D Sunken Chamfered Screen Frame (outer 48..272, 38..214 -> inner 60..260, 44..204) */}
             <polygon points="48,38 272,38 260,44 60,44" fill="#828891" />
@@ -300,19 +292,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               strokeWidth="1.5"
             />
 
-            {/* Bottom of Silver Shield: Speaker Dots + "TIGER" */}
-            <text
-              x="160"
-              y="229"
-              textAnchor="middle"
-              fill="#2c313a"
-              fontFamily="sans-serif"
-              fontWeight="900"
-              fontSize="9.5"
-              letterSpacing="3"
-            >
-              TIGER
-            </text>
+            {/* Bottom of Silver Shield: "TIGER" */}
+            <g transform="translate(133, 219) scale(0.5)">
+              <TigerWordmarkPaths fill="#2c313a" />
+            </g>
 
             {/* Recessed Circular D-Pad Well (Left: cx=86, cy=338, r=54) */}
             <circle
@@ -601,27 +584,31 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               strokeWidth="2.5"
             />
 
-            {/* Single Wide Brushed Silver Metallic Upper Faceplate with Curved Bottom Seam */}
+            {/* Centered Brushed Silver Metallic Screen Shield (All touch controls sit OFF the metal plate) */}
             <path
-              d="M 46 14 Q 280 7 514 14 A 24 24 0 0 1 536 38 V 214 Q 536 232 512 235 L 395 242 H 165 L 48 235 Q 24 232 24 214 V 38 A 24 24 0 0 1 46 14 Z"
+              d="M 156 12 H 404 A 18 18 0 0 1 420 30 V 226 A 18 18 0 0 1 402 244 H 158 A 18 18 0 0 1 140 226 V 30 A 18 18 0 0 1 156 12 Z"
               fill="url(#orig-silver)"
               stroke="#7a8088"
               strokeWidth="2"
             />
 
-            {/* Top "game.com" Stencil Wordmark */}
-            <text
-              x="280"
-              y="29"
-              textAnchor="middle"
-              fill="#1d2128"
-              fontFamily="monospace"
-              fontWeight="900"
-              fontSize="16"
-              letterSpacing="-0.5"
-            >
-              game<tspan fill="#be123c">.</tspan>com
-            </text>
+            {/* 4 Corner Screw Bosses on Center Silver Shield */}
+            {[
+              [152, 24],
+              [408, 24],
+              [152, 232],
+              [408, 232]
+            ].map(([cx, cy], idx) => (
+              <g key={idx}>
+                <circle cx={cx} cy={cy} r="4.5" fill="#9fa5ae" stroke="#6c727a" strokeWidth="1" />
+                <circle cx={cx} cy={cy} r="2.5" fill="#cfd3d9" />
+              </g>
+            ))}
+
+            {/* Top "game.com" Geometric Wordmark */}
+            <g transform="translate(216, 15) scale(0.56)">
+              <GameComWordmarkPaths fill="#1d2128" dotFill="#be123c" />
+            </g>
 
             {/* Deep 4-Polygon Trapezoidal Chamfered Screen Inset (outer 154..406, 34..222 -> inner 180..380, 48..208) */}
             <polygon points="154,34 406,34 380,48 180,48" fill="#8d939c" />
@@ -640,55 +627,48 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             />
 
             {/* Bottom "TIGER" Wordmark below screen bevel */}
-            <text
-              x="280"
-              y="235"
-              textAnchor="middle"
-              fill="#262a32"
-              fontFamily="sans-serif"
-              fontWeight="900"
-              fontSize="9"
-              letterSpacing="2.5"
-            >
-              TIGER
-            </text>
+            <g transform="translate(254, 225) scale(0.48)">
+              <TigerWordmarkPaths fill="#262a32" />
+            </g>
 
-            {/* Top-Left Parallelogram 5x8 Speaker Dot Matrix */}
+            {/* Top-Left Parallelogram 5x8 Speaker Dot Matrix (on dark charcoal shell) */}
             {Array.from({ length: 5 }).map((_, row) =>
               Array.from({ length: 8 }).map((__, col) => (
                 <circle
                   key={`${row}-${col}`}
-                  cx={52 + col * 10.5}
-                  cy={38 + row * 7.5 + col * 1.4}
+                  cx={42 + col * 10.5}
+                  cy={36 + row * 7.5 + col * 1.4}
                   r="2.1"
-                  fill="#23272f"
+                  fill="#0d0f12"
+                  stroke="#3b414b"
+                  strokeWidth="0.6"
                 />
               ))
             )}
 
-            {/* Bottom-Left Circular Recessed D-Pad Bezel Well (cx=94, cy=154, r=50) */}
+            {/* Bottom-Left Circular Recessed D-Pad Bezel Well (cx=84, cy=162, r=48 — completely OFF silver plate) */}
             <circle
-              cx="94"
-              cy="154"
-              r="50"
+              cx="84"
+              cy="162"
+              r="48"
               fill="url(#orig-well)"
-              stroke="#686e77"
+              stroke="#454a54"
               strokeWidth="1.5"
             />
 
-            {/* Top-Right Round ON/OFF Bezel Ring + Label */}
+            {/* Top-Right Round ON/OFF Bezel Ring + Label (on dark charcoal shell) */}
             <circle
-              cx="438"
-              cy="52"
+              cx="446"
+              cy="50"
               r="13"
-              fill="#1f242d"
-              stroke="#686e77"
+              fill="#15181e"
+              stroke="#454a54"
               strokeWidth="1.5"
             />
             <text
-              x="457"
-              y="55"
-              fill="#2c313a"
+              x="466"
+              y="53"
+              fill="#c5cbd3"
               fontFamily="sans-serif"
               fontWeight="800"
               fontSize="7.5"
@@ -697,41 +677,41 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               ON/OFF
             </text>
 
-            {/* Middle-Right Two Angled (-16deg) Stadium Wells for [A, B] and [C, D] */}
-            <g transform="rotate(-16 462 114)">
+            {/* Middle-Right Two Angled (-16deg) Stadium Wells for [A, B] and [C, D] (on dark charcoal shell) */}
+            <g transform="rotate(-16 476 114)">
               <rect
-                x="412"
+                x="426"
                 y="91"
                 width="100"
                 height="46"
                 rx="23"
-                fill="#afb5bd"
-                stroke="#6e747d"
+                fill="#14171c"
+                stroke="#3d424c"
                 strokeWidth="1.8"
               />
             </g>
-            <g transform="rotate(-16 470 166)">
+            <g transform="rotate(-16 484 166)">
               <rect
-                x="420"
+                x="434"
                 y="143"
                 width="100"
                 height="46"
                 rx="23"
-                fill="#afb5bd"
-                stroke="#6e747d"
+                fill="#14171c"
+                stroke="#3d424c"
                 strokeWidth="1.8"
               />
             </g>
 
-            {/* Bottom-Right Labels for [MENU] [SOUND] [PAUSE] along the silver seam */}
-            <g transform="rotate(-4 472 222)">
-              <text x="431" y="216" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+            {/* Bottom-Right Labels for [MENU] [SOUND] [PAUSE] (on dark charcoal shell) */}
+            <g transform="rotate(-4 484 222)">
+              <text x="445" y="216" textAnchor="middle" fill="#c5cbd3" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
                 MENU
               </text>
-              <text x="470" y="216" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              <text x="484" y="216" textAnchor="middle" fill="#c5cbd3" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
                 SOUND
               </text>
-              <text x="509" y="216" textAnchor="middle" fill="#2c313a" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
+              <text x="523" y="216" textAnchor="middle" fill="#c5cbd3" fontSize="6.5" fontWeight="800" letterSpacing="0.6">
                 PAUSE
               </text>
             </g>
@@ -781,7 +761,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
           </div>
 
-          {/* Interactive 8-Way D-Pad Disc at (cx=94, cy=154, r=44) */}
+          {/* Interactive 8-Way D-Pad Disc at (cx=84, cy=162, r=42) */}
           <div
             ref={dpadRef}
             onPointerDown={handleDpadPointerDown}
@@ -790,10 +770,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onPointerCancel={handleDpadPointerUp}
             onLostPointerCapture={handleDpadPointerUp}
             style={{
-              left: `${((94 - 44) / 560) * 100}%`,
-              top: `${((154 - 44) / 320) * 100}%`,
-              width: `${(88 / 560) * 100}%`,
-              height: `${(88 / 320) * 100}%`
+              left: `${((84 - 42) / 560) * 100}%`,
+              top: `${((162 - 42) / 320) * 100}%`,
+              width: `${(84 / 560) * 100}%`,
+              height: `${(84 / 320) * 100}%`
             }}
             className="absolute rounded-full bg-gradient-to-b from-[#2f333b] via-[#1c1f24] to-[#101215] border border-black shadow-[0_4px_8px_rgba(0,0,0,0.75)] touch-none cursor-pointer"
             aria-label="Directional Pad"
@@ -819,7 +799,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             <div className="absolute inset-[36%] rounded-full bg-[#16191e] shadow-inner pointer-events-none" />
           </div>
 
-          {/* Interactive Round Blue ON/OFF Button at (cx=438, cy=52, r=9.5) */}
+          {/* Interactive Round Blue ON/OFF Button at (cx=446, cy=50, r=9.5) */}
           <button
             type="button"
             onClick={() => {
@@ -827,8 +807,8 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               onStateChange?.();
             }}
             style={{
-              left: `${((438 - 9.5) / 560) * 100}%`,
-              top: `${((52 - 9.5) / 320) * 100}%`,
+              left: `${((446 - 9.5) / 560) * 100}%`,
+              top: `${((50 - 9.5) / 320) * 100}%`,
               width: `${(19 / 560) * 100}%`,
               height: `${(19 / 320) * 100}%`
             }}
@@ -844,10 +824,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           {/* Interactive Angled A, B, C, D Action Buttons */}
           {(
             [
-              { id: 'a', cx: 439, cy: 121 },
-              { id: 'b', cx: 485, cy: 107 },
-              { id: 'c', cx: 447, cy: 173 },
-              { id: 'd', cx: 493, cy: 159 }
+              { id: 'a', cx: 453, cy: 121 },
+              { id: 'b', cx: 499, cy: 107 },
+              { id: 'c', cx: 461, cy: 173 },
+              { id: 'd', cx: 507, cy: 159 }
             ] as const
           ).map((b) => (
             <button
@@ -877,7 +857,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             type="button"
             {...bindButtonPointer('menu')}
             style={{
-              left: `${(414 / 560) * 100}%`,
+              left: `${(428 / 560) * 100}%`,
               top: `${(221 / 320) * 100}%`,
               width: `${(34 / 560) * 100}%`,
               height: `${(11 / 320) * 100}%`
@@ -898,7 +878,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onPointerCancel={bindButtonPointer('sound').onPointerCancel}
             onLostPointerCapture={bindButtonPointer('sound').onLostPointerCapture}
             style={{
-              left: `${(453 / 560) * 100}%`,
+              left: `${(467 / 560) * 100}%`,
               top: `${(219 / 320) * 100}%`,
               width: `${(34 / 560) * 100}%`,
               height: `${(11 / 320) * 100}%`
@@ -919,7 +899,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onPointerCancel={bindButtonPointer('pause').onPointerCancel}
             onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
             style={{
-              left: `${(492 / 560) * 100}%`,
+              left: `${(506 / 560) * 100}%`,
               top: `${(217 / 320) * 100}%`,
               width: `${(34 / 560) * 100}%`,
               height: `${(11 / 320) * 100}%`
@@ -944,8 +924,6 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
   // - #71-520 Backlit model includes the teal arched [LIGHT] button on the chin!
   // Canonical 1x space: 500 x 300, LCD (200x160) at (150, 48)
   // ============================================================================
-  const isBacklitModel = model === 'pocketpro_backlit';
-
   const paletteMap: Record<
     string,
     {
@@ -1045,9 +1023,9 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             strokeWidth="2.2"
           />
 
-          {/* ONE-PIECE Continuous T-Shaped Winged Silver Metallic Shield (Exact match to pocketpro.gif) */}
+          {/* ONE-PIECE Continuous T-Shaped Winged Silver Metallic Shield (D-Pad & A/B/C/D sit completely OFF the metal plate) */}
           <path
-            d="M 56 18 Q 250 8 444 18 A 22 22 0 0 1 466 38 L 470 112 A 14 14 0 0 1 456 126 H 398 A 22 22 0 0 0 376 148 V 248 A 28 28 0 0 1 348 276 H 152 A 28 28 0 0 1 124 248 V 148 A 22 22 0 0 0 102 126 H 44 A 14 14 0 0 1 30 112 L 34 38 A 22 22 0 0 1 56 18 Z"
+            d="M 56 18 Q 250 8 444 18 A 22 22 0 0 1 466 38 L 470 108 A 14 14 0 0 1 456 122 H 394 A 24 24 0 0 0 364 146 V 248 A 28 28 0 0 1 336 276 H 164 A 28 28 0 0 1 136 248 V 146 A 24 24 0 0 0 106 122 H 44 A 14 14 0 0 1 30 108 L 34 38 A 22 22 0 0 1 56 18 Z"
             fill="url(#pp-silver)"
             stroke="#7d838b"
             strokeWidth="2"
@@ -1057,8 +1035,8 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           {[
             [52, 34],
             [448, 34],
-            [148, 252],
-            [352, 252]
+            [156, 254],
+            [344, 254]
           ].map(([cx, cy], idx) => (
             <g key={idx}>
               <circle cx={cx} cy={cy} r="5.5" fill="#9fa5ae" stroke="#6c727a" strokeWidth="1" />
@@ -1067,27 +1045,19 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           ))}
 
           {/* Top "TIGER" Logo on the Silver Shield Arch */}
-          <text
-            x="250"
-            y="26"
-            textAnchor="middle"
-            fill="#1e2228"
-            fontFamily="sans-serif"
-            fontWeight="900"
-            fontSize="9.5"
-            letterSpacing="2.5"
-          >
-            TIGER
-          </text>
+          <g transform="translate(224, 15) scale(0.46)">
+            <TigerWordmarkPaths fill="#1e2228" />
+          </g>
 
-          {/* Left Wing: 4 Angled Horizontal Speaker Slots */}
+          {/* Left Wing: Power/Backlight Indicator Dot + 4 Angled Horizontal Speaker Slots */}
+          <circle cx="88" cy="34" r="2.2" fill={system.isPoweredOn ? '#22c55e' : '#4b5563'} />
           <g transform="rotate(10 78 76)">
             {[0, 1, 2, 3].map((i) => (
               <rect
                 key={i}
                 x="54"
-                y={54 + i * 11}
-                width="46"
+                y={52 + i * 11}
+                width="44"
                 height="5"
                 rx="2.5"
                 fill="#22262e"
@@ -1112,27 +1082,18 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           />
 
           {/* Embossed "game.com POCKET PRO" on the Silver Chin */}
+          <g transform="translate(194, 226) scale(0.49)">
+            <GameComWordmarkPaths fill="#6c727b" />
+          </g>
           <text
             x="250"
-            y="244"
+            y="251"
             textAnchor="middle"
-            fill="#7a8089"
-            fontFamily="monospace"
-            fontWeight="900"
-            fontSize="15"
-            letterSpacing="-0.5"
-          >
-            game.com
-          </text>
-          <text
-            x="250"
-            y="256"
-            textAnchor="middle"
-            fill="#7a8089"
+            fill="#6c727b"
             fontFamily="sans-serif"
             fontWeight="800"
-            fontSize="7.5"
-            letterSpacing="2.5"
+            fontSize="7"
+            letterSpacing="2.4"
           >
             POCKET PRO
           </text>
@@ -1154,21 +1115,21 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             </text>
           </g>
 
-          {/* Lower-Left Grip Circular D-Pad Well (cx=76, cy=196, r=52) */}
+          {/* Lower-Left Grip Circular D-Pad Well (cx=72, cy=198, r=47 — completely OFF silver plate) */}
           <circle
-            cx="76"
-            cy="196"
-            r="52"
+            cx="72"
+            cy="198"
+            r="47"
             fill={p.wellFill}
             stroke="rgba(255,255,255,0.12)"
             strokeWidth="1.5"
           />
 
-          {/* Lower-Right Grip Circular 2x2 Action Button Well (cx=424, cy=196, r=52) */}
+          {/* Lower-Right Grip Circular 2x2 Action Button Well (cx=428, cy=198, r=47 — completely OFF silver plate) */}
           <circle
-            cx="424"
-            cy="196"
-            r="52"
+            cx="428"
+            cy="198"
+            r="47"
             fill={p.wellFill}
             stroke="rgba(255,255,255,0.12)"
             strokeWidth="1.5"
@@ -1188,7 +1149,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
         </div>
 
-        {/* Interactive Cross D-Pad at (cx=76, cy=196, r=45) */}
+        {/* Interactive Cross D-Pad at (cx=72, cy=198, r=41) */}
         <div
           ref={dpadRef}
           onPointerDown={handleDpadPointerDown}
@@ -1197,10 +1158,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           onPointerCancel={handleDpadPointerUp}
           onLostPointerCapture={handleDpadPointerUp}
           style={{
-            left: `${((76 - 45) / 500) * 100}%`,
-            top: `${((196 - 45) / 300) * 100}%`,
-            width: `${(90 / 500) * 100}%`,
-            height: `${(90 / 300) * 100}%`
+            left: `${((72 - 41) / 500) * 100}%`,
+            top: `${((198 - 41) / 300) * 100}%`,
+            width: `${(82 / 500) * 100}%`,
+            height: `${(82 / 300) * 100}%`
           }}
           className="absolute rounded-full bg-gradient-to-b from-[#494e58] via-[#343840] to-[#23262c] border border-black shadow-[0_4px_8px_rgba(0,0,0,0.75)] touch-none cursor-pointer"
           aria-label="Pocket Pro Directional Pad"
@@ -1285,13 +1246,13 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           aria-label="PAUSE Button"
         />
 
-        {/* Interactive 2x2 [A, B / C, D] Round Buttons inside Lower-Right Grip Well (cx=424, cy=196) */}
+        {/* Interactive 2x2 [A, B / C, D] Round Buttons inside Lower-Right Grip Well (cx=428, cy=198) */}
         {(
           [
-            { id: 'a', cx: 403, cy: 175 },
-            { id: 'b', cx: 445, cy: 175 },
-            { id: 'c', cx: 403, cy: 217 },
-            { id: 'd', cx: 445, cy: 217 }
+            { id: 'a', cx: 409, cy: 179 },
+            { id: 'b', cx: 447, cy: 179 },
+            { id: 'c', cx: 409, cy: 217 },
+            { id: 'd', cx: 447, cy: 217 }
           ] as const
         ).map((b) => (
           <button
@@ -1299,11 +1260,11 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             type="button"
             {...bindButtonPointer(b.id)}
             style={{
-              left: `${((b.cx - 17) / 500) * 100}%`,
-              top: `${((b.cy - 17) / 300) * 100}%`,
-              width: `${(34 / 500) * 100}%`,
-              height: `${(34 / 300) * 100}%`,
-              fontSize: `${Math.max(9, Math.round(12 * S))}px`
+              left: `${((b.cx - 16) / 500) * 100}%`,
+              top: `${((b.cy - 16) / 300) * 100}%`,
+              width: `${(32 / 500) * 100}%`,
+              height: `${(32 / 300) * 100}%`,
+              fontSize: `${Math.max(9, Math.round(11.5 * S))}px`
             }}
             className={`absolute rounded-full border font-black uppercase flex items-center justify-center transition-transform select-none touch-none cursor-pointer ${
               activeButtons[b.id]
@@ -1316,26 +1277,26 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           </button>
         ))}
 
-        {/* #71-520 Backlit Model Signature Teal Arched "LIGHT" Button on Silver Chin */}
-        {isBacklitModel && (
-          <button
-            type="button"
-            onClick={toggleBacklight}
-            style={{
-              left: `${(202 / 500) * 100}%`,
-              top: `${(260 / 300) * 100}%`,
-              width: `${(96 / 500) * 100}%`,
-              height: `${(16 / 300) * 100}%`,
-              fontSize: `${Math.max(7, Math.round(8.5 * S))}px`,
-              background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
-              borderColor: p.btnBorder
-            }}
-            className="absolute rounded-t-full rounded-b-sm border text-white font-black tracking-widest uppercase flex items-center justify-center shadow active:scale-95 cursor-pointer"
-            title="Toggle Pocket Pro Backlight (#71-520)"
-          >
-            LIGHT
-          </button>
-        )}
+        {/* Arched "LIGHT" Button on Silver Chin (enabled across ALL Pocket Pro models) */}
+        <button
+          type="button"
+          onClick={toggleBacklight}
+          style={{
+            left: `${(202 / 500) * 100}%`,
+            top: `${(260 / 300) * 100}%`,
+            width: `${(96 / 500) * 100}%`,
+            height: `${(16 / 300) * 100}%`,
+            fontSize: `${Math.max(7, Math.round(8.5 * S))}px`,
+            background: isBacklightActive
+              ? 'linear-gradient(to bottom, #34d399, #059669)'
+              : `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
+            borderColor: isBacklightActive ? '#064e3b' : p.btnBorder
+          }}
+          className="absolute rounded-t-full rounded-b-sm border text-white font-black tracking-widest uppercase flex items-center justify-center shadow active:scale-95 cursor-pointer"
+          title="Toggle Pocket Pro Backlight"
+        >
+          LIGHT
+        </button>
       </div>
     </div>
   );

@@ -63,14 +63,14 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
     if (isOpen) {
       if (
         initialTab === 'retroachievements' &&
-        (!system.settings.advancedMode || !system.settings.enableRetroAchievements)
+        !system.settings.advancedMode
       ) {
         setActiveTab('leaderboard');
       } else {
         setActiveTab(initialTab);
       }
     }
-  }, [isOpen, initialTab, system.settings.advancedMode, system.settings.enableRetroAchievements]);
+  }, [isOpen, initialTab, system.settings.advancedMode]);
 
   // Leaderboard tab state
   const [selectedGameFilter, setSelectedGameFilter] = useState<number | 'ALL'>('ALL');
@@ -704,7 +704,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
             <span>Hardware NVRAM ($FC60)</span>
           </button>
 
-          {system.settings.advancedMode && system.settings.enableRetroAchievements && (
+          {system.settings.advancedMode && (
             <button
               onClick={() => setActiveTab('retroachievements')}
               className={`px-4 py-2.5 rounded-t-lg font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
@@ -1192,7 +1192,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
                               {entry.source === 'imported_user'
                                 ? 'Imported Player'
                                 : entry.source === 'retroachievements'
-                                  ? system.settings.enableRetroAchievements
+                                  ? system.settings.advancedMode
                                     ? 'RetroAchievements'
                                     : 'Verified Sync'
                                   : isOwn
@@ -1767,8 +1767,7 @@ export const HighScoreVaultModal: React.FC<HighScoreVaultModalProps> = ({
           {/* TAB 4: HARDCORE MODE & RETROACHIEVEMENTS (OPT-IN TOGGLE)              */}
           {/* ===================================================================== */}
           {activeTab === 'retroachievements' &&
-            system.settings.advancedMode &&
-            system.settings.enableRetroAchievements && (
+            system.settings.advancedMode && (
             <div className="space-y-5">
               {/* Competitive Hardcore Mode Status & Telemetry Card */}
               <div

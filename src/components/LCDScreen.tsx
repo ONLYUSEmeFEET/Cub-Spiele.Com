@@ -354,11 +354,9 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         </div>
       )}
 
-      {/* RetroAchievements Overlays (hidden behind Advanced Mode + opt-in toggle + RA Login) */}
+      {/* RetroAchievements Overlays (viewable whenever Advanced Mode is enabled + RA Login) */}
       {system.isPoweredOn &&
         system.settings.advancedMode &&
-        system.settings.enableRetroAchievements &&
-        system.retroAchievements.config.enabled &&
         system.retroAchievements.isLoggedIn() && (
         <>
           {/* Section E: Game Start Mode Notification Banner */}

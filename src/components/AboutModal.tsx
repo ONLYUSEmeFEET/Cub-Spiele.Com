@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Info, Users, Scale, ExternalLink, Cpu } from 'lucide-react';
 import { APP_VERSION_TAG } from '../version';
+import { GameComLogo } from './GameComLogo';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -29,9 +30,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <Cpu className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
-                About Cub Spiele.Com
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
+                  About Cub Spiele.Com
+                </h2>
+                <GameComLogo className="h-3.5 w-auto opacity-85" fill="currentColor" dotFill="#be123c" />
+              </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
                 {APP_VERSION_TAG} · Sharp SM8521 Handheld Emulator · MIT License
               </p>

@@ -1199,7 +1199,7 @@ export class GameComSystem {
         : 0;
       this.lcd.pixelGrid = this.settings.pixelGrid;
       this.retroAchievements.config.leaderboardPopups = this.settings.showScoreOverlay;
-      this.retroAchievements.config.enabled = this.settings.enableRetroAchievements;
+      this.retroAchievements.config.enabled = this.settings.advancedMode;
       this.applyThemeToDom();
     } catch {
       // Ignore storage errors

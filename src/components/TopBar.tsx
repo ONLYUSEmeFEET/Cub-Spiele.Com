@@ -1855,7 +1855,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  system.settings.advancedMode = !system.settings.advancedMode;
+                  const nextAdv = !system.settings.advancedMode;
+                  system.settings.advancedMode = nextAdv;
+                  system.toggleRetroAchievements(nextAdv);
                   system.saveViewSettingsToStorage();
                   onUpdate();
                 }}
@@ -1873,24 +1875,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <div className={dividerClass} />
                   <div className={sectionLabelClass}>Advanced Tools</div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      system.toggleRetroAchievements();
-                      onUpdate();
-                    }}
-                    className={itemClass}
-                  >
-                    <span className="flex items-center gap-2">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-                      <span>RetroAchievements Components</span>
-                    </span>
-                    {system.settings.enableRetroAchievements && (
-                      <Check className="w-3.5 h-3.5 text-amber-500" />
-                    )}
-                  </button>
-
-                  {system.settings.enableRetroAchievements && onOpenAchievements && (
+                  {onOpenAchievements && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1901,7 +1886,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     >
                       <span className="flex items-center gap-2">
                         <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-                        <span>RetroAchievements & RAIntegration...</span>
+                        <span>RetroAchievements &amp; RAIntegration...</span>
                       </span>
                     </button>
                   )}
