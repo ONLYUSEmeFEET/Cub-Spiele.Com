@@ -545,9 +545,16 @@ export class NvramHighScoreManager {
    *   whose title/score padding was previously shifted left by legacy trim-reencoding, restoring authentic
    *   field offsets without touching post-terminator binary save data.
    */
+  /** Slot 1 Game IDs that hold raw binary save data (no ASCII title): Castlevania $0449, CV REBORN $B746. */
+  public static isBinarySaveSlotId(gameId: number): boolean {
+    return gameId === 0x0449 || gameId === 0xb746;
+  }
+
   public static sanitizeSlot64(slot: Uint8Array): void {
     if (slot.length < 0x40) return;
     const gameId = (slot[0] << 8) | slot[1];
+    // Castlevania ($0449) and CV REBORN ($B746) store raw binary save state in Slot 1 — never sanitize or strip it
+    if (NvramHighScoreManager.isBinarySaveSlotId(gameId)) return;
     if (gameId === 0x0917) {
       const expectedTitle = 'Lights Out';
       NvramHighScoreManager.writeAscii(slot, 0x03, expectedTitle);
@@ -829,6 +836,12 @@ export class NvramHighScoreManager {
     }
 
     const hasRawSlot = Boolean(rec.rawSlot && rec.rawSlot.length === 0x40);
+    if (NvramHighScoreManager.isBinarySaveSlotId(rec.gameId) && hasRawSlot) {
+      for (let i = 0; i < 0x40; i++) {
+        slot[i] = rec.rawSlot![i] & 0xff;
+      }
+      return slot;
+    }
     if (hasRawSlot) {
       for (let i = 0; i < 0x40; i++) {
         slot[i] = rec.rawSlot![i] & 0xff;
@@ -889,6 +902,18 @@ export class NvramHighScoreManager {
     if (slot.length < 0x40) return null;
     const gameId = (slot[0] << 8) | slot[1];
     if (gameId === 0x0000 || gameId === 0xffff) return null;
+
+    // Castlevania ($0449) / CV REBORN ($B746) Slot 1 hold raw binary inventory/progress bytes without an ASCII title
+    if (NvramHighScoreManager.isBinarySaveSlotId(gameId)) {
+      return {
+        gameId,
+        title: gameId === 0xb746 ? 'CV REBORN' : 'CASTLEVANIA',
+        scoreText: 'SAVE',
+        numericScore: 0,
+        updatedAt: Date.now(),
+        rawSlot: Array.from(slot.subarray(0, 0x40))
+      };
+    }
 
     const cleanSlot = new Uint8Array(slot.subarray(0, 0x40));
     NvramHighScoreManager.sanitizeSlot64(cleanSlot);
@@ -1208,13 +1233,17 @@ export class NvramHighScoreManager {
     const gameIdHi = romData[headerOffset + 0x1a];
     if (!gameId16) return;
 
-    const existingIdx = this.records.findIndex(
-      (r) =>
-        r &&
-        (r.gameId === gameId16 ||
-          (r.gameId & 0xff) === gameIdHi ||
-          ((r.gameId >> 8) & 0xff) === gameIdHi)
-    );
+    // Prefer an exact Game ID match (CV REBORN $B745 must never be redirected to a bank that merely
+    // shares a byte with another game); fall back to the legacy loose byte match.
+    let existingIdx = this.records.findIndex((r) => r && r.gameId === gameId16);
+    if (existingIdx < 0) {
+      existingIdx = this.records.findIndex(
+        (r) =>
+          r &&
+          !NvramHighScoreManager.isBinarySaveSlotId(r.gameId) &&
+          ((r.gameId & 0xff) === gameIdHi || ((r.gameId >> 8) & 0xff) === gameIdHi)
+      );
+    }
     if (existingIdx >= 0) {
       const targetBank = Math.floor(existingIdx / 10);
       if (targetBank !== this.activeBank) {

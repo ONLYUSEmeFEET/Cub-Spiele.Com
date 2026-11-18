@@ -1,0 +1,653 @@
+[
+  {
+    "name": "21:7BDD Set 0x0448+0x11=0x2A initialized marker on Save",
+    "offset": "0x043BDD",
+    "old": "690000137a7c23",
+    "new": "987fa1ffffffff",
+    "desc": "21:7BDD Set 0x0448+0x11=0x2A initialized marker on Save"
+  },
+  {
+    "name": "21:7FA1 Helper to write 0x2A marker to Slot 0x0448+0x11 on Save",
+    "offset": "0x043FA1",
+    "old": "ffffffffffffffffffffffffffffffff",
+    "new": "69000011c62a397018007a7c23987be4",
+    "desc": "21:7FA1 Helper to write 0x2A marker to Slot 0x0448+0x11 on Save"
+  },
+  {
+    "name": "21:7BFE CALL 7FB1h (guarded Slot 1 load)",
+    "offset": "0x043BFE",
+    "old": "497c14",
+    "new": "497fb1",
+    "desc": "21:7BFE CALL 7FB1h (guarded Slot 1 load)"
+  },
+  {
+    "name": "21:7FB1 Skip loading Slot 1 (0x0449) if 0xFFFF uninitialized/corrupted",
+    "offset": "0x043FB1",
+    "old": "ffffffffffffffffffffffff",
+    "new": "3a206804ffffd603987c14f8",
+    "desc": "21:7FB1 Skip loading Slot 1 (0x0449) if 0xFFFF uninitialized/corrupted"
+  },
+  {
+    "name": "Header title 'CV REBORN'",
+    "offset": "0x040011",
+    "old": "435641202020202020",
+    "new": "4356205245424f524e",
+    "desc": "Header title 'CV REBORN'"
+  },
+  {
+    "name": "Header Game ID $B745 + BIOS ID checksum ((hi+lo)&FF)^A5 = 59; low nibble 9 = same BIOS security entry as the original cart",
+    "offset": "0x04001A",
+    "old": "0448e9",
+    "new": "b74559",
+    "desc": "Header Game ID $B745 + BIOS ID checksum ((hi+lo)&FF)^A5 = 59; low nibble 9 = same BIOS security entry as the original cart"
+  },
+  {
+    "name": "20:623F slot 0 lookup ID $B745",
+    "offset": "0x04223F",
+    "old": "0448",
+    "new": "b745",
+    "desc": "20:623F slot 0 lookup ID $B745"
+  },
+  {
+    "name": "20:624B slot 1 create ID $B746",
+    "offset": "0x04224B",
+    "old": "0449",
+    "new": "b746",
+    "desc": "20:624B slot 1 create ID $B746"
+  },
+  {
+    "name": "20:6253 slot 0 ID $B745",
+    "offset": "0x042253",
+    "old": "0448",
+    "new": "b745",
+    "desc": "20:6253 slot 0 ID $B745"
+  },
+  {
+    "name": "Slot 0 title template 'CV REBORN  '",
+    "offset": "0x04226D",
+    "old": "436173746c6576616e6961",
+    "new": "4356205245424f524e2020",
+    "desc": "Slot 0 title template 'CV REBORN  '"
+  },
+  {
+    "name": "21:7BC8 save: slot 1 ID $B746",
+    "offset": "0x043BC8",
+    "old": "0449",
+    "new": "b746",
+    "desc": "21:7BC8 save: slot 1 ID $B746"
+  },
+  {
+    "name": "21:7BD6 save: slot 0 ID $B745",
+    "offset": "0x043BD6",
+    "old": "0448",
+    "new": "b745",
+    "desc": "21:7BD6 save: slot 0 ID $B745"
+  },
+  {
+    "name": "21:7BF4 load: slot 1 ID $B746",
+    "offset": "0x043BF4",
+    "old": "0449",
+    "new": "b746",
+    "desc": "21:7BF4 load: slot 1 ID $B746"
+  },
+  {
+    "name": "21:7C02 load: slot 0 ID $B745",
+    "offset": "0x043C02",
+    "old": "0448",
+    "new": "b745",
+    "desc": "21:7C02 load: slot 0 ID $B745"
+  },
+  {
+    "name": "21:7CDA slot 0 ID $B745",
+    "offset": "0x043CDA",
+    "old": "0448",
+    "new": "b745",
+    "desc": "21:7CDA slot 0 ID $B745"
+  },
+  {
+    "name": "20:42FC A during the intro crawl starts the game",
+    "offset": "0x0402FC",
+    "old": "3880020b500500d6055800de",
+    "new": "b0d3500100d3325818d3d802",
+    "desc": "20:42FC A during the intro crawl starts the game"
+  },
+  {
+    "name": "20:4391 Load saved password from slot 0x0449+0x2D and pre-fill $020B..$0212",
+    "offset": "0x040391",
+    "old": "78ffff3b80020b3b80020d3b80020f3b800211c0233980020b7804480002495470690000113808502a01d608c18039880341d817780449c2014954706900002d7a0341c5083860396275fa",
+    "new": "78b7450002495470690000113808502a01d61b78ffff3b80020b3b80020d3b80020f3b800211c0233980020bd81d78b746c2014954706900002d7a03417e020bc50838603962396675f8ff",
+    "desc": "20:4391 Load saved password from slot 0x0449+0x2D and pre-fill $020B..$0212"
+  },
+  {
+    "name": "22:7BB8 Call deterministic password generator instead of random 4AC8h",
+    "offset": "0x045BB8",
+    "old": "494ac8",
+    "new": "497d50",
+    "desc": "22:7BB8 Call deterministic password generator instead of random 4AC8h"
+  },
+  {
+    "name": "22:7D50 Deterministic 8-icon password generator from player state",
+    "offset": "0x045D50",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "780221c235c3173860111c060372f838a00271111c38a002ee171c38a002ef111c38a00242171c38a00243111c7c0341c208510d03b103551f01500d01de020801501f01de02c120394c060372e4f8",
+    "desc": "22:7D50 Deterministic 8-icon password generator from player state"
+  },
+  {
+    "name": "24:6ACA Call smart slot allocator 7F90h",
+    "offset": "0x048ACA",
+    "old": "38a80270",
+    "new": "497f90ff",
+    "desc": "24:6ACA Call smart slot allocator 7F90h"
+  },
+  {
+    "name": "24:7F90 Smart room-object slot allocator (reuses empty/0xFF slots first)",
+    "offset": "0x049F90",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "7c0000388c0244500001d617388c026250ff01d60e0805500a05df03987f9338a80270f8",
+    "desc": "24:7F90 Smart room-object slot allocator (reuses empty/0xFF slots first)"
+  },
+  {
+    "name": "3B:6012 Only open Map on D+Pause so Pause opens Inventory (37:6000)",
+    "offset": "0x076012",
+    "old": "508abfd60a",
+    "new": "987fb0ffff",
+    "desc": "3B:6012 Only open Map on D+Pause so Pause opens Inventory (37:6000)"
+  },
+  {
+    "name": "3B:7FB0 Map trigger (D+Pause) vs Inventory trigger (Pause)",
+    "offset": "0x077FB0",
+    "old": "00000000000000000000000000",
+    "new": "508abf9e601b84d903986021f8",
+    "desc": "3B:7FB0 Map trigger (D+Pause) vs Inventory trigger (Pause)"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x02 Room 0x02: prioritize 2 unique items/relics before candles",
+    "offset": "0x04E29C",
+    "old": "5f00017f005f00ab600001a4005f00ab5f0001c9005f00ab5f0001ef005f00ab5f0003c3005e00b75f0003e8005e00996000040d005e008b5e000433005e008b5f0002f4010c0139420102f4013901395f000285010c01395f0003e7013d01695f000458011d01475f0001e201fa0226600001a901fa02265f00013901fa02265f00010101fa022d5f00009101fa02b15f00005901fa02965f0000b6029a02d25f00011002ba03286000013402da03455f00015a02fa03665f000180031a038b5f010228029602965f00021202da035760000212039a03d55f00019303da04145f00011003da043c5f000068041b04565f000068049c04d65f0000dd04da05155f00015e04da055f5f0002070517055424010162049604965f000088056e0643",
+    "new": "420102f40139013924010162049604965f00017f005f00ab600001a4005f00ab5f0001c9005f00ab5f0001ef005f00ab5f0003c3005e00b75f0003e8005e00996000040d005e008b5e000433005e008b5f0002f4010c01395f000285010c01395f0003e7013d01695f000458011d01475f0001e201fa0226600001a901fa02265f00013901fa02265f00010101fa022d5f00009101fa02b15f00005901fa02965f0000b6029a02d25f00011002ba03286000013402da03455f00015a02fa03665f000180031a038b5f010228029602965f00021202da035760000212039a03d55f00019303da04145f00011003da043c5f000068041b04565f000068049c04d65f0000dd04da05155f00015e04da055f5f000207051705545f000088056e0643",
+    "desc": "Bank 0x27 Zone 0x02 Room 0x02: prioritize 2 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x02 Room 0x04: prioritize 3 unique items/relics before candles",
+    "offset": "0x04E41E",
+    "old": "5f000636005d00a05f00067f005d00a05f0004c8007f00c26000047e007f00c25f0003e8007f00c25f00037a007f00c25f0002e0007f00c25f00067701b101f45a000677023002735f00053c026f02b2600004f6026f02b25f0004b0026f02b25f00046a026f02b25e000424026f02b25f0003de026f02b25f000398026f02b25f00030c026f02b25f0002c6026f02b260000280026f02b25f00023a026f02b25f0001f4026f02b2020001ae026f02b25f000168026f02b26201003c02930293",
+    "new": "5a00067702300273020001ae026f02b26201003c029302935f000636005d00a05f00067f005d00a05f0004c8007f00c26000047e007f00c25f0003e8007f00c25f00037a007f00c25f0002e0007f00c25f00067701b101f45f00053c026f02b2600004f6026f02b25f0004b0026f02b25f00046a026f02b25e000424026f02b25f0003de026f02b25f000398026f02b25f00030c026f02b25f0002c6026f02b260000280026f02b25f00023a026f02b25f0001f4026f02b25f000168026f02b2",
+    "desc": "Bank 0x27 Zone 0x02 Room 0x04: prioritize 3 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x02 Room 0x05: prioritize 4 unique items/relics before candles",
+    "offset": "0x04E4DF",
+    "old": "5f00007b006e00ac5c0000c6006e00ac5b0001c2006e00ac5f0002bf006e00ac5f00030a006e00a75f000413006e00ad5f00053c006e00ad5f000664006e00ad5f00078e006e00ad5f00088b006e00ad600008d6006e00ad5f0002bb014a018760000305018a02045e00030501da02045f0002bb021c0243600003e2014f01885f00042d010d01425e000551015a01905f00059f015a01a85f00063b015a02080101060502680268040106c502470247",
+    "new": "5c0000c6006e00ac5b0001c2006e00ac0101060502680268040106c5024702475f00007b006e00ac5f0002bf006e00ac5f00030a006e00a75f000413006e00ad5f00053c006e00ad5f000664006e00ad5f00078e006e00ad5f00088b006e00ad600008d6006e00ad5f0002bb014a018760000305018a02045e00030501da02045f0002bb021c0243600003e2014f01885f00042d010d01425e000551015a01905f00059f015a01a85f00063b015a0208",
+    "desc": "Bank 0x27 Zone 0x02 Room 0x05: prioritize 4 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x03 Room 0x06: prioritize 5 unique items/relics before candles",
+    "offset": "0x04E6EB",
+    "old": "5e0301f0003200b2600302c0003200a25f03037c003200a25f0304f3003200a25f030564003200a25f03031e00c201325f0303da00c201326003031e015201c25f0303da015201c25f0304bc033203b22e0104e103b203b24a01032003c203c20201035003c203c25f01038003c203c25f0301bc034203d25c03021a034203d25f000678009000b15f0107d000c200c20601080000c200c2",
+    "new": "2e0104e103b203b24a01032003c203c20201035003c203c25c01021a034203d20601080000c200c25e0301f0003200b2600302c0003200a25f03037c003200a25f0304f3003200a25f030564003200a25f03031e00c201325f0303da00c201326003031e015201c25f0303da015201c25f0304bc033203b25f01038003c203c25f0301bc034203d25f000678009000b15f0107d000c200c2",
+    "desc": "Bank 0x27 Zone 0x03 Room 0x06: prioritize 5 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x04 Room 0x00: prioritize 3 unique items/relics before candles",
+    "offset": "0x04E7DE",
+    "old": "5b000218005d007b5f00021800eb01095e0100b701fa01fa5e010069037a037a600100ff037a037a5e010226045904595f01017204b904b9030101db04b904b95f000237021c023a5f000161079a07b85e00005908f909175f00015e099909b7180101b20a370a37",
+    "new": "5b000218005d007b030101db04b904b9180101b20a370a375f00021800eb01095e0100b701fa01fa5e010069037a037a600100ff037a037a5e010226045904595f01017204b904b95f000237021c023a5f000161079a07b85e00005908f909175f00015e099909b7",
+    "desc": "Bank 0x27 Zone 0x04 Room 0x00: prioritize 3 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x04 Room 0x05: prioritize 4 unique items/relics before candles",
+    "offset": "0x04E878",
+    "old": "04010360006e006e0101036e014b014b600101720228022860010217022802285f0102cd022802285f00036602f3032a60010183032a032a60010077032c032c620100af032c032c5e010272036803685f00021d0403042a5f0002c40403042a600001e0050b05395e00030c050b05396205027104fa0519",
+    "new": "04010360006e006e0101036e014b014b620100af032c032c6201027104fa0519600101720228022860010217022802285f0102cd022802285f00036602f3032a60010183032a032a60010077032c032c5e010272036803685f00021d0403042a5f0002c40403042a600001e0050b05395e00030c050b0539",
+    "desc": "Bank 0x27 Zone 0x04 Room 0x05: prioritize 4 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x05 Room 0x00: prioritize 3 unique items/relics before candles",
+    "offset": "0x04E8F2",
+    "old": "5f0000fd033803ab5f0006c4028203ab5f0005e30231035b5f000523022b035b600004b50237035b5f000447022b035b5f0003870237035b5e00032101ee035b5f0002110237035b5f0001aa01ee035b5f01008201a901a92f0109f600d600d65e010285029202925e0102f8029202925e0102bc027002705e0002580334035c5f0004640334035c5e0005110334035c600005ef0334035c2500046403ca03ca6000031c03ca03ca600000e903f104195e00017503f104195901008004dc04dc5f000135048304ab600002d1048304ab5f0004b7048304ab",
+    "new": "2f0109f600d600d62500046403ca03ca5901008004dc04dc5f0000fd033803ab5f0006c4028203ab5f0005e30231035b5f000523022b035b600004b50237035b5f000447022b035b5f0003870237035b5e00032101ee035b5f0002110237035b5f0001aa01ee035b5f01008201a901a95e010285029202925e0102f8029202925e0102bc027002705e0002580334035c5f0004640334035c5e0005110334035c600005ef0334035c6000031c03ca03ca600000e903f104195e00017503f104195f000135048304ab600002d1048304ab5f0004b7048304ab",
+    "desc": "Bank 0x27 Zone 0x05 Room 0x00: prioritize 3 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x05 Room 0x02: prioritize 2 unique items/relics before candles",
+    "offset": "0x04EA3C",
+    "old": "5f0000d7016f019d5f0000fd016f019d260100ea019d019d5f0001cc017201a0600002d6013201615f00030e013201615f0002d5019f01cd5e000338019f01cd5f00049c019f01cd5f00050c019f01cd6000057a019f01cd5e0005ea019f01cd5f0006cc019f01cd5e00073d019f01cd600007ad019f01cd5f00081f019f01cd5e000924019f01cd5f000924012d015c5e0008ed004f007d6000096f007f00ad400107f3015c015c5e00068000af00dd5e0004e6006f009d",
+    "new": "260100ea019d019d400107f3015c015c5f0000d7016f019d5f0000fd016f019d5f0001cc017201a0600002d6013201615f00030e013201615f0002d5019f01cd5e000338019f01cd5f00049c019f01cd5f00050c019f01cd6000057a019f01cd5e0005ea019f01cd5f0006cc019f01cd5e00073d019f01cd600007ad019f01cd5f00081f019f01cd5e000924019f01cd5f000924012d015c5e0008ed004f007d6000096f007f00ad5e00068000af00dd5e0004e6006f009d",
+    "desc": "Bank 0x27 Zone 0x05 Room 0x02: prioritize 2 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x06 Room 0x02: prioritize 3 unique items/relics before candles",
+    "offset": "0x04EBC9",
+    "old": "6000079900aa059f6000077100b9059f5e00074900c7062b5f0007d20607062b600007610607062b5f0007160607062b5f010154062b062b0201014d059f059f5f010161059f059f06010151040804085f010165040804085f0004f30482062b3301069002ce02ce",
+    "new": "0201014d059f059f06010151040804083301069002ce02ce6000079900aa059f6000077100b9059f5e00074900c7062b5f0007d20607062b600007610607062b5f0007160607062b5f010154062b062b5f010161059f059f5f010165040804085f0004f30482062b",
+    "desc": "Bank 0x27 Zone 0x06 Room 0x02: prioritize 3 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x06 Room 0x04: prioritize 9 unique items/relics before candles",
+    "offset": "0x04EC5B",
+    "old": "600102d5013d013d01010329015c015c04010361015c015c0101039d015c015c5f0103d0015c015c600104d4015c015c1a0104fc015c015c4c010524015c015c5a010586013d013d5f00056002b002ce5f00046e02b002ce200004e7028a02ce5f01023002ee02ee5f01020a02ee02ee300101e502ee02ee2701018b02ee02ee",
+    "new": "01010329015c015c04010361015c015c0101039d015c015c1a0104fc015c015c4c010524015c015c5a010586013d013d200004e7028a02ce300101e502ee02ee2701018b02ee02ee600102d5013d013d5f0103d0015c015c600104d4015c015c5f00056002b002ce5f00046e02b002ce5f01023002ee02ee5f01020a02ee02ee",
+    "desc": "Bank 0x27 Zone 0x06 Room 0x04: prioritize 9 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x0B Room 0x02: prioritize 3 unique items/relics before candles",
+    "offset": "0x04F256",
+    "old": "5e000110002d009160000231002d00915f0001540131017d5f000159033603865f01009b043004305b0100a9051f051f5f0001e00131017d5f01019a01a201a25e00019a01fd02b23701028e02f502f55f01035c028202822b01039402820282600001e403360386",
+    "new": "5b0100a9051f051f3701028e02f502f52b010394028202825e000110002d009160000231002d00915f0001540131017d5f000159033603865f01009b043004305f0001e00131017d5f01019a01a201a25e00019a01fd02b25f01035c02820282600001e403360386",
+    "desc": "Bank 0x27 Zone 0x0B Room 0x02: prioritize 3 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x0D Room 0x01: prioritize 3 unique items/relics before candles",
+    "offset": "0x04F378",
+    "old": "5f0002f4023a028f5f0000500252028e5f0001cb023a028e5f00054b023a028e5f0006b40258028e5c0008950258028e5b000799023b028e5f0008e40257028f5f0000ec0252028e600006650258028e5f00041d023b028e5f000691013401ce5f000494017c01c15f000579015501bc5f0002d2015401905f000551017201bc5f000457015801915f00031f015301905f0006bb015301ce5f00068600a000f25f0006ab007800f25e01009c028e028e3a01033f00930093",
+    "new": "5c0008950258028e5b000799023b028e3a01033f009300935f0002f4023a028f5f0000500252028e5f0001cb023a028e5f00054b023a028e5f0006b40258028e5f0008e40257028f5f0000ec0252028e600006650258028e5f00041d023b028e5f000691013401ce5f000494017c01c15f000579015501bc5f0002d2015401905f000551017201bc5f000457015801915f00031f015301905f0006bb015301ce5f00068600a000f25f0006ab007800f25e01009c028e028e",
+    "desc": "Bank 0x27 Zone 0x0D Room 0x01: prioritize 3 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x0D Room 0x06: prioritize 1 unique items/relics before candles",
+    "offset": "0x04F505",
+    "old": "5e00008a063c06885f00028f063c068860000316063c06885f0000e0063c06885f000063063c06875f0000b7063c0688600002c6063c06885f0002ef063c06875f00006d056e059b5e0000ec056e059b5f00030104b004ee5f00037f04b004ee600002c104b004ee5f00044104b004ee5f00034104b004ee5f0003c104b004ee5f0003ff04b004ee5f0003b603dc043d5f0003de0406043d60000333036603fa5f000352038e03ed5f00037a03b603ee5f00029303a203fb5f00028a02ed033d5f0003c902bb02fc5f00032902bc02fd5f00044c028d02fa5f00044c01fe023c5f0003c101cc01fd5f00028a01ae01f95f00032001cb01fc5e0103fa035f035f5a0103f901560156",
+    "new": "5a0103f9015601565e00008a063c06885f00028f063c068860000316063c06885f0000e0063c06885f000063063c06875f0000b7063c0688600002c6063c06885f0002ef063c06875f00006d056e059b5e0000ec056e059b5f00030104b004ee5f00037f04b004ee600002c104b004ee5f00044104b004ee5f00034104b004ee5f0003c104b004ee5f0003ff04b004ee5f0003b603dc043d5f0003de0406043d60000333036603fa5f000352038e03ed5f00037a03b603ee5f00029303a203fb5f00028a02ed033d5f0003c902bb02fc5f00032902bc02fd5f00044c028d02fa5f00044c01fe023c5f0003c101cc01fd5f00028a01ae01f95f00032001cb01fc5e0103fa035f035f",
+    "desc": "Bank 0x27 Zone 0x0D Room 0x06: prioritize 1 unique items/relics before candles"
+  },
+  {
+    "name": "Bank 0x27 Zone 0x0D Room 0x09: prioritize 1 unique items/relics before candles",
+    "offset": "0x04F650",
+    "old": "5f0005b4005a00a65f00051e005a00a65f000488005a00a65f00035b005a00a65f0002c5005a00a66000022f005a00a65f000569005a00b6600004d4005a00b65f00043c005a00b65f0003a7005a00b65e000310005a00b65f00027a005a00b65f0001e4005a00b65f0000a500a600e0600000a5011901615e0001db015e01b25e000248015e01b25e0002ba015e01b25e00032c015e01b25e00039e015e01b25e000410015e01b25e000481015e01b25e0004f4015e01b25e000486024902b15f00043a024902b15f0003d5024902c05f0003a4024902b16000029d024902b15f000253024902b1590100b602c002c05f000102024902c05f00006c024902c0",
+    "new": "590100b602c002c05f0005b4005a00a65f00051e005a00a65f000488005a00a65f00035b005a00a65f0002c5005a00a66000022f005a00a65f000569005a00b6600004d4005a00b65f00043c005a00b65f0003a7005a00b65e000310005a00b65f00027a005a00b65f0001e4005a00b65f0000a500a600e0600000a5011901615e0001db015e01b25e000248015e01b25e0002ba015e01b25e00032c015e01b25e00039e015e01b25e000410015e01b25e000481015e01b25e0004f4015e01b25e000486024902b15f00043a024902b15f0003d5024902c05f0003a4024902b16000029d024902b15f000253024902b15f000102024902c05f00006c024902c0",
+    "desc": "Bank 0x27 Zone 0x0D Room 0x09: prioritize 1 unique items/relics before candles"
+  },
+  {
+    "name": "22:62A3 Keep RE4.#5 set on D double-tap so Mist triggers automatically",
+    "offset": "0x0442A3",
+    "old": "84d91fa5e4aee4d8",
+    "new": "84d91fa6e4aee4f8",
+    "desc": "22:62A3 Keep RE4.#5 set on D double-tap so Mist triggers automatically"
+  },
+  {
+    "name": "22:65E4 Improved Bat & Mist transformation trigger (D=Bat/Mist fallback, Down+D or 2xD=Mist)",
+    "offset": "0x0445E4",
+    "old": "8de40b8ee425ade4c005398002e5388002e55000009e645c0e03c32e49479b0f03a5e49f6645c00e9863f0",
+    "new": "89d9288de40bade4c008398002e598645c8ee417388002e55000009e645c0e03c32e49479b0f03987d20ff",
+    "desc": "22:65E4 Improved Bat & Mist transformation trigger (D=Bat/Mist fallback, Down+D or 2xD=Mist)"
+  },
+  {
+    "name": "22:7D20 Fallback to Form of Mist if player presses D without Soul of Bat",
+    "offset": "0x045D20",
+    "old": "ffffffffffffffffffff",
+    "new": "a5e49f660fc00e9863f0",
+    "desc": "22:7D20 Fallback to Form of Mist if player presses D without Soul of Bat"
+  },
+  {
+    "name": "22:6618 Clear RE4.#5/#6 on Mist transform and increase base Mist duration to 80 frames",
+    "offset": "0x044618",
+    "old": "a6e49f6645c023",
+    "new": "987dd2ffc050ff",
+    "desc": "22:6618 Clear RE4.#5/#6 on Mist transform and increase base Mist duration to 80 frames"
+  },
+  {
+    "name": "22:7DD2 Mist transform Carry check and 80-frame duration helper",
+    "offset": "0x045DD2",
+    "old": "ffffffffffffffffffffffff",
+    "new": "a5e4a6e49f6645c05098661f",
+    "desc": "22:7DD2 Mist transform Carry check and 80-frame duration helper"
+  },
+  {
+    "name": "22:7913 Reduce Mist MP drain to 1 MP every 8th frame",
+    "offset": "0x045913",
+    "old": "81d00d38880274520201",
+    "new": "85d00d38880274520101",
+    "desc": "22:7913 Reduce Mist MP drain to 1 MP every 8th frame"
+  },
+  {
+    "name": "22:793C Reduce Bat MP drain to 1 MP every 8th frame",
+    "offset": "0x04593C",
+    "old": "81d00d38880274520201",
+    "new": "85d00d38880274520101",
+    "desc": "22:793C Reduce Bat MP drain to 1 MP every 8th frame"
+  },
+  {
+    "name": "29:8007 (Act 02 Walk Start): remove 4-frame startup freeze and set dx=+5",
+    "offset": "0x052007",
+    "old": "00000203963b04000201964404000201964d04000201965604000201965f04000201966804000201967104000201967a",
+    "new": "05000201963b05000201964405000201964d05000201965605000201965f05000201966805000201967105000201967a",
+    "desc": "29:8007 (Act 02 Walk Start): remove 4-frame startup freeze and set dx=+5"
+  },
+  {
+    "name": "29:8038 (Act 03 Walk Loop): increase walk speed from +4 to +5 px/step",
+    "offset": "0x052038",
+    "old": "04000201968304000201968c04000201969504000201969e0400020196a70400020196b00400020196b90400020196c20400020196cb0400020196d40400020196dd0400020196e6",
+    "new": "05000201968305000201968c05000201969505000201969e0500020196a70500020196b00500020196b90500020196c20500020196cb0500020196d40500020196dd0500020196e6",
+    "desc": "29:8038 (Act 03 Walk Loop): increase walk speed from +4 to +5 px/step"
+  },
+  {
+    "name": "29:8128 (Act 05 Jump Forward): boost arc from (+96,-80) to (+111,-98)",
+    "offset": "0x052128",
+    "old": "05fb020196f805fb020196f805fb020196f805fb020196f805fb0201970105fb0201970105fb0201970105fb0201970105fb0201970a05fb0201970a05fb0201970a05fb0201970a06fb0201971306fb0201971306fb0201971306fb0201971c04000201971c04000201971c04000201971c",
+    "new": "06fa020196f806fa020196f806fa020196f806fa020196f806fa0201970106fa0201970106fa0201970106fa0201970106fa0201970a06fa0201970a06fa0201970a06fa0201970a06fb0201971306fb0201971306fb0201971306fb0201971c05fe0201971c05fe0201971c05fe0201971c",
+    "desc": "29:8128 (Act 05 Jump Forward): boost arc from (+96,-80) to (+111,-98)"
+  },
+  {
+    "name": "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise from -48 to -81 px",
+    "offset": "0x0520B3",
+    "old": "00000201960e00fa0201962900fa0201962900fa0201962900fa0201962900fa0201962900fa0201962900fa0201962900fa02019629",
+    "new": "00f70201960e00f70201962900f70201962900f70201962900f70201962900f70201962900f70201962900f70201962900f702019629",
+    "desc": "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise from -48 to -81 px"
+  },
+  {
+    "name": "29:8088 (Act 06 Double Jump): remove t=2 pause and boost arc from (+24,-36) to (+42,-70)",
+    "offset": "0x052088",
+    "old": "00000202960e04fa0201961704fa0201961704fa0201961704fa0201962004fa0201962004fa02019620",
+    "new": "06f60201960e06f60201961706f60201961706f60201961706f60201962006f60201962006f602019620",
+    "desc": "29:8088 (Act 06 Double Jump): remove t=2 pause and boost arc from (+24,-36) to (+42,-70)"
+  },
+  {
+    "name": "22:6274 Do not clear RE4.#2 in midair during Act 05",
+    "offset": "0x044274",
+    "old": "a2e4",
+    "new": "ffff",
+    "desc": "22:6274 Do not clear RE4.#2 in midair during Act 05"
+  },
+  {
+    "name": "22:6ADF Allow Double Jump from Act 05 (rising/peak), Act 08 (apex), Act 09, and Act 0A",
+    "offset": "0x044ADF",
+    "old": "500904",
+    "new": "987d30",
+    "desc": "22:6ADF Allow Double Jump from Act 05 (rising/peak), Act 08 (apex), Act 09, and Act 0A"
+  },
+  {
+    "name": "22:7D30 Expanded midair window for Leap Stone Double Jump",
+    "offset": "0x045D30",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "500504d60d500804d611500904d60c986ae438980289500403d703986aeaf8",
+    "desc": "22:7D30 Expanded midair window for Leap Stone Double Jump"
+  },
+  {
+    "name": "29:8109 (Act 09 Fall Forward): improve horizontal momentum at end of jump",
+    "offset": "0x052109",
+    "old": "04040201972504040201972504040201972e04040201972e0108020195ac",
+    "new": "05040201972505040201972505040201972e05040201972e0408020195ac",
+    "desc": "29:8109 (Act 09 Fall Forward): improve horizontal momentum at end of jump"
+  },
+  {
+    "name": "36:9905 Boost Bat flight speed to (+4,+0)",
+    "offset": "0x06D905",
+    "old": "030002019c76030002019c76030002019bc2030002019bc2030002019bcb030002019bcb030002019bd4030002019bd4",
+    "new": "040002019c76040002019c76040002019bc2040002019bc2040002019bcb040002019bcb040002019bd4040002019bd4",
+    "desc": "36:9905 Boost Bat flight speed to (+4,+0)"
+  },
+  {
+    "name": "36:9936 Boost Bat flight speed to (+0,-4)",
+    "offset": "0x06D936",
+    "old": "00fd02019c7600fd02019c7600fd02019bc200fd02019bc200fd02019bcb00fd02019bcb00fd02019bd400fd02019bd4",
+    "new": "00fc02019c7600fc02019c7600fc02019bc200fc02019bc200fc02019bcb00fc02019bcb00fc02019bd400fc02019bd4",
+    "desc": "36:9936 Boost Bat flight speed to (+0,-4)"
+  },
+  {
+    "name": "36:9967 Boost Bat flight speed to (+4,-4)",
+    "offset": "0x06D967",
+    "old": "03fd02019c7603fd02019c7603fd02019bc203fd02019bc203fd02019bcb03fd02019bcb03fd02019bd403fd02019bd4",
+    "new": "04fc02019c7604fc02019c7604fc02019bc204fc02019bc204fc02019bcb04fc02019bcb04fc02019bd404fc02019bd4",
+    "desc": "36:9967 Boost Bat flight speed to (+4,-4)"
+  },
+  {
+    "name": "36:9998 Boost Bat flight speed to (+0,+4)",
+    "offset": "0x06D998",
+    "old": "000302019c76000302019c76000302019bc2000302019bc2000302019bcb000302019bcb000302019bd4000302019bd4",
+    "new": "000402019c76000402019c76000402019bc2000402019bc2000402019bcb000402019bcb000402019bd4000402019bd4",
+    "desc": "36:9998 Boost Bat flight speed to (+0,+4)"
+  },
+  {
+    "name": "36:99C9 Boost Bat flight speed to (+4,+4)",
+    "offset": "0x06D9C9",
+    "old": "030302019c76030302019c76030302019bc2030302019bc2030302019bcb030302019bcb030302019bd4030302019bd4",
+    "new": "040402019c76040402019c76040402019bc2040402019bc2040402019bcb040402019bcb040402019bd4040402019bd4",
+    "desc": "36:99C9 Boost Bat flight speed to (+4,+4)"
+  },
+  {
+    "name": "36:9A19 Boost Mist drift speed to (+4,+0)",
+    "offset": "0x06DA19",
+    "old": "030002019c1c",
+    "new": "040002019c1c",
+    "desc": "36:9A19 Boost Mist drift speed to (+4,+0)"
+  },
+  {
+    "name": "36:9A20 Boost Mist drift speed to (+0,+4)",
+    "offset": "0x06DA20",
+    "old": "000302019c01",
+    "new": "000402019c01",
+    "desc": "36:9A20 Boost Mist drift speed to (+0,+4)"
+  },
+  {
+    "name": "36:9A27 Boost Mist drift speed to (+0,-4)",
+    "offset": "0x06DA27",
+    "old": "00fd02019c01",
+    "new": "00fc02019c01",
+    "desc": "36:9A27 Boost Mist drift speed to (+0,-4)"
+  },
+  {
+    "name": "36:9A2E Boost Mist drift speed to (+4,+4)",
+    "offset": "0x06DA2E",
+    "old": "030302019c0a",
+    "new": "040402019c0a",
+    "desc": "36:9A2E Boost Mist drift speed to (+4,+4)"
+  },
+  {
+    "name": "36:9A35 Boost Mist drift speed to (+4,-4)",
+    "offset": "0x06DA35",
+    "old": "03fd02019c0a",
+    "new": "04fc02019c0a",
+    "desc": "36:9A35 Boost Mist drift speed to (+4,-4)"
+  },
+  {
+    "name": "22:68B2 Unlock all spells from Level 1",
+    "offset": "0x0448B2",
+    "old": "0103050701",
+    "new": "0101010101",
+    "desc": "22:68B2 Unlock all spells from Level 1"
+  },
+  {
+    "name": "37:676D Display all 4 spells in Pause -> Spells menu from Level 1",
+    "offset": "0x06E76D",
+    "old": "01030507",
+    "new": "01010101",
+    "desc": "37:676D Display all 4 spells in Pause -> Spells menu from Level 1"
+  },
+  {
+    "name": "22:68CF Hellfire (Right): Up, Down, Right, Right+A/B",
+    "offset": "0x0448CF",
+    "old": "01020a88ff48",
+    "new": "01020888ff48",
+    "desc": "22:68CF Hellfire (Right): Up, Down, Right, Right+A/B"
+  },
+  {
+    "name": "22:68DC Soul Steal (Right): Left, Right, Down, Right, Right+A/B",
+    "offset": "0x0448DC",
+    "old": "04080a02040888ff48",
+    "new": "0408020888ff48ffff",
+    "desc": "22:68DC Soul Steal (Right): Left, Right, Down, Right, Right+A/B"
+  },
+  {
+    "name": "22:68E5 Tetra Spirit (Right): Up, Right, Down, Down+A/B",
+    "offset": "0x0448E5",
+    "old": "0109080a0282ff42",
+    "new": "01080282ff42ffff",
+    "desc": "22:68E5 Tetra Spirit (Right): Up, Right, Down, Down+A/B"
+  },
+  {
+    "name": "22:68F1 Hellfire (Left): Up, Down, Left, Left+A/B",
+    "offset": "0x0448F1",
+    "old": "01020684ff44",
+    "new": "01020484ff44",
+    "desc": "22:68F1 Hellfire (Left): Up, Down, Left, Left+A/B"
+  },
+  {
+    "name": "22:68FE Soul Steal (Left): Right, Left, Down, Left, Left+A/B",
+    "offset": "0x0448FE",
+    "old": "08040602080484ff44",
+    "new": "0804020484ff44ffff",
+    "desc": "22:68FE Soul Steal (Left): Right, Left, Down, Left, Left+A/B"
+  },
+  {
+    "name": "22:6907 Tetra Spirit (Left): Up, Left, Down, Down+A/B",
+    "offset": "0x044907",
+    "old": "010504060282ff42",
+    "new": "01040282ff42ffff",
+    "desc": "22:6907 Tetra Spirit (Left): Up, Left, Down, Down+A/B"
+  },
+  {
+    "name": "22:6795 Increase spell input window from 45 to 70 frames",
+    "offset": "0x044795",
+    "old": "2d",
+    "new": "46",
+    "desc": "22:6795 Increase spell input window from 45 to 70 frames"
+  },
+  {
+    "name": "22:674F Reset spell timeout and preserve matched spell step during brief neutral D-pad release",
+    "offset": "0x04474F",
+    "old": "38880283",
+    "new": "987da0ff",
+    "desc": "22:674F Reset spell timeout and preserve matched spell step during brief neutral D-pad release"
+  },
+  {
+    "name": "22:7DA0 Clear stale RE5 on timeout and allow holding last D-pad step before final A/B press",
+    "offset": "0x045DA0",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "388802835001019e674d388002205000009e675800e59867581804380440d9009668276a040003380440d90096681c9867d0",
+    "desc": "22:7DA0 Clear stale RE5 on timeout and allow holding last D-pad step before final A/B press"
+  },
+  {
+    "name": "22:6806 Check held previous step before final 0xFF spell step",
+    "offset": "0x044806",
+    "old": "180438",
+    "new": "987db9",
+    "desc": "22:6806 Check held previous step before final 0xFF spell step"
+  },
+  {
+    "name": "22:690F Keep prefix fallback #1->#4 and #2->#3 while removing #3->#4 and #4->#5 collisions",
+    "offset": "0x04490F",
+    "old": "0403ffffffff0a09ffffffff",
+    "new": "0403ffffffff0a09ffffffff",
+    "desc": "22:690F Keep prefix fallback #1->#4 and #2->#3 while removing #3->#4 and #4->#5 collisions"
+  },
+  {
+    "name": "23:6B25 Set Richter Belmont HP to 800 (0x0320) instead of 65535 (0xFFFF)",
+    "offset": "0x046B25",
+    "old": "ffff",
+    "new": "0320",
+    "desc": "23:6B25 Set Richter Belmont HP to 800 (0x0320) instead of 65535 (0xFFFF)"
+  },
+  {
+    "name": "39:72C8 Check Richter HP and trigger fight end when defeated",
+    "offset": "0x0732C8",
+    "old": "494832d6",
+    "new": "497be0ff",
+    "desc": "39:72C8 Check Richter HP and trigger fight end when defeated"
+  },
+  {
+    "name": "39:7BE0 Richter damage & defeat handler",
+    "offset": "0x073BE0",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "494832d60d4947e2df029873dfb0ddfa9872cd9872db",
+    "desc": "39:7BE0 Richter damage & defeat handler"
+  },
+  {
+    "name": "39:76E5 Protect Dracula from Bat Familiar damage during intro cutscene",
+    "offset": "0x0736E5",
+    "old": "494822",
+    "new": "987bf6",
+    "desc": "39:76E5 Protect Dracula from Bat Familiar damage during intro cutscene"
+  },
+  {
+    "name": "39:7BF6 Clear pending familiar/weapon hit flags on Dracula during cutscene",
+    "offset": "0x073BF6",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "87d2064948229876e8000439a002fb39a002fc987728",
+    "desc": "39:7BF6 Clear pending familiar/weapon hit flags on Dracula during cutscene"
+  },
+  {
+    "name": "22:7110 Only decrement Stopwatch timer $02E6 when time-stop RE4.#7 is active",
+    "offset": "0x045110",
+    "old": "38a002e6090450000439a002e6d641",
+    "new": "87e40c38a002e6090439a002e6d641",
+    "desc": "22:7110 Only decrement Stopwatch timer $02E6 when time-stop RE4.#7 is active"
+  },
+  {
+    "name": "22:7156 Set Stopwatch time-stop duration to 120 frames (0x78)",
+    "offset": "0x045156",
+    "old": "c0ff",
+    "new": "c078",
+    "desc": "22:7156 Set Stopwatch time-stop duration to 120 frames (0x78)"
+  },
+  {
+    "name": "36:96EC (Proj 03 Axe State 2): widen forward parabolic arc dx to +5",
+    "offset": "0x06D6EC",
+    "old": "02f8019b0502f8019b0e02f8019b1702f8019b2004fc019b2904fc019b3204fc019b3b0404019b440404019b050404019b0e0404019b170404019b20",
+    "new": "05f8019b0505f8019b0e05f8019b1705f8019b2005fc019b2905fc019b3205fc019b3b0504019b440504019b050504019b0e0504019b170504019b20",
+    "desc": "36:96EC (Proj 03 Axe State 2): widen forward parabolic arc dx to +5"
+  },
+  {
+    "name": "36:9729 (Proj 03 Axe State 3): widen falling forward arc dx to +4",
+    "offset": "0x06D729",
+    "old": "0208019b050208019b0e0208019b170208019b200208019b290208019b320208019b3b0208019b44",
+    "new": "0408019b050408019b0e0408019b170408019b200408019b290408019b320408019b3b0408019b44",
+    "desc": "36:9729 (Proj 03 Axe State 3): widen falling forward arc dx to +4"
+  },
+  {
+    "name": "38:87D9 Fix 'Belmont Chlan?' -> 'Belmont Clan? '",
+    "offset": "0x0707D9",
+    "old": "43686c616e3fff",
+    "new": "436c616e3f20ff",
+    "desc": "38:87D9 Fix 'Belmont Chlan?' -> 'Belmont Clan? '"
+  },
+  {
+    "name": "38:9734 Fix 'Elixer' -> 'Elixir'",
+    "offset": "0x071734",
+    "old": "456c69786572ff",
+    "new": "456c69786972ff",
+    "desc": "38:9734 Fix 'Elixer' -> 'Elixir'"
+  },
+  {
+    "name": "38:973B Fix 'Libaray card' -> 'Library card'",
+    "offset": "0x07173B",
+    "old": "4c6962617261792063617264ff",
+    "new": "4c6962726172792063617264ff",
+    "desc": "38:973B Fix 'Libaray card' -> 'Library card'"
+  },
+  {
+    "name": "38:9779 Fix 'Sirlion' -> 'Sirloin'",
+    "offset": "0x071779",
+    "old": "5369726c696f6eff",
+    "new": "5369726c6f696eff",
+    "desc": "38:9779 Fix 'Sirlion' -> 'Sirloin'"
+  },
+  {
+    "name": "38:984B Fix 'Diamon plate' -> 'Diamond mail'",
+    "offset": "0x07184B",
+    "old": "4469616d6f6e20706c617465ff",
+    "new": "4469616d6f6e64206d61696cff",
+    "desc": "38:984B Fix 'Diamon plate' -> 'Diamond mail'"
+  },
+  {
+    "name": "38:997E Fix 'Goddness shield' -> 'Goddess shield '",
+    "offset": "0x07197E",
+    "old": "476f64646e65737320736869656c64ff",
+    "new": "476f646465737320736869656c6420ff",
+    "desc": "38:997E Fix 'Goddness shield' -> 'Goddess shield '"
+  },
+  {
+    "name": "38:9B8D Fix Ring of Vlad description 'STR +10' -> 'INT +10'",
+    "offset": "0x071B8D",
+    "old": "31206f662035205472656173757265732e20535452202b3130ff",
+    "new": "31206f662035205472656173757265732e20494e54202b3130ff",
+    "desc": "38:9B8D Fix Ring of Vlad description 'STR +10' -> 'INT +10'"
+  },
+  {
+    "name": "38:9BD1 Fix 'Tertra Spirit' -> 'Tetra Spirit '",
+    "offset": "0x071BD1",
+    "old": "54657274726120537069726974ff",
+    "new": "54657472612053706972697420ff",
+    "desc": "38:9BD1 Fix 'Tertra Spirit' -> 'Tetra Spirit '"
+  }
+]

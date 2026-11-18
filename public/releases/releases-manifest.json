@@ -1,53 +1,53 @@
 {
   "project": "cub-spiele-com-emulator",
   "repository": "https://github.com/ONLYUSEmeFEET/Cub-Spiele.Com",
-  "latestVersion": "v0.2.2",
-  "generatedAt": "2026-11-18T18:13:35.488134+00:00",
+  "latestVersion": "v0.2.5",
+  "generatedAt": "2026-11-18T23:37:51.537326+00:00",
   "releases": [
     {
-      "tag": "v0.2.2",
-      "title": "Cub Spiele.Com v0.2.2 \u2014 Standalone Handheld Emulator Release",
-      "publishedAt": "2026-11-18T18:13:28Z",
+      "tag": "v0.2.5",
+      "title": "Cub Spiele.Com v0.2.5 \u2014 Standalone Handheld Emulator Release",
+      "publishedAt": "2026-11-18T23:37:43Z",
       "isLatest": true,
       "Prerelease": false,
-      "commitRef": "HEAD (tag: v0.2.2)",
+      "commitRef": "HEAD (tag: v0.2.5)",
       "highlights": [
-        "Standalone multi-platform build synced from package.json (v0.2.2)"
+        "Standalone multi-platform build synced from package.json (v0.2.5)"
       ],
       "assets": [
         {
-          "name": "CubSpieleCom-v0.2.2-win64.zip",
-          "label": "Windows x64 Portable Build (v0.2.2 .zip)",
-          "url": "./releases/CubSpieleCom-v0.2.2-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "dff951b1055a330309712ae18926fe6576ea453ef03edd57c6d23b192ad66dbf",
+          "name": "CubSpieleCom-v0.2.5-win64.zip",
+          "label": "Windows x64 Portable Build (v0.2.5 .zip)",
+          "url": "./releases/CubSpieleCom-v0.2.5-win64.zip",
+          "sizeBytes": 4316742,
+          "sha256": "ac28e72eed76e67a77ced9b25b75d919792ef1dcb67a147095b6eb7768210cba",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
         {
           "name": "CubSpieleCom.exe",
-          "label": "Self-Contained Windows x64 Executable (v0.2.2 .exe)",
+          "label": "Self-Contained Windows x64 Executable (v0.2.5 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         },
         {
-          "name": "CubSpieleCom-v0.2.2-macos-universal.zip",
-          "label": "macOS Universal App Bundle (v0.2.2 .app.zip)",
-          "url": "./releases/CubSpieleCom-v0.2.2-macos-universal.zip",
-          "sizeBytes": 2075066,
-          "sha256": "5f5a0a45dd679c2db3c949079ff76b0b38a77aa4ad9720e63e84a4b66f188545",
+          "name": "CubSpieleCom-v0.2.5-macos-universal.zip",
+          "label": "macOS Universal App Bundle (v0.2.5 .app.zip)",
+          "url": "./releases/CubSpieleCom-v0.2.5-macos-universal.zip",
+          "sizeBytes": 2167266,
+          "sha256": "e249a13f2e1b4756ef1e6843936880fad20c1777132021fd18e583502c1ad4da",
           "architecture": "macOS 11+ Universal (Apple Silicon ARM64 & Intel x86_64)",
           "platform": "macos"
         },
         {
-          "name": "CubSpieleCom-v0.2.2-android.apk",
-          "label": "Android Universal Package (v0.2.2 .apk)",
-          "url": "./releases/CubSpieleCom-v0.2.2-android.apk",
-          "sizeBytes": 2062569,
-          "sha256": "32311f1ad6d088871af595b2199c025f153494e532bbad23e1c4d6d077f22d58",
+          "name": "CubSpieleCom-v0.2.5-android.apk",
+          "label": "Android Universal Package (v0.2.5 .apk)",
+          "url": "./releases/CubSpieleCom-v0.2.5-android.apk",
+          "sizeBytes": 2154771,
+          "sha256": "4617cc6aa4ab1868abe98403ef104fb1b94df30df9b893264fcc7b54fd75fa58",
           "architecture": "Android 8.0+ (ARM64-v8a / Universal Touch APK)",
           "platform": "android"
         },
@@ -65,7 +65,7 @@
     {
       "tag": "v0.2.1",
       "title": "Cub Spiele.Com v0.2.1 \u2014 Frameless Bezel Screen Fit, Hardware-Only PAUSE Input & Refined Pill Alignment",
-      "publishedAt": "2026-11-18T18:13:28Z",
+      "publishedAt": "2026-11-18T23:37:43Z",
       "isLatest": false,
       "Prerelease": false,
       "commitRef": "tag: v0.2.1",
@@ -79,8 +79,8 @@
           "name": "CubSpieleCom-v0.2.1-win64.zip",
           "label": "Windows x64 Portable Build (v0.2.1 .zip)",
           "url": "./releases/CubSpieleCom-v0.2.1-win64.zip",
-          "sizeBytes": 4132747,
-          "sha256": "c801fecf5d265053308bc5fc74d42f362b1e6d1cfa555488f4897f739f6e41e8",
+          "sizeBytes": 4316743,
+          "sha256": "197a10f62baa6d62afcdb3f20fa0bc56a16c9afb9c8e6f087298f5c8da2faa39",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -88,8 +88,8 @@
           "name": "CubSpieleCom-v0.2.1.exe",
           "label": "Self-Contained Windows x64 Executable (v0.2.1 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -98,7 +98,7 @@
     {
       "tag": "v0.2.0",
       "title": "Cub Spiele.Com v0.2.0 \u2014 Authentic Handheld Console Shells, Proportional Scaling, Vertical Pocket View & ROM Library",
-      "publishedAt": "2026-11-18T18:13:28Z",
+      "publishedAt": "2026-11-18T23:37:43Z",
       "isLatest": false,
       "Prerelease": false,
       "commitRef": "tag: v0.2.0",
@@ -114,8 +114,8 @@
           "name": "CubSpieleCom-v0.2.0-win64.zip",
           "label": "Windows x64 Portable Build (v0.2.0 .zip)",
           "url": "./releases/CubSpieleCom-v0.2.0-win64.zip",
-          "sizeBytes": 4132747,
-          "sha256": "4db78c343c695cf1dc7165f121a69b82532ed449405cdea5fbcfd0db359fb18d",
+          "sizeBytes": 4316743,
+          "sha256": "e6baf8bc2d650675daf70d2296c1a712647176b49a25ac8a5f55f03e97afc202",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -123,8 +123,8 @@
           "name": "CubSpieleCom-v0.2.0.exe",
           "label": "Self-Contained Windows x64 Executable (v0.2.0 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -146,8 +146,8 @@
           "name": "CubSpieleCom-v0.1.13-win64.zip",
           "label": "Windows x64 Portable Build (v0.1.13 .zip)",
           "url": "./releases/CubSpieleCom-v0.1.13-win64.zip",
-          "sizeBytes": 4132747,
-          "sha256": "a04a6a7eabe04322913d038af90f4583a640efed95c68daa70bd05339986bd20",
+          "sizeBytes": 4316743,
+          "sha256": "806285a96944dc715ffb9d0f2587fbdbed52203769d7f8013b4dbc82397ee83e",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -155,8 +155,8 @@
           "name": "CubSpieleCom-v0.1.13.exe",
           "label": "Self-Contained Windows x64 Executable (v0.1.13 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -165,7 +165,7 @@
     {
       "tag": "v0.1.2",
       "title": "Cub Spiele.Com v0.1.2 \u2014 Isolated Softcore/Hardcore NVRAM, Zero-Score Filtering, Opt-In V-Sync & Admin Console",
-      "publishedAt": "2026-11-18T18:13:28Z",
+      "publishedAt": "2026-11-18T23:37:43Z",
       "isLatest": false,
       "Prerelease": false,
       "commitRef": "tag: v0.1.2",
@@ -180,8 +180,8 @@
           "name": "CubSpieleCom-v0.1.2-win64.zip",
           "label": "Windows x64 Portable Build (v0.1.2 .zip)",
           "url": "./releases/CubSpieleCom-v0.1.2-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "e7f468697021a888e85806ceb62bbf69947089e0eeebd96f022d4330454bc679",
+          "sizeBytes": 4316741,
+          "sha256": "a13a459cb953ac8936247f932f0bea92a498bac81279cae1376ee2c78f0b9a16",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -189,8 +189,8 @@
           "name": "CubSpieleCom-v0.1.2.exe",
           "label": "Self-Contained Windows x64 Executable (v0.1.2 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -199,7 +199,7 @@
     {
       "tag": "v0.0.10",
       "title": "Cub Spiele.Com v0.0.10 \u2014 Dedicated Display Menu, Compact View Submenus, LCD Sliders & Tools Reorganization",
-      "publishedAt": "2026-11-18T18:13:28Z",
+      "publishedAt": "2026-11-18T23:37:43Z",
       "isLatest": false,
       "Prerelease": false,
       "commitRef": "tag: v0.0.10",
@@ -214,8 +214,8 @@
           "name": "CubSpieleCom-v0.0.10-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.10 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.10-win64.zip",
-          "sizeBytes": 4132748,
-          "sha256": "31d637158a700c686538fb38b8b2b6ecf914e129898cd4dad4bc4b64d4e6f8f4",
+          "sizeBytes": 4316743,
+          "sha256": "a02a0a1285053d834eb030814a0b572ed227a5ae477fca8b8ee5f4d165d0e034",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -223,8 +223,8 @@
           "name": "CubSpieleCom-v0.0.10.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.10 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -248,8 +248,8 @@
           "name": "CubSpieleCom-v0.0.9-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.9 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.9-win64.zip",
-          "sizeBytes": 4132747,
-          "sha256": "a6c2c9a09dea969871dda7df7a6e9a02b9e0c1d3665b7112a36b6567a03c9e55",
+          "sizeBytes": 4316743,
+          "sha256": "79cfbc90db866dbfeab86bce6644b5e03b017f95b2e1100f22a5523e7da107ff",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -257,8 +257,8 @@
           "name": "CubSpieleCom-v0.0.9.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.9 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -282,8 +282,8 @@
           "name": "CubSpieleCom-v0.0.8-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.8 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.8-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "f517a1482d0d55ecfa1b41a1302daf176ed0824ab4e2458fb05b1bb099082c85",
+          "sizeBytes": 4316742,
+          "sha256": "7c76c07f49956c2634090b5ec150454749379e897326246b26bc029361b3afc2",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -291,8 +291,8 @@
           "name": "CubSpieleCom-v0.0.8.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.8 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -316,8 +316,8 @@
           "name": "CubSpieleCom-v0.0.7-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.7 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.7-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "9cb811d13e7d8a74b48faff2bd20e59fb375c922a0c7e8ad97a649d3784e5398",
+          "sizeBytes": 4316742,
+          "sha256": "2913cf3362f1e1bc94e970bdb52ae9d7a4fa92bd952b37145bab504584d09ed0",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -325,8 +325,8 @@
           "name": "CubSpieleCom-v0.0.7.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.7 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -350,8 +350,8 @@
           "name": "CubSpieleCom-v0.0.6-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.6 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.6-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "48076086e7437a2b0fe5e9ca1979d9c8c8a61695b6e5ad28095357e5002af10a",
+          "sizeBytes": 4316742,
+          "sha256": "bab573b4949f08b842c9b96fbced76d5f105eab918389875cc9e7b57afc75344",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -359,8 +359,8 @@
           "name": "CubSpieleCom-v0.0.6.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.6 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -384,8 +384,8 @@
           "name": "CubSpieleCom-v0.0.5-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.5 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.5-win64.zip",
-          "sizeBytes": 4132747,
-          "sha256": "a9cd3cae7fdf8ca1030d91facea32b9aeff35944534fde0e470a43bb68ec7209",
+          "sizeBytes": 4316743,
+          "sha256": "95aaa66f4049d11ed577b5418c59e2448da7a0282fc35aa22ac502751df935a1",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -393,8 +393,8 @@
           "name": "CubSpieleCom-v0.0.5.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.5 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -419,8 +419,8 @@
           "name": "CubSpieleCom-v0.0.4-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.4 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.4-win64.zip",
-          "sizeBytes": 4132745,
-          "sha256": "c98151bb7d33632c12dbb9463b573c91b703373bf165a2a8ae89810a3ee590d4",
+          "sizeBytes": 4316740,
+          "sha256": "aca25f19ed6fa52ad7014631b8f80ba27b994110aa842b8f8189dbcb5855adf9",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -428,8 +428,8 @@
           "name": "CubSpieleCom-v0.0.4.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.4 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -453,8 +453,8 @@
           "name": "CubSpieleCom-v0.0.3-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.3 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.3-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "c946efcbf07a095ae6f856eb811299a35cffa8ad3bd29ae839aeb7e506744d9c",
+          "sizeBytes": 4316742,
+          "sha256": "92e146dcd04c916d7a9f54806e246e3550e62e2104596c50731f0b8d173abc53",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -462,8 +462,8 @@
           "name": "CubSpieleCom-v0.0.3.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.3 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -487,8 +487,8 @@
           "name": "CubSpieleCom-v0.0.2-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.2 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.2-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "0915404c0ae57200c6096b36e6b5ce385f3b73122879c72330ba2060eb46788b",
+          "sizeBytes": 4316741,
+          "sha256": "da93344b344d554362572840898bba2404c3c91d4f9d8dd7a9e2f1a665b79718",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -496,8 +496,8 @@
           "name": "CubSpieleCom-v0.0.2.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.2 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }
@@ -521,8 +521,8 @@
           "name": "CubSpieleCom-v0.0.1-win64.zip",
           "label": "Windows x64 Portable Build (v0.0.1 .zip)",
           "url": "./releases/CubSpieleCom-v0.0.1-win64.zip",
-          "sizeBytes": 4132746,
-          "sha256": "025f96c65df6acdf0780e4cb8f55b67672c9b24f76d9047646ab6baeaad3258e",
+          "sizeBytes": 4316742,
+          "sha256": "980a1def8632c1f0c7e5e5f1ce1f1da2fdd187d582c2c443f54a1cd2066d2c0e",
           "architecture": "Windows 10/11 x64 (PE32+ AMD64)",
           "platform": "windows"
         },
@@ -530,8 +530,8 @@
           "name": "CubSpieleCom-v0.0.1.exe",
           "label": "Self-Contained Windows x64 Executable (v0.0.1 .exe)",
           "url": "./releases/CubSpieleCom.exe",
-          "sizeBytes": 2086380,
-          "sha256": "e636fd095a608f3a930682fae6fc404bef94a8d0fb449704b0a53273e72c8ede",
+          "sizeBytes": 2178429,
+          "sha256": "558b5944b38ab0014a93707ed796dfe6db053750c2643461d2c8f0afa2abc396",
           "architecture": "Windows 10/11 x64 (PE32+ Self-Contained)",
           "platform": "windows"
         }

@@ -37,6 +37,7 @@ export interface OnlineRomEntry {
   fallbackUrl?: string;
   repoUrl: string;
   sizeBytes?: number;
+  autoPatchReborn?: boolean;
 }
 
 export interface PersistedRepositoryState {
@@ -123,6 +124,41 @@ function buildOnlineEntryFromFile(
   };
 }
 
+export function ensureCastlevaniaRebornEntry(entries: OnlineRomEntry[]): OnlineRomEntry[] {
+  const hasReborn = entries.some((e) => e.gameId === 'castlevaniareborn');
+  if (hasReborn) return entries;
+
+  const proto = entries.find((e) => e.gameId === 'castlevania');
+  const rebornKnown = KNOWN_GAMECOM_GAMES.castlevaniareborn;
+  if (!proto || !rebornKnown) return entries;
+
+  return [
+    ...entries,
+    {
+      gameId: rebornKnown.id,
+      title: rebornKnown.title,
+      publisher: rebornKnown.publisher,
+      year: rebornKnown.year,
+      genre: rebornKnown.genre,
+      description: rebornKnown.description,
+      partNumber: rebornKnown.partNumber,
+      labelImage: rebornKnown.labelImage,
+      diskmanUrl: rebornKnown.diskmanUrl,
+      manualUrl: rebornKnown.manualUrl,
+      diskmanHighlights: rebornKnown.diskmanHighlights,
+      linkPlaySupport: rebornKnown.linkPlaySupport,
+      coverColor: rebornKnown.coverColor,
+      coverAccent: rebornKnown.coverAccent,
+      fileName: 'Castlevania - Symphony of the Night Reborn (v0.1).tgc',
+      downloadUrl: proto.downloadUrl,
+      fallbackUrl: proto.fallbackUrl,
+      repoUrl: proto.repoUrl,
+      sizeBytes: proto.sizeBytes,
+      autoPatchReborn: true
+    }
+  ];
+}
+
 export function deduplicateOnlineRomEntries(entries: OnlineRomEntry[]): OnlineRomEntry[] {
   const byGameId = new Map<string, OnlineRomEntry>();
   for (const entry of entries) {
@@ -137,7 +173,9 @@ export function deduplicateOnlineRomEntries(entries: OnlineRomEntry[]): OnlineRo
       }
     }
   }
-  return Array.from(byGameId.values()).sort((a, b) => a.title.localeCompare(b.title));
+  return ensureCastlevaniaRebornEntry(Array.from(byGameId.values())).sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
 }
 
 function parseArchiveOrgUrl(rawUrl: string): { ident: string; subpath: string } | null {

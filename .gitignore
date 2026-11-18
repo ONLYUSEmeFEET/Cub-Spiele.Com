@@ -13,3 +13,6 @@ desktop.ini
 *.log
 .env*
 !.env.example
+tools/cv_patch/work/
+*.tgc
+*.cgstate

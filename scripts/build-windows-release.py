@@ -685,9 +685,9 @@ def build_pe64_gui_executable(dib_icon: bytes, embedded_zip_payload: bytes | Non
     )
 
     dd_off = opt_off + 112
-    struct.pack_into('<II', headers, dd_off + 1 * 8, rva_rdata + 0x0080, 60)  # Import Directory
+    struct.pack_into('<II', headers, dd_off + 1 * 8, rva_rdata + 0x0090, 60)  # Import Directory
     struct.pack_into('<II', headers, dd_off + 2 * 8, rva_rsrc, rsrc_raw_len)  # Resource Directory
-    struct.pack_into('<II', headers, dd_off + 12 * 8, rva_rdata, 0x38)        # IAT
+    struct.pack_into('<II', headers, dd_off + 12 * 8, rva_rdata, 0x48)        # IAT
 
     sect_off = opt_off + 240
 

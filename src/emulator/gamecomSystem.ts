@@ -18,6 +18,7 @@ import { VirtualModemManager } from './virtualModem';
 import { RetroAchievementsEngine } from './retroAchievements';
 import { OnlineLeaderboardManager } from './onlineLeaderboard';
 import { resolveKnownGameByGameIdOrTitle, loadCartridgeFromBuffer } from './cartridge';
+import { applyIpsPatch } from './ipsPatcher';
 import {
   OnlineRomEntry,
   scanRomRepositoryUrl,
@@ -1690,7 +1691,24 @@ export class GameComSystem {
     this.loadingOnlineGameId = entry.gameId;
     try {
       const bytes = await fetchOnlineRomBytes(entry);
-      const cart = loadCartridgeFromBuffer(bytes, entry.fileName, entry.downloadUrl);
+      let cart = loadCartridgeFromBuffer(bytes, entry.fileName, entry.downloadUrl);
+      if (
+        (entry.autoPatchReborn || entry.gameId === 'castlevaniareborn') &&
+        cart.id !== 'castlevaniareborn' &&
+        cart.romData
+      ) {
+        const patchRes = await fetch('./patches/Castlevania - Symphony of the Night Reborn.ips');
+        if (!patchRes.ok) {
+          throw new Error(`Failed to load Reborn auto-patch (${patchRes.status}).`);
+        }
+        const patchBytes = new Uint8Array(await patchRes.arrayBuffer());
+        const patchedRom = applyIpsPatch(cart.romData, patchBytes);
+        cart = loadCartridgeFromBuffer(
+          patchedRom,
+          'Castlevania - Symphony of the Night Reborn (v0.1).tgc',
+          entry.downloadUrl
+        );
+      }
       this.loadedCartridgeCache.set(cart.id, cart);
       await this.insertCartridge(cart, slot, true);
       return cart;

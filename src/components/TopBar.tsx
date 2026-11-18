@@ -86,7 +86,13 @@ type SubMenuId =
 
 const SCREEN_SCALES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const TOUCH_SCALES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-const SPEED_OPTIONS = [0.5, 1.0, 1.5, 2.0, 3.0] as const;
+const SPEED_OPTIONS = [0.5, 1.0, 1.28, 1.5, 2.0, 3.0] as const;
+
+function formatSpeedLabel(spd: number): string {
+  const pct = Math.round(spd * 100);
+  const mult = Number.isInteger(spd * 10) ? spd.toFixed(1) : spd.toFixed(2);
+  return `${pct}% (${mult}×)`;
+}
 
 export const TopBar: React.FC<TopBarProps> = ({
   system,
@@ -748,12 +754,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span className="flex items-center gap-2">
                     <Gauge className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Speed ({system.settings.speed.toFixed(1)}×)</span>
+                    <span>Speed ({Math.round(system.settings.speed * 100)}%)</span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
                 {openSubMenu === 'speed' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-36 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1 z-50">
+                  <div className="absolute left-full top-0 ml-0.5 w-40 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1 z-50">
                     {SPEED_OPTIONS.map((spd) => (
                       <button
                         key={spd}
@@ -765,8 +771,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                         }}
                         className={itemClass}
                       >
-                        <span>{spd.toFixed(1)}×</span>
-                        {Math.abs(system.settings.speed - spd) < 0.05 && (
+                        <span>{formatSpeedLabel(spd)}</span>
+                        {Math.abs(system.settings.speed - spd) < 0.02 && (
                           <Check className="w-3.5 h-3.5 text-indigo-500" />
                         )}
                       </button>

@@ -16,6 +16,7 @@ export interface KnownGame {
   genre: string;
   description: string;
   gameIds?: number[];
+  romMd5s?: string[];
   headerMatches: string[];
   coverColor: string;
   coverAccent: string;
@@ -85,6 +86,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     description:
       "Unreleased prototype adaptation of Konami's classic. Explore Dracula's castle as Alucard with RPG leveling, sub-weapons, relics, and boss battles.",
     gameIds: [0x0448, 0x4804],
+    romMd5s: ['76ceda41231eafa9d39df77011a90c30'],
     headerMatches: ['CVA', 'CASTLEVAN', 'SOTN'],
     coverColor: '#3b0764',
     coverAccent: '#c084fc',
@@ -96,6 +98,35 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
       'Unreleased prototype preserved by the community',
       'Play as Alucard across Dracula’s castle with RPG stats & inventory',
       'Double-buffered VRAM rendering and digitized sound effects'
+    ]
+  },
+  castlevaniareborn: {
+    id: 'castlevaniareborn',
+    title: 'Castlevania - Symphony of the Night Reborn',
+    publisher: 'Konami / Tiger Electronics · Reborn v0.1',
+    year: 1998,
+    genre: 'Action RPG / Metroidvania',
+    description:
+      "Restored edition of the unreleased 1998 Tiger Game.Com Castlevania: Symphony of the Night prototype (v0.1). Features dedicated CV REBORN ($B745/$B746) battery-backed NVRAM saving with pre-filled password reload, intro crawl skip, Pause inventory, responsive jump/double-jump & Bat/Mist controls, cardinal D-pad spells from Level 1, Long Library item/relic fixes, and Richter/Dracula boss fixes.",
+    // $B745 = "CV REBORN" NVRAM slot 0, $B746 = binary save slot 1 (separate from Castlevania $0448/$0449)
+    gameIds: [0xb745],
+    romMd5s: [
+      '2808451316064cffa9b26a563351b965',
+      '8840cacc78cf7c7da8d053e3e6cbfcc1',
+      '01d2536cae5df6427fcc3c73d009acdd',
+      'b52a53bc2fc3e9bd4eb570f91822c1af'
+    ],
+    headerMatches: ['CV REBORN', 'CVAREBORN', 'SOTN REBORN', 'CASTLEVANIA - SYMPHONY OF THE NIGHT REBORN'],
+    coverColor: '#450a0a',
+    coverAccent: '#f43f5e',
+    scoreUnit: 'Points / Gold',
+    labelImage: './assets/labels/castlevania-reborn.jpg',
+    partNumber: 'Reborn v0.1',
+    diskmanUrl: 'https://www.diskman.com/presents/gamecom/unreleased.htm',
+    diskmanHighlights: [
+      'Restored battery-backed NVRAM saving under dedicated CV REBORN ($B745/$B746) slots',
+      'Pre-filled Password screen & Save Room persistence without corrupting the prototype NVRAM',
+      '100% SM8521 hardware-compatible v0.1 patch: Pause inventory, intro crawl skip, Bat/Mist, spells, physics & bosses'
     ]
   },
   solitaire: {
@@ -656,6 +687,12 @@ export function resolveKnownGameFromFilename(rawName: string): KnownGame | null 
   if (upper.includes('WHEEL OF FORTUNE')) {
     return KNOWN_GAMECOM_GAMES.wheel;
   }
+  if (
+    (upper.includes('CASTLEVANIA') || upper.includes('SYMPHONY OF THE NIGHT') || upper.includes('SOTN')) &&
+    upper.includes('REBORN')
+  ) {
+    return KNOWN_GAMECOM_GAMES.castlevaniareborn;
+  }
   if (upper.includes('CASTLEVANIA') || upper.includes('SYMPHONY OF THE NIGHT')) {
     return KNOWN_GAMECOM_GAMES.castlevania;
   }
@@ -721,6 +758,18 @@ export function resolveKnownGameFromFilename(rawName: string): KnownGame | null 
   }
 
   return resolveKnownGameByGameIdOrTitle(0, stem);
+}
+
+export function resolveKnownGameByMd5(romMd5: string): KnownGame | null {
+  const normalized = romMd5.trim().toLowerCase();
+  if (!normalized) return null;
+  for (const key in KNOWN_GAMECOM_GAMES) {
+    const g = KNOWN_GAMECOM_GAMES[key];
+    if (g.romMd5s?.some((h) => h.toLowerCase() === normalized)) {
+      return g;
+    }
+  }
+  return null;
 }
 
 export function resolveKnownGameByGameIdOrTitle(
@@ -1035,15 +1084,19 @@ export function loadCartridgeFromBuffer(
 
   const header = parseGameComRomHeader(romBytes);
   const checksum = calculateChecksum(romBytes);
+  const romMd5 = calculateMd5Hex(romBytes);
   const cleanFileTitle =
     fileName
       .replace(/\.[^/.]+$/, '')
       .replace(/[\(_].*$/, '')
       .trim() || 'Game.Com Cartridge';
 
+  const byFilename = resolveKnownGameFromFilename(fileName);
   const matchedGame =
+    resolveKnownGameByMd5(romMd5) ||
+    (byFilename?.id === 'castlevaniareborn' ? byFilename : null) ||
     resolveKnownGameByGameIdOrTitle(header.gameId, header.rawHeaderTitle) ||
-    resolveKnownGameFromFilename(fileName);
+    byFilename;
 
   if (matchedGame) {
     return {
