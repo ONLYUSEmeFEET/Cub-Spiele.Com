@@ -422,7 +422,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             }}
             className="absolute overflow-hidden flex items-center justify-center"
           >
-            <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
+            <LCDScreen system={system} scale={S} frameless onFpsUpdate={onFpsUpdate} />
           </div>
 
           {/* Interactive 8-Way D-Pad at (cx=86, cy=338, r=48) */}
@@ -553,17 +553,14 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              system.pauseToggle();
-              onStateChange?.();
-            }}
+            {...bindButtonPointer('pause')}
             style={{
               left: `${(198 / 320) * 100}%`,
               top: `${(442 / 510) * 100}%`,
               width: `${(40 / 320) * 100}%`,
               height: `${(16 / 510) * 100}%`
             }}
-            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer"
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer touch-none"
             title="PAUSE"
             aria-label="PAUSE"
           />
@@ -835,7 +832,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             }}
             className="absolute overflow-hidden flex items-center justify-center"
           >
-            <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
+            <LCDScreen system={system} scale={S} frameless onFpsUpdate={onFpsUpdate} />
           </div>
 
           {/* Interactive 8-Way D-Pad Disc at (cx=84, cy=146, r=38) */}
@@ -967,17 +964,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              bindButtonPointer('pause').onPointerDown(e);
-              system.pauseToggle();
-              onStateChange?.();
-            }}
-            onPointerUp={bindButtonPointer('pause').onPointerUp}
-            onPointerCancel={bindButtonPointer('pause').onPointerCancel}
-            onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
+            {...bindButtonPointer('pause')}
             style={{
               left: `${(503 / 560) * 100}%`,
-              top: `${(205 / 320) * 100}%`,
+              top: `${(203.5 / 320) * 100}%`,
               width: `${(34 / 560) * 100}%`,
               height: `${(9.5 / 320) * 100}%`
             }}
@@ -1176,21 +1166,21 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           </text>
 
           {/* Right Silver Wing Recessed Sockets & Crisp Labels for ON/OFF, MENU, PAUSE (angled -14deg) */}
-          <circle cx="418" cy="52" r="11.5" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
-          <g transform="rotate(-14 422 50)">
-            <text x="415" y="37" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
+          <circle cx="418" cy="48" r="11.5" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+          <g transform="rotate(-14 422 46)">
+            <text x="415" y="33" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
               ON/OFF
             </text>
           </g>
-          <g transform="rotate(-14 426 84)">
-            <rect x="405" y="77" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
-            <text x="426" y="73" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
+          <g transform="rotate(-14 426 77)">
+            <rect x="405" y="70" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="426" y="66" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
               MENU
             </text>
           </g>
-          <g transform="rotate(-14 430 112)">
-            <rect x="409" y="105" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
-            <text x="430" y="101" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
+          <g transform="rotate(-14 430 103)">
+            <rect x="409" y="96" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="430" y="92" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
               PAUSE
             </text>
           </g>
@@ -1242,7 +1232,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           }}
           className="absolute overflow-hidden flex items-center justify-center"
         >
-          <LCDScreen system={system} scale={S} onFpsUpdate={onFpsUpdate} />
+          <LCDScreen system={system} scale={S} frameless onFpsUpdate={onFpsUpdate} />
         </div>
 
         {/* Interactive Cross D-Pad at (cx=72, cy=198, r=41) */}
@@ -1292,7 +1282,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           }}
           style={{
             left: `${((418 - 10) / 500) * 100}%`,
-            top: `${((52 - 10) / 300) * 100}%`,
+            top: `${((48 - 10) / 300) * 100}%`,
             width: `${(20 / 500) * 100}%`,
             height: `${(20 / 300) * 100}%`,
             background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
@@ -1308,7 +1298,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           {...bindButtonPointer('menu')}
           style={{
             left: `${((426 - 19) / 500) * 100}%`,
-            top: `${((84 - 6) / 300) * 100}%`,
+            top: `${((77 - 6) / 300) * 100}%`,
             width: `${(38 / 500) * 100}%`,
             height: `${(12 / 300) * 100}%`,
             background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
@@ -1321,17 +1311,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
         <button
           type="button"
-          onPointerDown={(e) => {
-            bindButtonPointer('pause').onPointerDown(e);
-            system.pauseToggle();
-            onStateChange?.();
-          }}
-          onPointerUp={bindButtonPointer('pause').onPointerUp}
-          onPointerCancel={bindButtonPointer('pause').onPointerCancel}
-          onLostPointerCapture={bindButtonPointer('pause').onLostPointerCapture}
+          {...bindButtonPointer('pause')}
           style={{
             left: `${((430 - 19) / 500) * 100}%`,
-            top: `${((112 - 6) / 300) * 100}%`,
+            top: `${((103 - 6) / 300) * 100}%`,
             width: `${(38 / 500) * 100}%`,
             height: `${(12 / 300) * 100}%`,
             background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,

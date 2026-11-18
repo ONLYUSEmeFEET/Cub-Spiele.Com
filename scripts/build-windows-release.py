@@ -1373,6 +1373,16 @@ def main():
     # Sequential release history starting from v0.0.1 up to current package.json version
     release_specs = [
         {
+            "tag": "v0.2.1",
+            "title": "Cub Spiele.Com v0.2.1 — Frameless Bezel Screen Fit, Hardware-Only PAUSE Input & Refined Pill Alignment",
+            "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "highlights": [
+                "Fixed bezel screen clipping across all console models (Original, Pocket Pro, and Vertical Pocket) by rendering a frameless 200x160 LCD viewport inside the 3D bezel recess so edge HUD elements (such as TIME) are 100% visible",
+                "Removed emulator clock pausing from the console PAUSE button so pressing PAUSE sends only the authentic SM8521 hardware PAUSE keypad signal directly to the running game",
+                "Raised and centered the PAUSE pill button and recessed socket on the 1997 Original and Pocket Pro bezels"
+            ],
+        },
+        {
             "tag": "v0.2.0",
             "title": "Cub Spiele.Com v0.2.0 — Authentic Handheld Console Shells, Proportional Scaling, Vertical Pocket View & ROM Library",
             "publishedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

@@ -6,10 +6,16 @@ import { PALETTES } from '../emulator/types';
 interface LCDScreenProps {
   system: GameComSystem;
   scale?: number;
+  frameless?: boolean;
   onFpsUpdate?: (fps: number) => void;
 }
 
-export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFpsUpdate }) => {
+export const LCDScreen: React.FC<LCDScreenProps> = ({
+  system,
+  scale = 2.4,
+  frameless = false,
+  onFpsUpdate
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number; visible: boolean; isDown: boolean }>({
     x: 0,
@@ -228,7 +234,9 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
 
   return (
     <div
-      className="relative select-none overflow-hidden rounded-[4px] p-[7px] transition-colors duration-200"
+      className={`relative select-none overflow-hidden transition-colors duration-200 ${
+        frameless ? 'p-0 rounded-none' : 'rounded-[4px] p-[7px]'
+      }`}
       style={{
         backgroundColor: inactiveGlassBg,
         boxShadow: isBacklitModel
@@ -240,10 +248,11 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
       <div
         className="relative rounded-[1px]"
         style={{
-          border:
-            system.settings.palette === 'custom'
-              ? `1.5px solid ${system.settings.customPaletteColors[2]}88`
-              : `1.5px solid ${activePalette.glassBorderColor}`,
+          border: frameless
+            ? 'none'
+            : system.settings.palette === 'custom'
+            ? `1.5px solid ${system.settings.customPaletteColors[2]}88`
+            : `1.5px solid ${activePalette.glassBorderColor}`,
           boxShadow: isBacklitModel
             ? '0 0 8px rgba(166, 242, 212, 0.22)'
             : '0 0 0 1px rgba(255, 255, 255, 0.12)'
@@ -305,8 +314,8 @@ export const LCDScreen: React.FC<LCDScreenProps> = ({ system, scale = 2.4, onFps
         <div
           className="pointer-events-none absolute z-30"
           style={{
-            left: Math.round((vStylusPos.x / SCREEN_WIDTH) * canvasWidth) + 7,
-            top: Math.round((vStylusPos.y / SCREEN_HEIGHT) * canvasHeight) + 7
+            left: Math.round((vStylusPos.x / SCREEN_WIDTH) * canvasWidth) + (frameless ? 0 : 7),
+            top: Math.round((vStylusPos.y / SCREEN_HEIGHT) * canvasHeight) + (frameless ? 0 : 7)
           }}
         >
           {/* Precision target reticle centered on (0,0) */}

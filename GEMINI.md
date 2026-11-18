@@ -28,7 +28,7 @@ The interface follows standalone handheld emulators such as **mGBA**, offering:
 | `src/components/GameComConsole.tsx` | Mobile-inspired **Touch View** (`TouchView` / `GameComConsole`) with configurable screen scaling and `Compact`/`Standard`/`Large` button-only controls styled with Tiger Game.Com accents. |
 | `src/components/AboutModal.tsx` | Project overview, credits (including Diskman / `diskman.com`), and MIT License + Hardware Attribution dialog opened from `TopBar`. |
 | `electron/main.cjs` & `preload.cjs` | Electron Native desktop main process and IPC preload bridge (`window.gamecomDesktop`). |
-| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.2.0-win64.zip` + macOS/Android builds. |
+| `scripts/build-windows-release.py` | Reads `package.json` version, compiles `CubSpieleCom.exe`, and packages `CubSpieleCom-v0.2.1-win64.zip` + macOS/Android builds. |
 
 ---
 
