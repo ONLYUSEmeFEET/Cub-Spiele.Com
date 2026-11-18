@@ -159,12 +159,17 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
   const baseW = isVerticalPocket ? 320 : model === 'original' ? 560 : 500;
   const baseH = isVerticalPocket ? 510 : model === 'original' ? 320 : 300;
 
+  // On the 1997 Original model, deprioritize the lower non-interactive stylus dock (y=238..320)
+  // unless the user explicitly selects 'full-system' zoom.
+  const priorityH =
+    !isVerticalPocket && model === 'original' && bezelZoom !== 'full-system' ? 238 : baseH;
+
   const availW = Math.max(260, viewport.w - 16);
   const availH = Math.max(220, viewport.h - 48);
 
   // RetroArch-style uniform scaling: the entire console (screen, bezel, buttons, D-Pad)
   // scales by a single uniform multiplier `S` so proportions ALWAYS match the 1x design.
-  const fitScale = Math.max(0.55, Math.min(availW / baseW, availH / baseH));
+  const fitScale = Math.max(0.55, Math.min(availW / baseW, availH / priorityH));
 
   let S = fitScale;
   if (bezelZoom === 'auto' || bezelZoom === 'full-system') {
@@ -180,6 +185,28 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
   const totalW = Math.round(baseW * S);
   const totalH = Math.round(baseH * S);
+
+  // Exact vertical focal center in canonical 1x coordinates:
+  // - Vertical Pocket (320x510): LCD at y=44..204 -> center y=124
+  // - 1997 Original   (560x320): Upper silver console y=4..238 (center y=121 in Auto) / LCD center y=126 when zoomed
+  // - Pocket Pro      (500x300): LCD at y=48..208 -> center y=128
+  const screenCenterY = isVerticalPocket
+    ? 124
+    : model === 'original'
+    ? bezelZoom === 'auto'
+      ? 121
+      : 126
+    : 128;
+  const isZoomedIn =
+    bezelZoom === 'mid' ||
+    bezelZoom === 'closeup' ||
+    totalH > availH ||
+    (!isVerticalPocket && model === 'original' && bezelZoom !== 'full-system');
+
+  // Shift the console vertically so the 200x160 LCD screen is prioritized at the viewport center
+  // (and on 1997 Original, the bottom stylus dock is deprioritized at the bottom edge).
+  const focusShiftY = isZoomedIn ? Math.round((baseH / 2 - screenCenterY) * S) : 0;
+
   const isBacklightActive = system.settings.palette === 'pocket_pro_el';
 
   const toggleBacklight = () => {
@@ -197,8 +224,12 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
     return (
       <div className="flex items-center justify-center overflow-hidden max-w-full max-h-full select-none">
         <div
-          style={{ width: totalW, height: totalH }}
-          className="relative shrink-0 select-none"
+          style={{
+            width: totalW,
+            height: totalH,
+            transform: focusShiftY !== 0 ? `translateY(${focusShiftY}px)` : undefined
+          }}
+          className="relative shrink-0 select-none transition-transform duration-150"
         >
           {/* Precision SVG Hardware Shell */}
           <svg
@@ -371,30 +402,30 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               />
             </g>
 
-            {/* Continuous Recessed Trough & Crisp System Pill Labels */}
+            {/* Continuous Recessed Trough & Evenly Spaced System Pill Labels (cx = 52, 106, 160, 214, 268) */}
             <rect
-              x="30"
+              x="26"
               y="438"
-              width="266"
-              height="24"
-              rx="12"
+              width="268"
+              height="20"
+              rx="10"
               fill="#111318"
               stroke="#333842"
               strokeWidth="1.2"
             />
-            <text x="58" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
+            <text x="52" y="431" textAnchor="middle" fill="#c7cdd6" fontSize="7" fontWeight="800" letterSpacing="0.8">
               ON/OFF
             </text>
-            <text x="118" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
+            <text x="106" y="431" textAnchor="middle" fill="#c7cdd6" fontSize="7" fontWeight="800" letterSpacing="0.8">
               MENU
             </text>
-            <text x="168" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
+            <text x="160" y="431" textAnchor="middle" fill="#c7cdd6" fontSize="7" fontWeight="800" letterSpacing="0.8">
               SOUND
             </text>
-            <text x="218" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
+            <text x="214" y="431" textAnchor="middle" fill="#c7cdd6" fontSize="7" fontWeight="800" letterSpacing="0.8">
               PAUSE
             </text>
-            <text x="268" y="432" textAnchor="middle" fill="#c7cdd6" fontSize="7.5" fontWeight="800" letterSpacing="0.9">
+            <text x="268" y="431" textAnchor="middle" fill="#c7cdd6" fontSize="7" fontWeight="800" letterSpacing="0.8">
               LIGHT
             </text>
 
@@ -494,7 +525,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             </button>
           ))}
 
-          {/* Accessible Bottom System Pill Row: ON/OFF, MENU, SOUND, PAUSE, LIGHT */}
+          {/* Accessible Bottom System Pill Row (evenly spaced at cx = 52, 106, 160, 214, 268) */}
           <button
             type="button"
             onClick={() => {
@@ -502,10 +533,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               onStateChange?.();
             }}
             style={{
-              left: `${(38 / 320) * 100}%`,
+              left: `${((52 - 18) / 320) * 100}%`,
               top: `${(442 / 510) * 100}%`,
-              width: `${(40 / 320) * 100}%`,
-              height: `${(16 / 510) * 100}%`
+              width: `${(36 / 320) * 100}%`,
+              height: `${(12 / 510) * 100}%`
             }}
             className={`absolute rounded-full border cursor-pointer active:scale-95 ${
               system.isPoweredOn
@@ -520,10 +551,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             type="button"
             {...bindButtonPointer('menu')}
             style={{
-              left: `${(98 / 320) * 100}%`,
+              left: `${((106 - 18) / 320) * 100}%`,
               top: `${(442 / 510) * 100}%`,
-              width: `${(40 / 320) * 100}%`,
-              height: `${(16 / 510) * 100}%`
+              width: `${(36 / 320) * 100}%`,
+              height: `${(12 / 510) * 100}%`
             }}
             className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer touch-none"
             title="MENU"
@@ -532,21 +563,14 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              system.soundToggle();
-              onStateChange?.();
-            }}
+            {...bindButtonPointer('sound')}
             style={{
-              left: `${(148 / 320) * 100}%`,
+              left: `${((160 - 18) / 320) * 100}%`,
               top: `${(442 / 510) * 100}%`,
-              width: `${(40 / 320) * 100}%`,
-              height: `${(16 / 510) * 100}%`
+              width: `${(36 / 320) * 100}%`,
+              height: `${(12 / 510) * 100}%`
             }}
-            className={`absolute rounded-full border active:scale-95 cursor-pointer ${
-              system.settings.muted
-                ? 'bg-[#be123c] border-[#881337]'
-                : 'bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border-[#172554]'
-            }`}
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer touch-none"
             title="SOUND"
             aria-label="SOUND"
           />
@@ -555,10 +579,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             type="button"
             {...bindButtonPointer('pause')}
             style={{
-              left: `${(198 / 320) * 100}%`,
+              left: `${((214 - 18) / 320) * 100}%`,
               top: `${(442 / 510) * 100}%`,
-              width: `${(40 / 320) * 100}%`,
-              height: `${(16 / 510) * 100}%`
+              width: `${(36 / 320) * 100}%`,
+              height: `${(12 / 510) * 100}%`
             }}
             className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#172554] active:scale-95 cursor-pointer touch-none"
             title="PAUSE"
@@ -569,10 +593,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             type="button"
             onClick={toggleBacklight}
             style={{
-              left: `${(248 / 320) * 100}%`,
+              left: `${((268 - 18) / 320) * 100}%`,
               top: `${(442 / 510) * 100}%`,
-              width: `${(40 / 320) * 100}%`,
-              height: `${(16 / 510) * 100}%`
+              width: `${(36 / 320) * 100}%`,
+              height: `${(12 / 510) * 100}%`
             }}
             className={`absolute rounded-full border active:scale-95 cursor-pointer ${
               isBacklightActive
@@ -595,8 +619,12 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
     return (
       <div className="flex items-center justify-center overflow-hidden max-w-full max-h-full select-none">
         <div
-          style={{ width: totalW, height: totalH }}
-          className="relative shrink-0 select-none"
+          style={{
+            width: totalW,
+            height: totalH,
+            transform: focusShiftY !== 0 ? `translateY(${focusShiftY}px)` : undefined
+          }}
+          className="relative shrink-0 select-none transition-transform duration-150"
         >
           {/* Precision 1997 Original Game.Com SVG Shell */}
           <svg
@@ -771,25 +799,26 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
               />
             </g>
 
-            {/* Continuous Recessed Seam Trough & Crisp Well-Spaced Labels for [MENU] [SOUND] [PAUSE] */}
-            <g transform="rotate(-5.5 478 214)">
+            {/* Continuous Recessed Seam Trough & Individually Centered Labels for [MENU] [SOUND] [PAUSE] */}
+            {/* Exact collinear centers: MENU (432, 215), SOUND (474, 211), PAUSE (516, 207) — step (+42, -4), angle -5.44deg */}
+            <g transform="rotate(-5.44 474 211)">
               <rect
                 x="412"
-                y="207"
-                width="131"
-                height="14"
-                rx="7"
+                y="204.5"
+                width="124"
+                height="13"
+                rx="6.5"
                 fill="#6d737d"
                 stroke="#525760"
                 strokeWidth="1.2"
               />
-              <text x="434" y="201" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="7.2" fontWeight="800" letterSpacing="0.9">
+              <text x="432" y="196.5" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="6.8" fontWeight="800" letterSpacing="0.7">
                 MENU
               </text>
-              <text x="477" y="201" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="7.2" fontWeight="800" letterSpacing="0.9">
+              <text x="474" y="196.5" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="6.8" fontWeight="800" letterSpacing="0.7">
                 SOUND
               </text>
-              <text x="520" y="201" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="7.2" fontWeight="800" letterSpacing="0.9">
+              <text x="516" y="196.5" textAnchor="middle" fill="#181b20" fontFamily="sans-serif" fontSize="6.8" fontWeight="800" letterSpacing="0.7">
                 PAUSE
               </text>
             </g>
@@ -927,38 +956,34 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           ))}
 
           {/* Interactive Bottom-Right Blue Pill Buttons inside the recessed seam trough: [MENU] [SOUND] [PAUSE] */}
+          {/* Collinear centers: MENU (432, 215), SOUND (474, 211), PAUSE (516, 207), width=31, height=8.5 */}
           <button
             type="button"
             {...bindButtonPointer('menu')}
             style={{
-              left: `${(417 / 560) * 100}%`,
-              top: `${(213 / 320) * 100}%`,
-              width: `${(34 / 560) * 100}%`,
-              height: `${(9.5 / 320) * 100}%`
+              left: `${((432 - 15.5) / 560) * 100}%`,
+              top: `${((215 - 4.25) / 320) * 100}%`,
+              width: `${(31 / 560) * 100}%`,
+              height: `${(8.5 / 320) * 100}%`,
+              transform: 'rotate(-5.44deg)'
             }}
-            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
             title="MENU (Enter)"
             aria-label="MENU Button"
           />
 
           <button
             type="button"
-            onPointerDown={(e) => {
-              bindButtonPointer('sound').onPointerDown(e);
-              system.soundToggle();
-              onStateChange?.();
-            }}
-            onPointerUp={bindButtonPointer('sound').onPointerUp}
-            onPointerCancel={bindButtonPointer('sound').onPointerCancel}
-            onLostPointerCapture={bindButtonPointer('sound').onLostPointerCapture}
+            {...bindButtonPointer('sound')}
             style={{
-              left: `${(460 / 560) * 100}%`,
-              top: `${(209 / 320) * 100}%`,
-              width: `${(34 / 560) * 100}%`,
-              height: `${(9.5 / 320) * 100}%`
+              left: `${((474 - 15.5) / 560) * 100}%`,
+              top: `${((211 - 4.25) / 320) * 100}%`,
+              width: `${(31 / 560) * 100}%`,
+              height: `${(8.5 / 320) * 100}%`,
+              transform: 'rotate(-5.44deg)'
             }}
-            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
-            title="SOUND (Mute / Unmute)"
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
+            title="SOUND"
             aria-label="SOUND Button"
           />
 
@@ -966,12 +991,13 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             type="button"
             {...bindButtonPointer('pause')}
             style={{
-              left: `${(503 / 560) * 100}%`,
-              top: `${(203.5 / 320) * 100}%`,
-              width: `${(34 / 560) * 100}%`,
-              height: `${(9.5 / 320) * 100}%`
+              left: `${((516 - 15.5) / 560) * 100}%`,
+              top: `${((207 - 4.25) / 320) * 100}%`,
+              width: `${(31 / 560) * 100}%`,
+              height: `${(8.5 / 320) * 100}%`,
+              transform: 'rotate(-5.44deg)'
             }}
-            className="absolute -rotate-6 rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
+            className="absolute rounded-full bg-gradient-to-b from-[#2563eb] to-[#1d4ed8] border border-[#0f172a] shadow active:scale-95 cursor-pointer touch-none"
             title="PAUSE (Space)"
             aria-label="PAUSE Button"
           />
@@ -1061,8 +1087,12 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
   return (
     <div className="flex items-center justify-center overflow-hidden max-w-full max-h-full select-none">
       <div
-        style={{ width: totalW, height: totalH }}
-        className="relative shrink-0 select-none"
+        style={{
+          width: totalW,
+          height: totalH,
+          transform: focusShiftY !== 0 ? `translateY(${focusShiftY}px)` : undefined
+        }}
+        className="relative shrink-0 select-none transition-transform duration-150"
       >
         {/* Precision Pocket Pro SVG Hardware Shell */}
         <svg
@@ -1090,9 +1120,9 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             strokeWidth="2.2"
           />
 
-          {/* ONE-PIECE Continuous T-Shaped Winged Silver Metallic Shield (D-Pad & A/B/C/D sit completely OFF the metal plate) */}
+          {/* ONE-PIECE Continuous T-Shaped Winged Silver Metallic Shield (Right wing extends to y=126 for generous button breathing room) */}
           <path
-            d="M 56 18 Q 250 8 444 18 A 22 22 0 0 1 466 38 L 470 108 A 14 14 0 0 1 456 122 H 394 A 24 24 0 0 0 364 146 V 248 A 28 28 0 0 1 336 276 H 164 A 28 28 0 0 1 136 248 V 146 A 24 24 0 0 0 106 122 H 44 A 14 14 0 0 1 30 108 L 34 38 A 22 22 0 0 1 56 18 Z"
+            d="M 56 18 Q 250 8 444 18 A 22 22 0 0 1 466 38 L 470 112 A 14 14 0 0 1 456 126 H 394 A 24 24 0 0 0 364 148 V 248 A 28 28 0 0 1 336 276 H 164 A 28 28 0 0 1 136 248 V 148 A 24 24 0 0 0 106 126 H 44 A 14 14 0 0 1 30 112 L 34 38 A 22 22 0 0 1 56 18 Z"
             fill="url(#pp-silver)"
             stroke="#7d838b"
             strokeWidth="2"
@@ -1165,22 +1195,22 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             POCKET PRO
           </text>
 
-          {/* Right Silver Wing Recessed Sockets & Crisp Labels for ON/OFF, MENU, PAUSE (angled -14deg) */}
-          <circle cx="418" cy="48" r="11.5" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
-          <g transform="rotate(-14 422 46)">
-            <text x="415" y="33" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
+          {/* Right Silver Wing Recessed Sockets & Crisp Labels for ON/OFF (418,45), MENU (424,76), PAUSE (430,106) */}
+          <g transform="rotate(-14 418 45)">
+            <circle cx="418" cy="45" r="8.5" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="418" y="32.5" textAnchor="middle" fill="#1e2228" fontSize="6.4" fontWeight="800" letterSpacing="0.7">
               ON/OFF
             </text>
           </g>
-          <g transform="rotate(-14 426 77)">
-            <rect x="405" y="70" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
-            <text x="426" y="66" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
+          <g transform="rotate(-14 424 76)">
+            <rect x="406.5" y="70.25" width="35" height="11.5" rx="5.75" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="424" y="65.5" textAnchor="middle" fill="#1e2228" fontSize="6.4" fontWeight="800" letterSpacing="0.7">
               MENU
             </text>
           </g>
-          <g transform="rotate(-14 430 103)">
-            <rect x="409" y="96" width="42" height="14" rx="7" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
-            <text x="430" y="92" textAnchor="middle" fill="#1e2228" fontSize="6.8" fontWeight="800" letterSpacing="0.8">
+          <g transform="rotate(-14 430 106)">
+            <rect x="412.5" y="100.25" width="35" height="11.5" rx="5.75" fill="#7c828c" stroke="#5c626b" strokeWidth="1" />
+            <text x="430" y="95.5" textAnchor="middle" fill="#1e2228" fontSize="6.4" fontWeight="800" letterSpacing="0.7">
               PAUSE
             </text>
           </g>
@@ -1273,7 +1303,7 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           <div className="absolute inset-[36%] rounded-full bg-[#2b2f37] shadow-inner pointer-events-none" />
         </div>
 
-        {/* Right Wing Stacked Buttons: Round ON/OFF, Angled Oval MENU, Angled Oval PAUSE */}
+        {/* Right Wing Stacked Buttons: Round ON/OFF (418,45 r=7), Angled Oval MENU (424,76 32x9), Angled Oval PAUSE (430,106 32x9) */}
         <button
           type="button"
           onClick={() => {
@@ -1281,10 +1311,10 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
             onStateChange?.();
           }}
           style={{
-            left: `${((418 - 10) / 500) * 100}%`,
-            top: `${((48 - 10) / 300) * 100}%`,
-            width: `${(20 / 500) * 100}%`,
-            height: `${(20 / 300) * 100}%`,
+            left: `${((418 - 7) / 500) * 100}%`,
+            top: `${((45 - 7) / 300) * 100}%`,
+            width: `${(14 / 500) * 100}%`,
+            height: `${(14 / 300) * 100}%`,
             background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
             borderColor: p.btnBorder
           }}
@@ -1297,14 +1327,15 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           type="button"
           {...bindButtonPointer('menu')}
           style={{
-            left: `${((426 - 19) / 500) * 100}%`,
-            top: `${((77 - 6) / 300) * 100}%`,
-            width: `${(38 / 500) * 100}%`,
-            height: `${(12 / 300) * 100}%`,
+            left: `${((424 - 16) / 500) * 100}%`,
+            top: `${((76 - 4.5) / 300) * 100}%`,
+            width: `${(32 / 500) * 100}%`,
+            height: `${(9 / 300) * 100}%`,
             background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
-            borderColor: p.btnBorder
+            borderColor: p.btnBorder,
+            transform: 'rotate(-14deg)'
           }}
-          className="absolute -rotate-14 rounded-full border shadow active:scale-95 transition-transform cursor-pointer touch-none"
+          className="absolute rounded-full border shadow active:scale-95 transition-transform cursor-pointer touch-none"
           title="MENU (Enter)"
           aria-label="MENU Button"
         />
@@ -1313,14 +1344,15 @@ export const GameComConsole: React.FC<GameComConsoleProps> = ({
           type="button"
           {...bindButtonPointer('pause')}
           style={{
-            left: `${((430 - 19) / 500) * 100}%`,
-            top: `${((103 - 6) / 300) * 100}%`,
-            width: `${(38 / 500) * 100}%`,
-            height: `${(12 / 300) * 100}%`,
+            left: `${((430 - 16) / 500) * 100}%`,
+            top: `${((106 - 4.5) / 300) * 100}%`,
+            width: `${(32 / 500) * 100}%`,
+            height: `${(9 / 300) * 100}%`,
             background: `linear-gradient(to bottom, ${p.btnTop}, ${p.btnBot})`,
-            borderColor: p.btnBorder
+            borderColor: p.btnBorder,
+            transform: 'rotate(-14deg)'
           }}
-          className="absolute -rotate-14 rounded-full border shadow active:scale-95 transition-transform cursor-pointer touch-none"
+          className="absolute rounded-full border shadow active:scale-95 transition-transform cursor-pointer touch-none"
           title="PAUSE (Space)"
           aria-label="PAUSE Button"
         />
