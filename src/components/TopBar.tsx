@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { GameComSystem } from '../emulator/gamecomSystem';
 import {
   RecentGameEntry,
@@ -243,15 +243,96 @@ export const TopBar: React.FC<TopBarProps> = ({
     };
   }, [system, onUpdate]);
 
+  const [isCompactViewport, setIsCompactViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 || window.innerHeight < 560 : false
+  );
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsCompactViewport(window.innerWidth < 768 || window.innerHeight < 560);
+    };
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('orientationchange', updateViewport);
+    return () => {
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('orientationchange', updateViewport);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!openMenu || !menuRef.current) return;
+    const pad = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const dropdowns = menuRef.current.querySelectorAll<HTMLElement>('[data-topbar-dropdown]');
+    dropdowns.forEach((el) => {
+      el.style.transform = '';
+      const rect = el.getBoundingClientRect();
+      let dx = 0;
+      if (rect.right > vw - pad) {
+        dx = vw - pad - rect.right;
+      }
+      if (rect.left + dx < pad) {
+        dx = pad - rect.left;
+      }
+      if (dx !== 0) {
+        el.style.transform = `translateX(${Math.round(dx)}px)`;
+      }
+      if (!isCompactViewport) {
+        const availH = Math.max(200, vh - rect.top - pad);
+        if (rect.height > availH) {
+          el.style.maxHeight = `${Math.floor(availH)}px`;
+          el.style.overflowY = 'auto';
+        } else {
+          el.style.maxHeight = '';
+          el.style.overflowY = '';
+        }
+      }
+    });
+
+    if (!isCompactViewport) {
+      const submenus = menuRef.current.querySelectorAll<HTMLElement>('[data-topbar-submenu]');
+      submenus.forEach((sub) => {
+        sub.style.left = '';
+        sub.style.right = '';
+        sub.style.transform = '';
+        const rect = sub.getBoundingClientRect();
+        if (rect.right > vw - pad) {
+          sub.style.left = 'auto';
+          sub.style.right = '100%';
+          const flipped = sub.getBoundingClientRect();
+          if (flipped.left < pad) {
+            sub.style.transform = `translateX(${Math.round(pad - flipped.left)}px)`;
+          }
+        }
+        if (rect.bottom > vh - pad) {
+          const availSubH = Math.max(180, vh - rect.top - pad);
+          sub.style.maxHeight = `${Math.floor(availSubH)}px`;
+          sub.style.overflowY = 'auto';
+        } else {
+          sub.style.maxHeight = '';
+          sub.style.overflowY = '';
+        }
+      });
+    }
+  }, [openMenu, openSubMenu, isCompactViewport]);
+
   const menuBtnClass = (id: Exclude<MenuId, null>) =>
-    `px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
+    `px-1.5 sm:px-2.5 py-1 rounded text-[11px] sm:text-[12px] font-medium transition-colors whitespace-nowrap ${
       openMenu === id
         ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-white'
         : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white'
     }`;
 
-  const dropdownClass =
-    'absolute left-0 top-full mt-1 w-64 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50 text-[12px] text-zinc-800 dark:text-zinc-200';
+  const dropdownClass = `absolute left-0 top-full mt-1 w-64 max-w-[calc(100vw-16px)] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50 text-[12px] text-zinc-800 dark:text-zinc-200 ${
+    isCompactViewport ? 'max-h-[calc(100dvh-4rem)] overflow-y-auto' : ''
+  }`;
+
+  const getSubMenuClass = (desktopWidthClass: string) =>
+    isCompactViewport
+      ? 'w-full pl-2 my-1 border-l-2 border-indigo-500/40 bg-zinc-50/80 dark:bg-zinc-950/80 rounded-r-md py-1'
+      : `absolute left-full top-0 ml-0.5 ${desktopWidthClass} max-w-[calc(100vw-16px)] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50`;
 
   const itemClass =
     'w-full px-3 py-1.5 flex items-center justify-between gap-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors disabled:opacity-40 disabled:pointer-events-none';
@@ -263,7 +344,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <header
       ref={menuRef}
-      className="h-9 shrink-0 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-900 px-2.5 flex items-center justify-between gap-2 select-none z-40 transition-colors"
+      className="min-h-9 h-auto py-0.5 shrink-0 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-900 px-2 sm:px-2.5 flex flex-wrap items-center justify-between gap-1 sm:gap-2 select-none z-40 transition-colors"
     >
       {/* Hidden ROM File Inputs */}
       <input
@@ -282,10 +363,10 @@ export const TopBar: React.FC<TopBarProps> = ({
       />
 
       {/* Left: App Brand + Reorganized Desktop Menu Bar */}
-      <div className="flex items-center gap-1">
-        <div className="flex items-center gap-1.5 pr-2 mr-1 border-r border-zinc-200 dark:border-zinc-800">
-          <div className="w-2 h-2 rounded-full bg-indigo-500" />
-          <span className="text-[12px] font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+      <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 min-w-0">
+        <div className="flex items-center gap-1.5 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1 border-r border-zinc-200 dark:border-zinc-800">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+          <span className="hidden sm:inline text-[12px] font-bold tracking-tight text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
             Cub Spiele.Com
           </span>
         </div>
@@ -300,7 +381,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             File
           </button>
           {openMenu === 'file' && (
-            <div className={dropdownClass}>
+            <div data-topbar-dropdown="" className={dropdownClass}>
               {/* Power at top of File */}
               <button
                 type="button"
@@ -372,7 +453,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
                 {openSubMenu === 'library' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-80 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                  <div data-topbar-submenu="" className={getSubMenuClass('w-80')}>
                     {system.onlineLibrary.length === 0 ? (
                       <div className="px-3 py-2 space-y-1.5">
                         <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -536,11 +617,8 @@ export const TopBar: React.FC<TopBarProps> = ({
 
                 {openSubMenu === 'save-slots' && (
                   <div
-                    className={`absolute left-full top-0 ml-1 w-56 rounded-lg shadow-xl border py-1 z-50 ${
-                      isDark
-                        ? 'bg-zinc-900 border-zinc-700 text-zinc-200'
-                        : 'bg-white border-zinc-300 text-zinc-800'
-                    }`}
+                    data-topbar-submenu=""
+                    className={getSubMenuClass('w-56')}
                   >
                     {system.getSaveStateSlots().map((slotInfo) => (
                       <button
@@ -647,7 +725,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             Emulation
           </button>
           {openMenu === 'emulation' && (
-            <div className={dropdownClass}>
+            <div data-topbar-dropdown="" className={dropdownClass}>
               <button
                 type="button"
                 onClick={() => {
@@ -759,7 +837,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
                 {openSubMenu === 'speed' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-40 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1 z-50">
+                  <div data-topbar-submenu="" className={getSubMenuClass('w-40')}>
                     {SPEED_OPTIONS.map((spd) => (
                       <button
                         key={spd}
@@ -919,7 +997,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             View
           </button>
           {openMenu === 'view' && (
-            <div className={`${dropdownClass} w-72`}>
+            <div data-topbar-dropdown="" className={`${dropdownClass} w-72`}>
               <div className={sectionLabelClass}>View Mode</div>
               <div className="px-3 py-1 grid grid-cols-3 gap-1">
                 <button
@@ -1300,7 +1378,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             Display
           </button>
           {openMenu === 'display' && (
-            <div className={`${dropdownClass} w-68`}>
+            <div data-topbar-dropdown="" className={`${dropdownClass} w-68`}>
               {/* Screen Color Presets Submenu */}
               <div
                 className="relative"
@@ -1321,7 +1399,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
                 {openSubMenu === 'presets' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-60 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1 z-50">
+                  <div data-topbar-submenu="" className={getSubMenuClass('w-60')}>
                     {GAMECOM_SCREEN_PRESET_ORDER.map((presetId) => {
                       const preset = PALETTES[presetId];
                       if (!preset) return null;
@@ -1500,7 +1578,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             Settings
           </button>
           {openMenu === 'settings' && (
-            <div className={`${dropdownClass} w-68`}>
+            <div data-topbar-dropdown="" className={`${dropdownClass} w-68`}>
               <div className={sectionLabelClass}>Audio</div>
 
               <div className="px-3 py-1.5 space-y-1">
@@ -1672,7 +1750,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             Tools
           </button>
           {openMenu === 'tools' && (
-            <div className={dropdownClass}>
+            <div data-topbar-dropdown="" className={dropdownClass}>
               <button
                 type="button"
                 onClick={() => {
@@ -1744,7 +1822,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
                 {openSubMenu === 'tools-cheats' && (
-                  <div className="absolute left-full top-0 ml-0.5 w-72 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-xl py-1.5 z-50">
+                  <div data-topbar-submenu="" className={getSubMenuClass('w-72')}>
                     <div className={sectionLabelClass}>Fighters Megamix</div>
                     <button
                       type="button"
