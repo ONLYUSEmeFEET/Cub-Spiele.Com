@@ -1038,7 +1038,12 @@ def create_offline_desktop_index_html(version: str = '0.0.8', platform: str = 'w
         html = f.read()
 
     embedded_files = {}
-    for rel_path in ['bios/internal.bin', 'bios/external.bin', 'roms/compete_test.bin']:
+    for rel_path in [
+        'bios/internal.bin',
+        'bios/external.bin',
+        'roms/compete_test.bin',
+        'patches/Castlevania - Symphony of the Night Reborn.ips',
+    ]:
         full_p = os.path.join(PUBLIC_DIR, rel_path)
         if os.path.exists(full_p):
             with open(full_p, 'rb') as bf:
@@ -1098,7 +1103,14 @@ window.gamecomDesktop = window.gamecomDesktop || {{
         return new Response(bytes.buffer, {{ status: 200, headers: {{ 'Content-Type': 'application/octet-stream' }} }});
       }}
     }}
-    return origFetch(input, init);
+    return new Promise((resolve, reject) => {{
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', urlStr, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = () => resolve(new Response(xhr.response, {{ status: xhr.status || 200 }}));
+      xhr.onerror = () => reject(new TypeError('Failed to fetch: ' + urlStr));
+      xhr.send();
+    }});
   }};
 }})();
 </script>"""

@@ -137,6 +137,11 @@ def build_binary_android_manifest(version_code: int, version_name: str) -> bytes
                 [],
             ),
             (
+                'uses-permission',
+                [(ANDROID_NS, 'name', TYPE_STRING, 'android.permission.READ_EXTERNAL_STORAGE')],
+                [],
+            ),
+            (
                 'application',
                 [
                     (ANDROID_NS, 'label', TYPE_REFERENCE, 0x7F020000),
@@ -332,24 +337,32 @@ def _uleb128(val: int) -> bytes:
 def build_valid_dex_bytes() -> bytes:
     """
     Builds a complete, valid Dalvik Executable (classes.dex, dex\\n035\\0)
-    implementing com.cubspiele.emulator.MainActivity extends android.app.Activity
-    with a full-screen hardware-accelerated WebView loading file:///android_asset/public/index.html.
+    implementing:
+      - com.cubspiele.emulator.FileChromeClient (extends WebChromeClient, handles onShowFileChooser)
+      - com.cubspiele.emulator.MainActivity (extends Activity, full-screen WebView + onActivityResult)
     """
-    # Collect all strings, types, protos, fields, methods
     strings_set = set()
     types_list = [
+        'I',
         'Landroid/app/Activity;',
         'Landroid/content/Context;',
+        'Landroid/content/Intent;',
+        'Landroid/net/Uri;',
         'Landroid/os/Bundle;',
         'Landroid/view/View;',
+        'Landroid/webkit/ValueCallback;',
+        'Landroid/webkit/WebChromeClient$FileChooserParams;',
         'Landroid/webkit/WebChromeClient;',
         'Landroid/webkit/WebSettings;',
         'Landroid/webkit/WebView;',
         'Landroid/webkit/WebViewClient;',
+        'Lcom/cubspiele/emulator/FileChromeClient;',
         'Lcom/cubspiele/emulator/MainActivity;',
+        'Ljava/lang/Object;',
         'Ljava/lang/String;',
         'V',
         'Z',
+        '[Landroid/net/Uri;',
     ]
     for t in types_list:
         strings_set.add(t)
@@ -357,10 +370,17 @@ def build_valid_dex_bytes() -> bytes:
     extra_strings = [
         '<init>',
         'MainActivity.java',
+        'activity',
+        'createIntent',
         'file:///android_asset/public/index.html',
+        'fileCallback',
         'getSettings',
         'loadUrl',
+        'onActivityResult',
         'onCreate',
+        'onReceiveValue',
+        'onShowFileChooser',
+        'parseResult',
         'setAllowFileAccess',
         'setAllowFileAccessFromFileURLs',
         'setAllowUniversalAccessFromFileURLs',
@@ -370,9 +390,15 @@ def build_valid_dex_bytes() -> bytes:
         'setMediaPlaybackRequiresUserGesture',
         'setWebChromeClient',
         'setWebViewClient',
+        'startActivityForResult',
         'webView',
+        'L',
+        'LIL',
         'VL',
+        'VLI',
+        'VIIL',
         'VZ',
+        'ZLLL',
     ]
     strings_set.update(extra_strings)
     strings = sorted(strings_set)
@@ -381,8 +407,6 @@ def build_valid_dex_bytes() -> bytes:
     types = sorted(types_list)
     t_idx = {t: i for i, t in enumerate(types)}
 
-    # Protos: (shorty, return_type, params)
-    # Sort order: by return_type_idx, then lexicographically by param type_ids
     proto_specs = [
         ('V', 'V', ()),
         ('VL', 'V', ('Landroid/content/Context;',)),
@@ -390,52 +414,59 @@ def build_valid_dex_bytes() -> bytes:
         ('VL', 'V', ('Landroid/view/View;',)),
         ('VL', 'V', ('Landroid/webkit/WebChromeClient;',)),
         ('VL', 'V', ('Landroid/webkit/WebViewClient;',)),
+        ('VL', 'V', ('Lcom/cubspiele/emulator/MainActivity;',)),
+        ('VL', 'V', ('Ljava/lang/Object;',)),
         ('VL', 'V', ('Ljava/lang/String;',)),
+        ('VLI', 'V', ('Landroid/content/Intent;', 'I')),
+        ('VIIL', 'V', ('I', 'I', 'Landroid/content/Intent;')),
         ('VZ', 'V', ('Z',)),
+        ('L', 'Landroid/content/Intent;', ()),
         ('L', 'Landroid/webkit/WebSettings;', ()),
+        ('LIL', '[Landroid/net/Uri;', ('I', 'Landroid/content/Intent;')),
+        ('ZLLL', 'Z', ('Landroid/webkit/WebView;', 'Landroid/webkit/ValueCallback;', 'Landroid/webkit/WebChromeClient$FileChooserParams;')),
     ]
-    # Note: 'L' shorty needs to be in strings if used! Let's add 'L' to strings before sorting!
-    strings_set.add('L')
-    strings = sorted(strings_set)
-    s_idx = {s: i for i, s in enumerate(strings)}
-
     proto_specs.sort(key=lambda p: (t_idx[p[1]], tuple(t_idx[x] for x in p[2])))
     p_idx = {p: i for i, p in enumerate(proto_specs)}
 
-    # Fields: (class_type, type, name)
     field_specs = [
+        ('Lcom/cubspiele/emulator/FileChromeClient;', 'Lcom/cubspiele/emulator/MainActivity;', 'activity'),
+        ('Lcom/cubspiele/emulator/MainActivity;', 'Landroid/webkit/ValueCallback;', 'fileCallback'),
         ('Lcom/cubspiele/emulator/MainActivity;', 'Landroid/webkit/WebView;', 'webView'),
     ]
     field_specs.sort(key=lambda f: (t_idx[f[0]], s_idx[f[2]], t_idx[f[1]]))
     f_idx = {f: i for i, f in enumerate(field_specs)}
 
-    # Methods: (class_type, proto, name)
     method_specs = [
         ('Landroid/app/Activity;', ('V', 'V', ()), '<init>'),
         ('Landroid/app/Activity;', ('VL', 'V', ('Landroid/os/Bundle;',)), 'onCreate'),
-        ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/content/Context;',)), '<init>'),
-        ('Landroid/webkit/WebView;', ('L', 'Landroid/webkit/WebSettings;', ()), 'getSettings'),
-        ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/webkit/WebViewClient;',)), 'setWebViewClient'),
-        ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/webkit/WebChromeClient;',)), 'setWebChromeClient'),
-        ('Landroid/webkit/WebView;', ('VL', 'V', ('Ljava/lang/String;',)), 'loadUrl'),
+        ('Landroid/webkit/ValueCallback;', ('VL', 'V', ('Ljava/lang/Object;',)), 'onReceiveValue'),
+        ('Landroid/webkit/WebChromeClient$FileChooserParams;', ('L', 'Landroid/content/Intent;', ()), 'createIntent'),
+        ('Landroid/webkit/WebChromeClient$FileChooserParams;', ('LIL', '[Landroid/net/Uri;', ('I', 'Landroid/content/Intent;')), 'parseResult'),
+        ('Landroid/webkit/WebChromeClient;', ('V', 'V', ()), '<init>'),
         ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setJavaScriptEnabled'),
         ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setDomStorageEnabled'),
         ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setAllowFileAccess'),
         ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setAllowFileAccessFromFileURLs'),
         ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setAllowUniversalAccessFromFileURLs'),
         ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setMediaPlaybackRequiresUserGesture'),
+        ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/content/Context;',)), '<init>'),
+        ('Landroid/webkit/WebView;', ('L', 'Landroid/webkit/WebSettings;', ()), 'getSettings'),
+        ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/webkit/WebViewClient;',)), 'setWebViewClient'),
+        ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/webkit/WebChromeClient;',)), 'setWebChromeClient'),
+        ('Landroid/webkit/WebView;', ('VL', 'V', ('Ljava/lang/String;',)), 'loadUrl'),
         ('Landroid/webkit/WebViewClient;', ('V', 'V', ()), '<init>'),
-        ('Landroid/webkit/WebChromeClient;', ('V', 'V', ()), '<init>'),
+        ('Lcom/cubspiele/emulator/FileChromeClient;', ('VL', 'V', ('Lcom/cubspiele/emulator/MainActivity;',)), '<init>'),
+        ('Lcom/cubspiele/emulator/FileChromeClient;', ('ZLLL', 'Z', ('Landroid/webkit/WebView;', 'Landroid/webkit/ValueCallback;', 'Landroid/webkit/WebChromeClient$FileChooserParams;')), 'onShowFileChooser'),
         ('Lcom/cubspiele/emulator/MainActivity;', ('V', 'V', ()), '<init>'),
+        ('Lcom/cubspiele/emulator/MainActivity;', ('VIIL', 'V', ('I', 'I', 'Landroid/content/Intent;')), 'onActivityResult'),
         ('Lcom/cubspiele/emulator/MainActivity;', ('VL', 'V', ('Landroid/os/Bundle;',)), 'onCreate'),
         ('Lcom/cubspiele/emulator/MainActivity;', ('VL', 'V', ('Landroid/view/View;',)), 'setContentView'),
+        ('Lcom/cubspiele/emulator/MainActivity;', ('VLI', 'V', ('Landroid/content/Intent;', 'I')), 'startActivityForResult'),
     ]
     method_specs.sort(key=lambda m: (t_idx[m[0]], s_idx[m[2]], p_idx[m[1]]))
     m_idx = {m: i for i, m in enumerate(method_specs)}
 
-    # Build Dalvik instructions
     def op_invoke(opcode: int, regs: list[int], method_key) -> bytes:
-        # 35c format: A|G op BBBB F|E|D|C
         cnt = len(regs)
         padded = regs + [0] * (5 - cnt)
         w0 = opcode | (cnt << 12) | (padded[4] << 8)
@@ -443,27 +474,68 @@ def build_valid_dex_bytes() -> bytes:
         w2 = padded[0] | (padded[1] << 4) | (padded[2] << 8) | (padded[3] << 12)
         return struct.pack('<HHH', w0, w1, w2)
 
-    # <init>()V
-    init_insns = (
-        op_invoke(0x70, [0], ('Landroid/app/Activity;', ('V', 'V', ()), '<init>'))
-        + struct.pack('<H', 0x000E)  # return-void
-    )
-    init_code = struct.pack('<HHHHI', 1, 1, 1, 0, len(init_insns) // 2) + init_insns
+    f_fc_act = f_idx[('Lcom/cubspiele/emulator/FileChromeClient;', 'Lcom/cubspiele/emulator/MainActivity;', 'activity')]
+    f_ma_cb = f_idx[('Lcom/cubspiele/emulator/MainActivity;', 'Landroid/webkit/ValueCallback;', 'fileCallback')]
+    f_ma_wv = f_idx[('Lcom/cubspiele/emulator/MainActivity;', 'Landroid/webkit/WebView;', 'webView')]
 
-    # onCreate(Bundle)V: v0..v2 locals, v3=this, v4=Bundle
+    # 1. FileChromeClient.<init>(MainActivity)V (v0=this, v1=activity)
+    fc_init_insns = (
+        op_invoke(0x70, [0], ('Landroid/webkit/WebChromeClient;', ('V', 'V', ()), '<init>'))
+        + struct.pack('<HH', 0x5B | (1 << 8) | (0 << 12), f_fc_act)
+        + struct.pack('<H', 0x000E)
+    )
+    fc_init_code = struct.pack('<HHHHII', 2, 2, 1, 0, 0, len(fc_init_insns) // 2) + fc_init_insns
+
+    # 2. FileChromeClient.onShowFileChooser(WebView, ValueCallback, FileChooserParams)Z
+    # v0..v2 locals, v3=this, v4=webView, v5=filePathCallback, v6=fileChooserParams
+    fc_show_insns = bytearray()
+    fc_show_insns += struct.pack('<HH', 0x54 | (0 << 8) | (3 << 12), f_fc_act)   # iget-object v0, v3, activity (2u)
+    fc_show_insns += struct.pack('<HH', 0x54 | (1 << 8) | (0 << 12), f_ma_cb)    # iget-object v1, v0, fileCallback (2u)
+    fc_show_insns += struct.pack('<Hh', 0x0138, 6)                               # if-eqz v1, +6u (2u) -> skips 1u + 3u = 4u? Wait: 2u(if) + 1u(const) + 3u(invoke) = 6u!
+    fc_show_insns += struct.pack('<H', 0x0012)                                   # const/4 v0=0? Wait: const/4 v2, 0 -> 0x0212! (1u)
+    fc_show_insns = fc_show_insns[:-2] + struct.pack('<H', 0x0212)               # const/4 v2, 0 (1u)
+    fc_show_insns += op_invoke(0x72, [1, 2], ('Landroid/webkit/ValueCallback;', ('VL', 'V', ('Ljava/lang/Object;',)), 'onReceiveValue'))  # (3u)
+    fc_show_insns += struct.pack('<HH', 0x5B | (5 << 8) | (0 << 12), f_ma_cb)    # iput-object v5, v0, fileCallback (2u)
+    fc_show_insns += op_invoke(0x6E, [6], ('Landroid/webkit/WebChromeClient$FileChooserParams;', ('L', 'Landroid/content/Intent;', ()), 'createIntent'))  # (3u)
+    fc_show_insns += struct.pack('<H', 0x010C)                                   # move-result-object v1 (1u)
+    fc_show_insns += struct.pack('<HH', 0x0213, 1001)                            # const/16 v2, 1001 (2u)
+    fc_show_insns += op_invoke(0x6E, [0, 1, 2], ('Lcom/cubspiele/emulator/MainActivity;', ('VLI', 'V', ('Landroid/content/Intent;', 'I')), 'startActivityForResult'))  # (3u)
+    fc_show_insns += struct.pack('<H', 0x1012)                                   # const/4 v0, 1 (1u)
+    fc_show_insns += struct.pack('<H', 0x000F)                                   # return v0 (1u)
+    fc_show_code = struct.pack('<HHHHII', 7, 4, 3, 0, 0, len(fc_show_insns) // 2) + bytes(fc_show_insns)
+
+    # 3. MainActivity.<init>()V
+    ma_init_insns = (
+        op_invoke(0x70, [0], ('Landroid/app/Activity;', ('V', 'V', ()), '<init>'))
+        + struct.pack('<H', 0x000E)
+    )
+    ma_init_code = struct.pack('<HHHHII', 1, 1, 1, 0, 0, len(ma_init_insns) // 2) + ma_init_insns
+
+    # 4. MainActivity.onActivityResult(int requestCode, int resultCode, Intent data)V
+    # v0..v1 locals, v2=this, v3=requestCode, v4=resultCode, v5=data
+    ma_res_insns = bytearray()
+    ma_res_insns += struct.pack('<HH', 0x0013, 1001)                             # const/16 v0, 1001 (2u)
+    # Branch to return-void at end: 2u(if-ne) + 2u(iget) + 2u(if-eqz) + 3u(parseResult) + 1u(move) + 3u(onReceive) + 1u(const) + 2u(iput) = 16u
+    ma_res_insns += struct.pack('<Hh', 0x0333, 16)                               # if-ne v3, v0, +16u (2u)
+    ma_res_insns += struct.pack('<HH', 0x54 | (0 << 8) | (2 << 12), f_ma_cb)     # iget-object v0, v2, fileCallback (2u)
+    # Branch to return-void: 2u(if-eqz) + 3u + 1u + 3u + 1u + 2u = 12u
+    ma_res_insns += struct.pack('<Hh', 0x0038, 12)                               # if-eqz v0, +12u (2u)
+    ma_res_insns += op_invoke(0x71, [4, 5], ('Landroid/webkit/WebChromeClient$FileChooserParams;', ('LIL', '[Landroid/net/Uri;', ('I', 'Landroid/content/Intent;')), 'parseResult'))  # (3u)
+    ma_res_insns += struct.pack('<H', 0x010C)                                    # move-result-object v1 (1u)
+    ma_res_insns += op_invoke(0x72, [0, 1], ('Landroid/webkit/ValueCallback;', ('VL', 'V', ('Ljava/lang/Object;',)), 'onReceiveValue'))  # (3u)
+    ma_res_insns += struct.pack('<H', 0x0012)                                    # const/4 v0, 0 (1u)
+    ma_res_insns += struct.pack('<HH', 0x5B | (0 << 8) | (2 << 12), f_ma_cb)     # iput-object v0, v2, fileCallback (2u)
+    ma_res_insns += struct.pack('<H', 0x000E)                                    # return-void (1u)
+    ma_res_code = struct.pack('<HHHHII', 6, 4, 2, 0, 0, len(ma_res_insns) // 2) + bytes(ma_res_insns)
+
+    # 5. MainActivity.onCreate(Bundle)V: v0..v2 locals, v3=this, v4=Bundle
     oncreate_insns = bytearray()
     oncreate_insns += op_invoke(0x6F, [3, 4], ('Landroid/app/Activity;', ('VL', 'V', ('Landroid/os/Bundle;',)), 'onCreate'))
-    # new-instance v1, WebView
     oncreate_insns += struct.pack('<HH', 0x0122, t_idx['Landroid/webkit/WebView;'])
-    # invoke-direct {v1, v3}, WebView.<init>(Context)
     oncreate_insns += op_invoke(0x70, [1, 3], ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/content/Context;',)), '<init>'))
-    # iput-object v1, v3, MainActivity.webView
-    oncreate_insns += struct.pack('<HH', 0x5B | (1 << 8) | (3 << 12), f_idx[field_specs[0]])
-    # invoke-virtual {v1}, WebView.getSettings()
+    oncreate_insns += struct.pack('<HH', 0x5B | (1 << 8) | (3 << 12), f_ma_wv)
     oncreate_insns += op_invoke(0x6E, [1], ('Landroid/webkit/WebView;', ('L', 'Landroid/webkit/WebSettings;', ()), 'getSettings'))
-    # move-result-object v0
     oncreate_insns += struct.pack('<H', 0x000C)
-    # const/4 v2, 1
     oncreate_insns += struct.pack('<H', 0x1212)
     for m_name in (
         'setJavaScriptEnabled',
@@ -473,31 +545,21 @@ def build_valid_dex_bytes() -> bytes:
         'setAllowUniversalAccessFromFileURLs',
     ):
         oncreate_insns += op_invoke(0x6E, [0, 2], ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), m_name))
-    # const/4 v2, 0
     oncreate_insns += struct.pack('<H', 0x0212)
     oncreate_insns += op_invoke(0x6E, [0, 2], ('Landroid/webkit/WebSettings;', ('VZ', 'V', ('Z',)), 'setMediaPlaybackRequiresUserGesture'))
-    # new-instance v0, WebViewClient; invoke-direct {v0}; setWebViewClient
     oncreate_insns += struct.pack('<HH', 0x0022, t_idx['Landroid/webkit/WebViewClient;'])
     oncreate_insns += op_invoke(0x70, [0], ('Landroid/webkit/WebViewClient;', ('V', 'V', ()), '<init>'))
     oncreate_insns += op_invoke(0x6E, [1, 0], ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/webkit/WebViewClient;',)), 'setWebViewClient'))
-    # new-instance v0, WebChromeClient; invoke-direct {v0}; setWebChromeClient
-    oncreate_insns += struct.pack('<HH', 0x0022, t_idx['Landroid/webkit/WebChromeClient;'])
-    oncreate_insns += op_invoke(0x70, [0], ('Landroid/webkit/WebChromeClient;', ('V', 'V', ()), '<init>'))
+    oncreate_insns += struct.pack('<HH', 0x0022, t_idx['Lcom/cubspiele/emulator/FileChromeClient;'])
+    oncreate_insns += op_invoke(0x70, [0, 3], ('Lcom/cubspiele/emulator/FileChromeClient;', ('VL', 'V', ('Lcom/cubspiele/emulator/MainActivity;',)), '<init>'))
     oncreate_insns += op_invoke(0x6E, [1, 0], ('Landroid/webkit/WebView;', ('VL', 'V', ('Landroid/webkit/WebChromeClient;',)), 'setWebChromeClient'))
-    # invoke-virtual {v3, v1}, MainActivity.setContentView(View)
     oncreate_insns += op_invoke(0x6E, [3, 1], ('Lcom/cubspiele/emulator/MainActivity;', ('VL', 'V', ('Landroid/view/View;',)), 'setContentView'))
-    # const-string v0, "file:///android_asset/public/index.html"
     oncreate_insns += struct.pack('<HH', 0x001A, s_idx['file:///android_asset/public/index.html'])
-    # invoke-virtual {v1, v0}, WebView.loadUrl(String)
     oncreate_insns += op_invoke(0x6E, [1, 0], ('Landroid/webkit/WebView;', ('VL', 'V', ('Ljava/lang/String;',)), 'loadUrl'))
-    # return-void
     oncreate_insns += struct.pack('<H', 0x000E)
-
-    # Note: code_item header is 16 bytes (registers_size:2, ins_size:2, outs_size:2, tries_size:2, debug_info_off:4, insns_size:4)
-    init_code = struct.pack('<HHHHII', 1, 1, 1, 0, 0, len(init_insns) // 2) + init_insns
     oncreate_code = struct.pack('<HHHHII', 5, 2, 2, 0, 0, len(oncreate_insns) // 2) + bytes(oncreate_insns)
 
-    # Layout DEX file sections
+    # Layout DEX file sections (2 class_defs: FileChromeClient & MainActivity)
     header_size = 112
     string_ids_off = header_size
     type_ids_off = string_ids_off + 4 * len(strings)
@@ -505,7 +567,7 @@ def build_valid_dex_bytes() -> bytes:
     field_ids_off = proto_ids_off + 12 * len(proto_specs)
     method_ids_off = field_ids_off + 8 * len(field_specs)
     class_defs_off = method_ids_off + 8 * len(method_specs)
-    data_off = class_defs_off + 32 * 1  # 1 class_def
+    data_off = class_defs_off + 32 * 2
 
     data_buf = bytearray()
 
@@ -516,7 +578,6 @@ def build_valid_dex_bytes() -> bytes:
         while (data_off + len(data_buf)) % a != 0:
             data_buf.append(0)
 
-    # 1. type_list items for protos with params
     proto_param_offs = {}
     for p in proto_specs:
         if p[2]:
@@ -528,7 +589,6 @@ def build_valid_dex_bytes() -> bytes:
         else:
             proto_param_offs[p] = 0
 
-    # 2. string_data_item
     string_data_offs = []
     for s in strings:
         string_data_offs.append(data_pos())
@@ -538,60 +598,59 @@ def build_valid_dex_bytes() -> bytes:
         data_buf.extend(u8)
         data_buf.append(0)
 
-    # 3. code_items (4-byte aligned)
-    align_data(4)
-    init_code_off = data_pos()
-    data_buf.extend(init_code)
-    align_data(4)
-    oncreate_code_off = data_pos()
-    data_buf.extend(oncreate_code)
+    code_offs = []
+    for c_bytes in (fc_init_code, fc_show_code, ma_init_code, ma_res_code, oncreate_code):
+        align_data(4)
+        code_offs.append(data_pos())
+        data_buf.extend(c_bytes)
+    fc_init_off, fc_show_off, ma_init_off, ma_res_off, ma_oncreate_off = code_offs
 
-    # 4. class_data_item
-    class_data_off = data_pos()
-    m_init = m_idx[('Lcom/cubspiele/emulator/MainActivity;', ('V', 'V', ()), '<init>')]
-    m_oncreate = m_idx[('Lcom/cubspiele/emulator/MainActivity;', ('VL', 'V', ('Landroid/os/Bundle;',)), 'onCreate')]
-    f_wv = f_idx[field_specs[0]]
+    # class_data_item 1: FileChromeClient
+    fc_class_data_off = data_pos()
+    m_fc_init = m_idx[('Lcom/cubspiele/emulator/FileChromeClient;', ('VL', 'V', ('Lcom/cubspiele/emulator/MainActivity;',)), '<init>')]
+    m_fc_show = m_idx[('Lcom/cubspiele/emulator/FileChromeClient;', ('ZLLL', 'Z', ('Landroid/webkit/WebView;', 'Landroid/webkit/ValueCallback;', 'Landroid/webkit/WebChromeClient$FileChooserParams;')), 'onShowFileChooser')]
+    data_buf.extend(_uleb128(0) + _uleb128(1) + _uleb128(1) + _uleb128(1))
+    data_buf.extend(_uleb128(f_fc_act) + _uleb128(0x0002))
+    data_buf.extend(_uleb128(m_fc_init) + _uleb128(0x10001) + _uleb128(fc_init_off))
+    data_buf.extend(_uleb128(m_fc_show) + _uleb128(0x0001) + _uleb128(fc_show_off))
 
-    # static_fields=0, instance_fields=1, direct_methods=1, virtual_methods=1
-    data_buf.extend(_uleb128(0))
-    data_buf.extend(_uleb128(1))
-    data_buf.extend(_uleb128(1))
-    data_buf.extend(_uleb128(1))
-    # instance_field: field_idx_diff, access_flags (PRIVATE=2)
-    data_buf.extend(_uleb128(f_wv))
-    data_buf.extend(_uleb128(0x0002))
-    # direct_method: <init> (PUBLIC=1 | CONSTRUCTOR=0x10000)
-    data_buf.extend(_uleb128(m_init))
-    data_buf.extend(_uleb128(0x10001))
-    data_buf.extend(_uleb128(init_code_off))
-    # virtual_method: onCreate (PROTECTED=4)
-    data_buf.extend(_uleb128(m_oncreate))
-    data_buf.extend(_uleb128(0x0004))
-    data_buf.extend(_uleb128(oncreate_code_off))
+    # class_data_item 2: MainActivity
+    ma_class_data_off = data_pos()
+    m_ma_init = m_idx[('Lcom/cubspiele/emulator/MainActivity;', ('V', 'V', ()), '<init>')]
+    m_ma_res = m_idx[('Lcom/cubspiele/emulator/MainActivity;', ('VIIL', 'V', ('I', 'I', 'Landroid/content/Intent;')), 'onActivityResult')]
+    m_ma_oncreate = m_idx[('Lcom/cubspiele/emulator/MainActivity;', ('VL', 'V', ('Landroid/os/Bundle;',)), 'onCreate')]
+    # instance_fields sorted by field_idx: f_ma_cb vs f_ma_wv
+    assert f_ma_cb < f_ma_wv
+    # direct_methods: <init>, virtual_methods sorted by method_idx: onActivityResult vs onCreate
+    assert m_ma_res < m_ma_oncreate
+    data_buf.extend(_uleb128(0) + _uleb128(2) + _uleb128(1) + _uleb128(2))
+    data_buf.extend(_uleb128(f_ma_cb) + _uleb128(0x0001))
+    data_buf.extend(_uleb128(f_ma_wv - f_ma_cb) + _uleb128(0x0002))
+    data_buf.extend(_uleb128(m_ma_init) + _uleb128(0x10001) + _uleb128(ma_init_off))
+    data_buf.extend(_uleb128(m_ma_res) + _uleb128(0x0004) + _uleb128(ma_res_off))
+    data_buf.extend(_uleb128(m_ma_oncreate - m_ma_res) + _uleb128(0x0004) + _uleb128(ma_oncreate_off))
 
-    # 5. map_list (4-byte aligned)
     align_data(4)
     map_off = data_pos()
     type_list_count = sum(1 for p in proto_specs if p[2])
     map_items = [
-        (0x0000, 1, 0),                      # TYPE_HEADER_ITEM
+        (0x0000, 1, 0),
         (0x0001, len(strings), string_ids_off),
         (0x0002, len(types), type_ids_off),
         (0x0003, len(proto_specs), proto_ids_off),
         (0x0004, len(field_specs), field_ids_off),
         (0x0005, len(method_specs), method_ids_off),
-        (0x0006, 1, class_defs_off),
+        (0x0006, 2, class_defs_off),
         (0x1001, type_list_count, proto_param_offs[next(p for p in proto_specs if p[2])]),
         (0x2002, len(strings), string_data_offs[0]),
-        (0x2001, 2, init_code_off),          # TYPE_CODE_ITEM
-        (0x2000, 1, class_data_off),         # TYPE_CLASS_DATA_ITEM
-        (0x1000, 1, map_off),                # TYPE_MAP_LIST
+        (0x2001, 5, fc_init_off),
+        (0x2000, 2, fc_class_data_off),
+        (0x1000, 1, map_off),
     ]
     data_buf.extend(struct.pack('<I', len(map_items)))
     for m_type, m_size, m_off in map_items:
         data_buf.extend(struct.pack('<HHII', m_type, 0, m_size, m_off))
 
-    # Assemble fixed tables
     string_ids_bin = b''.join(struct.pack('<I', o) for o in string_data_offs)
     type_ids_bin = b''.join(struct.pack('<I', s_idx[t]) for t in types)
     proto_ids_bin = b''.join(
@@ -603,16 +662,29 @@ def build_valid_dex_bytes() -> bytes:
     method_ids_bin = b''.join(
         struct.pack('<HHI', t_idx[m[0]], p_idx[m[1]], s_idx[m[2]]) for m in method_specs
     )
-    class_defs_bin = struct.pack(
-        '<IIIIIIII',
-        t_idx['Lcom/cubspiele/emulator/MainActivity;'],  # class_idx
-        0x0001,                                          # access_flags (PUBLIC)
-        t_idx['Landroid/app/Activity;'],                 # superclass_idx
-        0,                                               # interfaces_off
-        s_idx['MainActivity.java'],                      # source_file_idx
-        0,                                               # annotations_off
-        class_data_off,                                  # class_data_off
-        0,                                               # static_values_off
+    class_defs_bin = (
+        struct.pack(
+            '<IIIIIIII',
+            t_idx['Lcom/cubspiele/emulator/FileChromeClient;'],
+            0x0001,
+            t_idx['Landroid/webkit/WebChromeClient;'],
+            0,
+            s_idx['MainActivity.java'],
+            0,
+            fc_class_data_off,
+            0,
+        )
+        + struct.pack(
+            '<IIIIIIII',
+            t_idx['Lcom/cubspiele/emulator/MainActivity;'],
+            0x0001,
+            t_idx['Landroid/app/Activity;'],
+            0,
+            s_idx['MainActivity.java'],
+            0,
+            ma_class_data_off,
+            0,
+        )
     )
 
     body = (
@@ -636,14 +708,14 @@ def build_valid_dex_bytes() -> bytes:
         file_size,
         header_size,
         0x12345678,
-        0, 0,              # link_size, link_off
+        0, 0,
         map_off,
         len(strings), string_ids_off,
         len(types), type_ids_off,
         len(proto_specs), proto_ids_off,
         len(field_specs), field_ids_off,
         len(method_specs), method_ids_off,
-        1, class_defs_off,
+        2, class_defs_off,
         data_size, data_off,
     )
 
