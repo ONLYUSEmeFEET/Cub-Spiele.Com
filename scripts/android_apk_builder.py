@@ -121,7 +121,7 @@ def build_binary_android_manifest(version_code: int, version_name: str) -> bytes
             (
                 'uses-sdk',
                 [
-                    (ANDROID_NS, 'minSdkVersion', TYPE_INT_DEC, 26),
+                    (ANDROID_NS, 'minSdkVersion', TYPE_INT_DEC, 21),
                     (ANDROID_NS, 'targetSdkVersion', TYPE_INT_DEC, 35),
                 ],
                 [],
@@ -283,11 +283,11 @@ def build_resources_arsc() -> bytes:
         return hdr + b''.join(struct.pack('<I', f) for f in flags)
 
     def make_type_chunk(type_id: int, key_idx: int, global_str_idx: int, density: int = 0) -> bytes:
-        # ResTable_config (64 bytes): size=64 at 0, density (uint16) at 28
+        # ResTable_config (64 bytes): size=64 at 0, density (uint16) at 14
         cfg = bytearray(64)
         struct.pack_into('<I', cfg, 0, 64)
         if density:
-            struct.pack_into('<H', cfg, 28, density)
+            struct.pack_into('<H', cfg, 14, density)
         header_size = 20 + 64  # 84
         entries_start = header_size + 4  # 88
         entry = struct.pack('<HHI', 8, 0, key_idx) + struct.pack('<HBBI', 8, 0, TYPE_STRING, global_str_idx)
@@ -295,7 +295,7 @@ def build_resources_arsc() -> bytes:
         hdr = struct.pack('<HHIBBHII', 0x0201, header_size, total, type_id, 0, 0, 1, entries_start)
         return hdr + bytes(cfg) + struct.pack('<I', 0) + entry
 
-    mipmap_chunks = make_type_spec(1, [0x00000100]) + make_type_chunk(1, 0, 0, density=640)
+    mipmap_chunks = make_type_spec(1, [0x00000000]) + make_type_chunk(1, 0, 0, density=0)
     string_chunks = make_type_spec(2, [0x00000000]) + make_type_chunk(2, 1, 1, density=0)
 
     pkg_name_u16 = 'com.cubspiele.emulator'.encode('utf-16-le').ljust(256, b'\x00')
