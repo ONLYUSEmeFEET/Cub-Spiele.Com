@@ -582,8 +582,8 @@ def build_valid_dex_bytes() -> bytes:
         (0x0005, len(method_specs), method_ids_off),
         (0x0006, 1, class_defs_off),
         (0x1001, type_list_count, proto_param_offs[next(p for p in proto_specs if p[2])]),
-        (0x2001, 2, init_code_off),          # TYPE_CODE_ITEM
         (0x2002, len(strings), string_data_offs[0]),
+        (0x2001, 2, init_code_off),          # TYPE_CODE_ITEM
         (0x2000, 1, class_data_off),         # TYPE_CLASS_DATA_ITEM
         (0x1000, 1, map_off),                # TYPE_MAP_LIST
     ]
