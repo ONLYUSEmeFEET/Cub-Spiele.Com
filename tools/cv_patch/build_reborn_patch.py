@@ -16,7 +16,7 @@ import subprocess
 import sys
 import zipfile
 
-REBORN_VERSION = "0.1"
+REBORN_VERSION = "0.2"
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ORIG_ROM = os.path.join(
     ROOT, "tools", "cv_patch", "work", "orig",
@@ -349,11 +349,13 @@ def make_edits(orig: bytes) -> list[dict]:
 
     # Fix 4C: Improve Vertical/Super Jump (Act 07 at 0x0520B3, 9 keyframes)
     # Original: 1x(0,0), 8x(0,-6) -> dy=-48
-    # New:      9x(0,-9) -> dy=-81
+    # New:      kf 0=(0,-9), kf 1..8=(+4,-9) -> dy=-81, with midair steering if Left/Right held (23:60A0 clears dx if neutral)
     act07_new = bytearray(orig[0x0520B3:0x0520B3 + 9 * 6])
     for i in range(9):
+        if i >= 1:
+            act07_new[i * 6 + 0] = 4
         act07_new[i * 6 + 1] = s8(-9)
-    add(0x0520B3, act07_new, "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise from -48 to -81 px")
+    add(0x0520B3, act07_new, "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise to -81 px and allow midair steering")
 
     # Fix 4D: Fix Leap Stone Double Jump (Act 06 at 0x052088, 7 keyframes)
     # Original: 1x(0,0,t=2), 6x(+4,-6,t=1) -> dx=+24, dy=-36 (anemic!)
@@ -391,13 +393,18 @@ def make_edits(orig: bytes) -> list[dict]:
         0xF8,                   # 7D4E: RET
     ], "22:7D30 Expanded midair window for Leap Stone Double Jump")
 
-    # Fix 4F: Improve Falling horizontal control (Act 09 at 0x052109)
-    # Increase horizontal speed during forward fall from +4/+1 to +5/+4 so Alucard doesn't drop like a stone at jump end
+    # Fix 4F: Improve Falling horizontal control across Act 08 (Jump Apex), Act 09 (Fall Forward),
+    # and Act 0A (Fall Loop). Note: 23:60A0 clears dx to 0 whenever Left/Right is NOT held,
+    # so neutral falling still drops straight down while holding Left/Right gives full +4/+5 steering!
+    act08_new = bytearray(orig[0x0520EA:0x0520EA + 5 * 6])
+    for i in range(1, 5):
+        act08_new[i * 6 + 0] = 4
+    add(0x0520EA, act08_new, "29:80EA (Act 08 Jump Apex): allow horizontal steering (dx=+4) when Left/Right held")
+
     act09_new = bytearray(orig[0x052109:0x052109 + 5 * 6])
-    for i in range(4):
+    for i in range(5):
         act09_new[i * 6 + 0] = 5
-    act09_new[4 * 6 + 0] = 4
-    add(0x052109, act09_new, "29:8109 (Act 09 Fall Forward): improve horizontal momentum at end of jump")
+    add(0x052109, act09_new, "29:8109 (Act 09 Fall Forward & shared Act 0A Fall Loop at 29:8121): maintain +5 px/step horizontal steering")
 
     # Fix 4G: Faster Bat & Mist flight speed (Bank 0x36)
     # Increase Bat flight speed from 3 px/step to 4 px/step (36:9905, 9936, 9967, 9998, 99C9)
@@ -550,7 +557,7 @@ def make_edits(orig: bytes) -> list[dict]:
     add(0x06D729, axe_s3, "36:9729 (Proj 03 Axe State 3): widen falling forward arc dx to +4")
 
     # =========================================================================
-    # 7. TEXT & TYPO FIXES (Bank 0x38, exact in-place lengths)
+    # 7. TEXT & TYPO FIXES (Bank 0x38 & Intro Crawl, exact in-place lengths)
     # =========================================================================
     add(0x0707D9, b"Clan? \xff", "38:87D9 Fix 'Belmont Chlan?' -> 'Belmont Clan? '")
     add(0x071734, b"Elixir\xff", "38:9734 Fix 'Elixer' -> 'Elixir'")
@@ -560,6 +567,103 @@ def make_edits(orig: bytes) -> list[dict]:
     add(0x07197E, b"Goddess shield \xff", "38:997E Fix 'Goddness shield' -> 'Goddess shield '")
     add(0x071B8D, b"1 of 5 Treasures. INT +10\xff", "38:9B8D Fix Ring of Vlad description 'STR +10' -> 'INT +10'")
     add(0x071BD1, b"Tetra Spirit \xff", "38:9BD1 Fix 'Tertra Spirit' -> 'Tetra Spirit '")
+
+    # 7B. Dialogue & Intro Crawl Typo Fixes (preserving '#' for '!' and '`' for apostrophe)
+    dialogue_fixes = [
+        (0x0432C9, b"come of for the forces of\xff", b"come for the forces of\xff\xff\xff\xff", "Intro crawl: 'come of for' -> 'come for'"),
+        (0x070382, b"to ourside.\xff", b"to our side\xff", "Death dialogue: 'to ourside.' -> 'to our side'"),
+        (0x0704BD, b"Not the Talkative type I can\xff", b"Not the talkative type I can\xff", "Maria dialogue: 'Talkative' -> 'talkative'"),
+        (0x070547, b"OH it`s you, Master\xff", b"Oh it`s you, Master\xff", "Librarian dialogue: 'OH' -> 'Oh'"),
+        (0x070629, b"It seem so.\xff", b"It seems so\xff", "Alucard dialogue: 'It seem so.' -> 'It seems so'"),
+        (0x070692, b"...... This Castle is a\xff", b"...... This castle is a\xff", "Alucard dialogue: 'Castle' -> 'castle'"),
+        (0x07071F, b"Goodluck.\xff", b"Good luck\xff", "Maria dialogue: 'Goodluck.' -> 'Good luck'"),
+        (0x0707AE, b"the name Richter Belmont.\xff", b"the name Richter Belmont?\xff", "Maria dialogue: add missing '?'"),
+        (0x0707E0, b"Of course ,but...\xff", b"Of course, but...\xff", "Alucard dialogue: ' ,but' -> ', but'"),
+        (0x070810, b"ago and I`m sure he`s. If\xff", b"ago, I`m sure he`s... If\xff\xff", "Maria dialogue: 'ago and I`m sure he`s. If' -> 'ago, I`m sure he`s... If'"),
+        (0x07088F, b"So it is you ...But Why is\xff", b"So it is you... But why is\xff", "Alucard dialogue: ' ...But Why' -> '... But why'"),
+        (0x0708C1, b"resurrection of count\xff", b"resurrection of Count\xff", "Alucard dialogue: 'count' -> 'Count'"),
+        (0x07096C, b"You`ve defeated me, But all\xff", b"You`ve defeated me, but all\xff", "Richter dialogue: 'But' -> 'but'"),
+        (0x070A10, b"Alucard#? the same Alucard\xff", b"Alucard#? The same Alucard\xff", "Richter dialogue: 'the same' -> 'The same'"),
+        (0x070ABB, b"Yes, i think so...\xff", b"Yes, I think so...\xff", "Richter dialogue: 'i' -> 'I'"),
+        (0x070B01, b"All right...., Good luck.\xff", b"All right... Good luck.\xff\xff\xff", "Richter dialogue: '....,' -> '...'"),
+        (0x070C27, b"lord of this castle.\xff", b"lord of this castle?\xff", "Alucard dialogue: add missing '?'"),
+        (0x070C84, b"But if two vampire hunters\xff", b"but if two vampire hunters\xff", "Shaft dialogue: 'But' -> 'but' after comma"),
+        (0x070CEE, b"hunters. None other Could\xff", b"hunters. None other could\xff", "Alucard dialogue: 'Could' -> 'could'"),
+        (0x070D16, b"Exactly. That is why i removed\xff", b"Exactly. That is why I removed\xff", "Shaft dialogue: 'i' -> 'I'"),
+        (0x070D8C, b"Has it indeed? We `ll see\xff", b"Has it indeed? We`ll see\xff\xff", "Shaft dialogue: 'We `ll' -> 'We`ll'"),
+        (0x070E61, b"Achieved... Count Dracula is\xff", b"achieved... Count Dracula is\xff", "Shaft dialogue: 'Achieved' -> 'achieved'"),
+        (0x07102E, b"But neither do I seek\xff", b"but neither do I seek\xff", "Alucard dialogue: 'But' -> 'but' after comma"),
+        (0x071202, b"I believe. .......\xff", b"I believe........\xff\xff", "Dracula dialogue: '. .......' -> '........'"),
+        (0x0712AC, b"already a hard lot. `She\xff", b"already a hard lot.` She\xff", "Alucard dialogue: '. `She' -> '.` She'"),
+        (0x07130B, b"Lisa, forgive me. farewell\xff", b"Lisa, forgive me. Farewell\xff", "Dracula dialogue: 'farewell' -> 'Farewell'"),
+        (0x07136C, b"so you made it.\xff", b"So you made it.\xff", "Alucard dialogue: 'so' -> 'So'"),
+        (0x07137E, b"Alucard# I`m glad your all\xff", b"Alucard# Glad you`re all\xff\xff\xff", "Maria dialogue: 'I`m glad your all' -> 'Glad you`re all'"),
+        (0x07141E, b"it must have been painful to\xff", b"It must have been painful to\xff", "Maria dialogue: 'it' -> 'It'"),
+        (0x071493, b"thriumph is good men to\xff", b"triumph is good men to\xff\xff", "Alucard dialogue: 'thriumph' -> 'triumph'"),
+        (0x0715D2, b"No, It`s best this way, I\xff", b"No, it`s best this way, I\xff", "Maria dialogue: 'It`s' -> 'it`s'"),
+        (0x071653, b"Let`s go ...everyone`s\xff", b"Let`s go... everyone`s\xff", "Richter dialogue: ' ...everyone`s' -> '... everyone`s'"),
+    ]
+    for off, expected, new_bytes, desc in dialogue_fixes:
+        assert orig[off:off + len(expected)] == expected, f"Mismatch at 0x{off:06X}: {orig[off:off + len(expected)]!r}"
+        assert len(new_bytes) == len(expected), f"Length mismatch at 0x{off:06X}"
+        add(off, new_bytes, desc)
+
+    # =========================================================================
+    # 8. TRADEMARK SCREEN ("AJ Ryan") & TITLE SCREEN ("Reborn") (Minimum Memory)
+    # =========================================================================
+    # Store "AJ Ryan\xff" (8 bytes) in Bank 0x20 trailing 0xFF padding at 20:5FF3
+    add(0x041FF3, b"AJ Ryan\xff", "20:5FF3 Store 'AJ Ryan' credit string in Bank 0x20 padding")
+
+    # Compact 23-byte loop + 21-byte table inside 20:4B94..4BCB (56 bytes), freeing 4BC0..4BCB
+    # for "Reborn\xff" (7 bytes) with 5 bytes to spare.
+    add(0x040B94, [
+        0x78, 0x4B, 0xAB,       # 4B94: MOVW RR0,#4BABh
+        0x3A, 0x60,             # 4B97: MOVW RR4,(RR0)+
+        0x50, 0xFF, 0x04,       # 4B99: CMP R4,#FFh
+        0xD6, 0x2E,             # 4B9C: BR Z,4BCCh
+        0x3A, 0x48,             # 4B9E: MOVW RR8,(RR0)+
+        0x1E, 0x00,             # 4BA0: PUSHW RR0
+        0xC1, 0x30,             # 4BA2: MOV R1,#30h
+        0x49, 0x42, 0x68,       # 4BA4: CALL 4268h
+        0x1F, 0x00,             # 4BA7: POPW RR0
+        0xD8, 0xEC,             # 4BA9: BR T,4B97h
+        # Table at 4BAB (4 bytes per entry: ptr_hi, ptr_lo, X, Y)
+        0x4C, 0x9B, 0x10, 0x32, # Castlevania*, Symphony of the Night
+        0x4C, 0xBF, 0x23, 0x46, # and Konami* are trademarks
+        0x4C, 0xDA, 0x11, 0x5A, # of Konami Co. Ltd. % 1997 Konami Co.
+        0x4C, 0xFF, 0x31, 0x6E, # Ltd. All Rights Reserved
+        0x5F, 0xF3, 0x50, 0x82, # AJ Ryan (centered at X=80, Y=130)
+        0xFF,                   # End of table
+        # "Reborn\xff" (7 bytes) stored at 20:4BC0
+        0x52, 0x65, 0x62, 0x6F, 0x72, 0x6E, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    ], "20:4B94 Add 'AJ Ryan' to trademark screen + store 'Reborn' string at 20:4BC0")
+
+    # Title Screen: Hook 21:6A80 (title/menu sprite drawer) -> 21:7FC0 to overlay "Reborn"
+    # when RC3 <= 1 (Title Screen states 0 and 1), using 41 bytes of Bank 0x21 0xFF padding.
+    add(0x042A80, [
+        0x98, 0x7F, 0xC0,       # 6A80: JMP T,7FC0h
+        0xFF,                   # 6A83: NOP
+    ], "21:6A80 Hook title screen renderer for 'Reborn' subtitle")
+
+    add(0x043FC0, [
+        0xBB, 0xC3,             # 7FC0: MOV RC3,R3
+        0x00, 0x02,             # 7FC2: CLR R2
+        0x49, 0x6A, 0x84,       # 7FC4: CALL 6A84h
+        0x50, 0x01, 0xC3,       # 7FC7: CMP RC3,#01h
+        0xDB, 0x1C,             # 7FCA: BR UGT,7FE8h (RET)
+        0x7C, 0x4B, 0xC0,       # 7FCC: MOVW RR4,#4BC0h ("Reborn\xff")
+        0x58, 0x55, 0x08,       # 7FCF: MOV R8,#55h (X=85 shadow)
+        0x58, 0x71, 0x09,       # 7FD2: MOV R9,#71h (Y=113 shadow)
+        0xC1, 0x30,             # 7FD5: MOV R1,#30h (black)
+        0x49, 0x42, 0x68,       # 7FD7: CALL 4268h
+        0x7C, 0x4B, 0xC0,       # 7FDA: MOVW RR4,#4BC0h ("Reborn\xff")
+        0x58, 0x54, 0x08,       # 7FDD: MOV R8,#54h (X=84)
+        0x58, 0x70, 0x09,       # 7FE0: MOV R9,#70h (Y=112)
+        0xC1, 0x00,             # 7FE3: MOV R1,#00h (white)
+        0x49, 0x42, 0x68,       # 7FE5: CALL 4268h
+        0xF8,                   # 7FE8: RET
+    ], "21:7FC0 Draw shadowed 'Reborn' on title screen (RC3 <= 1)")
 
     return edits
 

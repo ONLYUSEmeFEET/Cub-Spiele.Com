@@ -149,7 +149,7 @@ export function ensureCastlevaniaRebornEntry(entries: OnlineRomEntry[]): OnlineR
       linkPlaySupport: rebornKnown.linkPlaySupport,
       coverColor: rebornKnown.coverColor,
       coverAccent: rebornKnown.coverAccent,
-      fileName: 'Castlevania - Symphony of the Night Reborn (v0.1).tgc',
+      fileName: 'Castlevania - Symphony of the Night Reborn (v0.2).tgc',
       downloadUrl: proto.downloadUrl,
       fallbackUrl: proto.fallbackUrl,
       repoUrl: proto.repoUrl,

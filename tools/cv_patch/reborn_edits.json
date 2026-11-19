@@ -322,11 +322,11 @@
     "desc": "29:8128 (Act 05 Jump Forward): boost arc from (+96,-80) to (+111,-98)"
   },
   {
-    "name": "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise from -48 to -81 px",
+    "name": "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise to -81 px and allow midair steering",
     "offset": "0x0520B3",
     "old": "00000201960e00fa0201962900fa0201962900fa0201962900fa0201962900fa0201962900fa0201962900fa0201962900fa02019629",
-    "new": "00f70201960e00f70201962900f70201962900f70201962900f70201962900f70201962900f70201962900f70201962900f702019629",
-    "desc": "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise from -48 to -81 px"
+    "new": "00f70201960e04f70201962904f70201962904f70201962904f70201962904f70201962904f70201962904f70201962904f702019629",
+    "desc": "29:80B3 (Act 07 Vertical/Super Jump): boost vertical rise to -81 px and allow midair steering"
   },
   {
     "name": "29:8088 (Act 06 Double Jump): remove t=2 pause and boost arc from (+24,-36) to (+42,-70)",
@@ -357,11 +357,18 @@
     "desc": "22:7D30 Expanded midair window for Leap Stone Double Jump"
   },
   {
-    "name": "29:8109 (Act 09 Fall Forward): improve horizontal momentum at end of jump",
+    "name": "29:80EA (Act 08 Jump Apex): allow horizontal steering (dx=+4) when Left/Right held",
+    "offset": "0x0520EA",
+    "old": "0000020295b50003020195be0003020195be0003020195c70003020195d0",
+    "new": "0000020295b50403020195be0403020195be0403020195c70403020195d0",
+    "desc": "29:80EA (Act 08 Jump Apex): allow horizontal steering (dx=+4) when Left/Right held"
+  },
+  {
+    "name": "29:8109 (Act 09 Fall Forward & shared Act 0A Fall Loop at 29:8121): maintain +5 px/step horizontal steering",
     "offset": "0x052109",
     "old": "04040201972504040201972504040201972e04040201972e0108020195ac",
-    "new": "05040201972505040201972505040201972e05040201972e0408020195ac",
-    "desc": "29:8109 (Act 09 Fall Forward): improve horizontal momentum at end of jump"
+    "new": "05040201972505040201972505040201972e05040201972e0508020195ac",
+    "desc": "29:8109 (Act 09 Fall Forward & shared Act 0A Fall Loop at 29:8121): maintain +5 px/step horizontal steering"
   },
   {
     "name": "36:9905 Boost Bat flight speed to (+4,+0)",
@@ -642,5 +649,257 @@
     "old": "54657274726120537069726974ff",
     "new": "54657472612053706972697420ff",
     "desc": "38:9BD1 Fix 'Tertra Spirit' -> 'Tetra Spirit '"
+  },
+  {
+    "name": "Intro crawl: 'come of for' -> 'come for'",
+    "offset": "0x0432C9",
+    "old": "636f6d65206f6620666f722074686520666f72636573206f66ff",
+    "new": "636f6d6520666f722074686520666f72636573206f66ffffffff",
+    "desc": "Intro crawl: 'come of for' -> 'come for'"
+  },
+  {
+    "name": "Death dialogue: 'to ourside.' -> 'to our side'",
+    "offset": "0x070382",
+    "old": "746f206f7572736964652eff",
+    "new": "746f206f75722073696465ff",
+    "desc": "Death dialogue: 'to ourside.' -> 'to our side'"
+  },
+  {
+    "name": "Maria dialogue: 'Talkative' -> 'talkative'",
+    "offset": "0x0704BD",
+    "old": "4e6f74207468652054616c6b6174697665207479706520492063616eff",
+    "new": "4e6f74207468652074616c6b6174697665207479706520492063616eff",
+    "desc": "Maria dialogue: 'Talkative' -> 'talkative'"
+  },
+  {
+    "name": "Librarian dialogue: 'OH' -> 'Oh'",
+    "offset": "0x070547",
+    "old": "4f48206974607320796f752c204d6173746572ff",
+    "new": "4f68206974607320796f752c204d6173746572ff",
+    "desc": "Librarian dialogue: 'OH' -> 'Oh'"
+  },
+  {
+    "name": "Alucard dialogue: 'It seem so.' -> 'It seems so'",
+    "offset": "0x070629",
+    "old": "4974207365656d20736f2eff",
+    "new": "4974207365656d7320736fff",
+    "desc": "Alucard dialogue: 'It seem so.' -> 'It seems so'"
+  },
+  {
+    "name": "Alucard dialogue: 'Castle' -> 'castle'",
+    "offset": "0x070692",
+    "old": "2e2e2e2e2e2e205468697320436173746c652069732061ff",
+    "new": "2e2e2e2e2e2e205468697320636173746c652069732061ff",
+    "desc": "Alucard dialogue: 'Castle' -> 'castle'"
+  },
+  {
+    "name": "Maria dialogue: 'Goodluck.' -> 'Good luck'",
+    "offset": "0x07071F",
+    "old": "476f6f646c75636b2eff",
+    "new": "476f6f64206c75636bff",
+    "desc": "Maria dialogue: 'Goodluck.' -> 'Good luck'"
+  },
+  {
+    "name": "Maria dialogue: add missing '?'",
+    "offset": "0x0707AE",
+    "old": "746865206e616d6520526963687465722042656c6d6f6e742eff",
+    "new": "746865206e616d6520526963687465722042656c6d6f6e743fff",
+    "desc": "Maria dialogue: add missing '?'"
+  },
+  {
+    "name": "Alucard dialogue: ' ,but' -> ', but'",
+    "offset": "0x0707E0",
+    "old": "4f6620636f75727365202c6275742e2e2eff",
+    "new": "4f6620636f757273652c206275742e2e2eff",
+    "desc": "Alucard dialogue: ' ,but' -> ', but'"
+  },
+  {
+    "name": "Maria dialogue: 'ago and I`m sure he`s. If' -> 'ago, I`m sure he`s... If'",
+    "offset": "0x070810",
+    "old": "61676f20616e642049606d207375726520686560732e204966ff",
+    "new": "61676f2c2049606d207375726520686560732e2e2e204966ffff",
+    "desc": "Maria dialogue: 'ago and I`m sure he`s. If' -> 'ago, I`m sure he`s... If'"
+  },
+  {
+    "name": "Alucard dialogue: ' ...But Why' -> '... But why'",
+    "offset": "0x07088F",
+    "old": "536f20697420697320796f75202e2e2e42757420576879206973ff",
+    "new": "536f20697420697320796f752e2e2e2042757420776879206973ff",
+    "desc": "Alucard dialogue: ' ...But Why' -> '... But why'"
+  },
+  {
+    "name": "Alucard dialogue: 'count' -> 'Count'",
+    "offset": "0x0708C1",
+    "old": "726573757272656374696f6e206f6620636f756e74ff",
+    "new": "726573757272656374696f6e206f6620436f756e74ff",
+    "desc": "Alucard dialogue: 'count' -> 'Count'"
+  },
+  {
+    "name": "Richter dialogue: 'But' -> 'but'",
+    "offset": "0x07096C",
+    "old": "596f75607665206465666561746564206d652c2042757420616c6cff",
+    "new": "596f75607665206465666561746564206d652c2062757420616c6cff",
+    "desc": "Richter dialogue: 'But' -> 'but'"
+  },
+  {
+    "name": "Richter dialogue: 'the same' -> 'The same'",
+    "offset": "0x070A10",
+    "old": "416c7563617264233f207468652073616d6520416c7563617264ff",
+    "new": "416c7563617264233f205468652073616d6520416c7563617264ff",
+    "desc": "Richter dialogue: 'the same' -> 'The same'"
+  },
+  {
+    "name": "Richter dialogue: 'i' -> 'I'",
+    "offset": "0x070ABB",
+    "old": "5965732c2069207468696e6b20736f2e2e2eff",
+    "new": "5965732c2049207468696e6b20736f2e2e2eff",
+    "desc": "Richter dialogue: 'i' -> 'I'"
+  },
+  {
+    "name": "Richter dialogue: '....,' -> '...'",
+    "offset": "0x070B01",
+    "old": "416c6c2072696768742e2e2e2e2c20476f6f64206c75636b2eff",
+    "new": "416c6c2072696768742e2e2e20476f6f64206c75636b2effffff",
+    "desc": "Richter dialogue: '....,' -> '...'"
+  },
+  {
+    "name": "Alucard dialogue: add missing '?'",
+    "offset": "0x070C27",
+    "old": "6c6f7264206f66207468697320636173746c652eff",
+    "new": "6c6f7264206f66207468697320636173746c653fff",
+    "desc": "Alucard dialogue: add missing '?'"
+  },
+  {
+    "name": "Shaft dialogue: 'But' -> 'but' after comma",
+    "offset": "0x070C84",
+    "old": "4275742069662074776f2076616d706972652068756e74657273ff",
+    "new": "6275742069662074776f2076616d706972652068756e74657273ff",
+    "desc": "Shaft dialogue: 'But' -> 'but' after comma"
+  },
+  {
+    "name": "Alucard dialogue: 'Could' -> 'could'",
+    "offset": "0x070CEE",
+    "old": "68756e746572732e204e6f6e65206f7468657220436f756c64ff",
+    "new": "68756e746572732e204e6f6e65206f7468657220636f756c64ff",
+    "desc": "Alucard dialogue: 'Could' -> 'could'"
+  },
+  {
+    "name": "Shaft dialogue: 'i' -> 'I'",
+    "offset": "0x070D16",
+    "old": "45786163746c792e20546861742069732077687920692072656d6f766564ff",
+    "new": "45786163746c792e20546861742069732077687920492072656d6f766564ff",
+    "desc": "Shaft dialogue: 'i' -> 'I'"
+  },
+  {
+    "name": "Shaft dialogue: 'We `ll' -> 'We`ll'",
+    "offset": "0x070D8C",
+    "old": "48617320697420696e646565643f20576520606c6c20736565ff",
+    "new": "48617320697420696e646565643f205765606c6c20736565ffff",
+    "desc": "Shaft dialogue: 'We `ll' -> 'We`ll'"
+  },
+  {
+    "name": "Shaft dialogue: 'Achieved' -> 'achieved'",
+    "offset": "0x070E61",
+    "old": "41636869657665642e2e2e20436f756e742044726163756c61206973ff",
+    "new": "61636869657665642e2e2e20436f756e742044726163756c61206973ff",
+    "desc": "Shaft dialogue: 'Achieved' -> 'achieved'"
+  },
+  {
+    "name": "Alucard dialogue: 'But' -> 'but' after comma",
+    "offset": "0x07102E",
+    "old": "427574206e65697468657220646f2049207365656bff",
+    "new": "627574206e65697468657220646f2049207365656bff",
+    "desc": "Alucard dialogue: 'But' -> 'but' after comma"
+  },
+  {
+    "name": "Dracula dialogue: '. .......' -> '........'",
+    "offset": "0x071202",
+    "old": "492062656c696576652e202e2e2e2e2e2e2eff",
+    "new": "492062656c696576652e2e2e2e2e2e2e2effff",
+    "desc": "Dracula dialogue: '. .......' -> '........'"
+  },
+  {
+    "name": "Alucard dialogue: '. `She' -> '.` She'",
+    "offset": "0x0712AC",
+    "old": "616c726561647920612068617264206c6f742e2060536865ff",
+    "new": "616c726561647920612068617264206c6f742e6020536865ff",
+    "desc": "Alucard dialogue: '. `She' -> '.` She'"
+  },
+  {
+    "name": "Dracula dialogue: 'farewell' -> 'Farewell'",
+    "offset": "0x07130B",
+    "old": "4c6973612c20666f7267697665206d652e206661726577656c6cff",
+    "new": "4c6973612c20666f7267697665206d652e204661726577656c6cff",
+    "desc": "Dracula dialogue: 'farewell' -> 'Farewell'"
+  },
+  {
+    "name": "Alucard dialogue: 'so' -> 'So'",
+    "offset": "0x07136C",
+    "old": "736f20796f75206d6164652069742eff",
+    "new": "536f20796f75206d6164652069742eff",
+    "desc": "Alucard dialogue: 'so' -> 'So'"
+  },
+  {
+    "name": "Maria dialogue: 'I`m glad your all' -> 'Glad you`re all'",
+    "offset": "0x07137E",
+    "old": "416c7563617264232049606d20676c616420796f757220616c6cff",
+    "new": "416c75636172642320476c616420796f7560726520616c6cffffff",
+    "desc": "Maria dialogue: 'I`m glad your all' -> 'Glad you`re all'"
+  },
+  {
+    "name": "Maria dialogue: 'it' -> 'It'",
+    "offset": "0x07141E",
+    "old": "6974206d7573742068617665206265656e207061696e66756c20746fff",
+    "new": "4974206d7573742068617665206265656e207061696e66756c20746fff",
+    "desc": "Maria dialogue: 'it' -> 'It'"
+  },
+  {
+    "name": "Alucard dialogue: 'thriumph' -> 'triumph'",
+    "offset": "0x071493",
+    "old": "74687269756d706820697320676f6f64206d656e20746fff",
+    "new": "747269756d706820697320676f6f64206d656e20746fffff",
+    "desc": "Alucard dialogue: 'thriumph' -> 'triumph'"
+  },
+  {
+    "name": "Maria dialogue: 'It`s' -> 'it`s'",
+    "offset": "0x0715D2",
+    "old": "4e6f2c204974607320626573742074686973207761792c2049ff",
+    "new": "4e6f2c206974607320626573742074686973207761792c2049ff",
+    "desc": "Maria dialogue: 'It`s' -> 'it`s'"
+  },
+  {
+    "name": "Richter dialogue: ' ...everyone`s' -> '... everyone`s'",
+    "offset": "0x071653",
+    "old": "4c6574607320676f202e2e2e65766572796f6e656073ff",
+    "new": "4c6574607320676f2e2e2e2065766572796f6e656073ff",
+    "desc": "Richter dialogue: ' ...everyone`s' -> '... everyone`s'"
+  },
+  {
+    "name": "20:5FF3 Store 'AJ Ryan' credit string in Bank 0x20 padding",
+    "offset": "0x041FF3",
+    "old": "ffffffffffffffff",
+    "new": "414a205279616eff",
+    "desc": "20:5FF3 Store 'AJ Ryan' credit string in Bank 0x20 padding"
+  },
+  {
+    "name": "20:4B94 Add 'AJ Ryan' to trademark screen + store 'Reborn' string at 20:4BC0",
+    "offset": "0x040B94",
+    "old": "7c4c9b581008583209c1304942687c4cbf582308584609c1304942687c4cda581108585a09c1304942687c4cff583108586e09c130494268",
+    "new": "784bab3a6050ff04d62e3a481e00c1304942681f00d8ec4c9b10324cbf23464cda115a4cff316e5ff35082ff5265626f726effffffffffff",
+    "desc": "20:4B94 Add 'AJ Ryan' to trademark screen + store 'Reborn' string at 20:4BC0"
+  },
+  {
+    "name": "21:6A80 Hook title screen renderer for 'Reborn' subtitle",
+    "offset": "0x042A80",
+    "old": "bbc30002",
+    "new": "987fc0ff",
+    "desc": "21:6A80 Hook title screen renderer for 'Reborn' subtitle"
+  },
+  {
+    "name": "21:7FC0 Draw shadowed 'Reborn' on title screen (RC3 <= 1)",
+    "offset": "0x043FC0",
+    "old": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "new": "bbc30002496a845001c3db1c7c4bc0585508587109c1304942687c4bc0585408587009c100494268f8",
+    "desc": "21:7FC0 Draw shadowed 'Reborn' on title screen (RC3 <= 1)"
   }
 ]

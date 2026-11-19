@@ -1705,7 +1705,7 @@ export class GameComSystem {
         const patchedRom = applyIpsPatch(cart.romData, patchBytes);
         cart = loadCartridgeFromBuffer(
           patchedRom,
-          'Castlevania - Symphony of the Night Reborn (v0.1).tgc',
+          'Castlevania - Symphony of the Night Reborn (v0.2).tgc',
           entry.downloadUrl
         );
       }

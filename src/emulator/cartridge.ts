@@ -103,14 +103,17 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
   castlevaniareborn: {
     id: 'castlevaniareborn',
     title: 'Castlevania - Symphony of the Night Reborn',
-    publisher: 'Konami / Tiger Electronics · Reborn v0.1',
+    publisher: 'Konami / Tiger Electronics · Reborn v0.2',
     year: 1998,
     genre: 'Action RPG / Metroidvania',
     description:
-      "Restored edition of the unreleased 1998 Tiger Game.Com Castlevania: Symphony of the Night prototype (v0.1). Features dedicated CV REBORN ($B745/$B746) battery-backed NVRAM saving with pre-filled password reload, Pause inventory, responsive jump/double-jump & Bat/Mist controls, cardinal D-pad spells from Level 1, Long Library item/relic fixes, and Richter/Dracula boss fixes.",
+      "Restored edition of the unreleased 1998 Tiger Game.Com Castlevania: Symphony of the Night prototype (v0.2). Features dedicated CV REBORN ($B745/$B746) battery-backed NVRAM saving with pre-filled password reload, Pause inventory, responsive jump/double-jump & falling air control, Bat/Mist controls, cardinal D-pad spells from Level 1, Long Library item/relic fixes, Richter/Dracula boss fixes, and 32 dialogue/crawl typo fixes.",
     // $B745 = "CV REBORN" NVRAM slot 0, $B746 = binary save slot 1 (separate from Castlevania $0448/$0449)
     gameIds: [0xb745],
     romMd5s: [
+      'd6e82293ff2f27ffad84275ae97a4801',
+      '2b21527eccbcab8086a61f9eea8b9150',
+      'e547a3867c3134337f3b77ff47a3e44d',
       '47478855e34268b2247ec96885851dd1',
       '2808451316064cffa9b26a563351b965',
       '8840cacc78cf7c7da8d053e3e6cbfcc1',
@@ -122,12 +125,12 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     coverAccent: '#f43f5e',
     scoreUnit: 'Points / Gold',
     labelImage: './assets/labels/castlevania-reborn.jpg',
-    partNumber: 'Reborn v0.1',
+    partNumber: 'Reborn v0.2',
     diskmanUrl: 'https://www.diskman.com/presents/gamecom/unreleased.htm',
     diskmanHighlights: [
       'Restored battery-backed NVRAM saving under dedicated CV REBORN ($B745/$B746) slots',
       'Pre-filled Password screen & Save Room persistence without corrupting the prototype NVRAM',
-      '100% SM8521 hardware-compatible v0.1 patch: Pause inventory, Bat/Mist, spells, physics & bosses'
+      '100% SM8521 hardware-compatible v0.2 patch: Pause inventory, Bat/Mist, spells, air control, bosses & dialogue fixes'
     ]
   },
   solitaire: {
