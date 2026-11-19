@@ -107,10 +107,11 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Action RPG / Metroidvania',
     description:
-      "Restored edition of the unreleased 1998 Tiger Game.Com Castlevania: Symphony of the Night prototype (v0.1). Features dedicated CV REBORN ($B745/$B746) battery-backed NVRAM saving with pre-filled password reload, intro crawl skip, Pause inventory, responsive jump/double-jump & Bat/Mist controls, cardinal D-pad spells from Level 1, Long Library item/relic fixes, and Richter/Dracula boss fixes.",
+      "Restored edition of the unreleased 1998 Tiger Game.Com Castlevania: Symphony of the Night prototype (v0.1). Features dedicated CV REBORN ($B745/$B746) battery-backed NVRAM saving with pre-filled password reload, Pause inventory, responsive jump/double-jump & Bat/Mist controls, cardinal D-pad spells from Level 1, Long Library item/relic fixes, and Richter/Dracula boss fixes.",
     // $B745 = "CV REBORN" NVRAM slot 0, $B746 = binary save slot 1 (separate from Castlevania $0448/$0449)
     gameIds: [0xb745],
     romMd5s: [
+      '47478855e34268b2247ec96885851dd1',
       '2808451316064cffa9b26a563351b965',
       '8840cacc78cf7c7da8d053e3e6cbfcc1',
       '01d2536cae5df6427fcc3c73d009acdd',
@@ -126,7 +127,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     diskmanHighlights: [
       'Restored battery-backed NVRAM saving under dedicated CV REBORN ($B745/$B746) slots',
       'Pre-filled Password screen & Save Room persistence without corrupting the prototype NVRAM',
-      '100% SM8521 hardware-compatible v0.1 patch: Pause inventory, intro crawl skip, Bat/Mist, spells, physics & bosses'
+      '100% SM8521 hardware-compatible v0.1 patch: Pause inventory, Bat/Mist, spells, physics & bosses'
     ]
   },
   solitaire: {

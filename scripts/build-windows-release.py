@@ -1382,108 +1382,34 @@ NVRAM & HIGH SCORE VAULT LOCATION:
             zf.write(full_p, f'{app_root}/Resources/app/{rel_p}')
 
 
-def build_valid_dex_bytes() -> bytes:
-    """Builds a minimal byte-valid Dalvik Executable (classes.dex, dex\\n035\\0) with valid SHA-1 & Adler32."""
-    dex = bytearray(112)
-    dex[0:8] = b'dex\n035\x00'
-    struct.pack_into('<I', dex, 32, len(dex))       # file_size = 112
-    struct.pack_into('<I', dex, 36, 112)            # header_size = 112
-    struct.pack_into('<I', dex, 40, 0x12345678)     # endian_tag = ENDIAN_CONSTANT
-    sha1_digest = hashlib.sha1(dex[32:]).digest()
-    dex[12:32] = sha1_digest
-    adler = zlib.adler32(dex[12:]) & 0xFFFFFFFF
-    struct.pack_into('<I', dex, 8, adler)
-    return bytes(dex)
-
-
 def build_android_apk(apk_path: str, icon_192_png: bytes, version: str):
     """
-    Builds a self-contained Android APK package (CubSpieleCom-<version>-android.apk)
-    containing AndroidManifest.xml, classes.dex, resources.arsc, launcher icons,
-    META-INF JAR signature manifest, and the full offline touch-enabled emulator in assets/public/.
+    Builds a self-contained, zipaligned, v1+v2 signed Android APK package
+    (CubSpieleCom-<version>-android.apk) containing binary AXML AndroidManifest.xml,
+    compiled resources.arsc, Dalvik classes.dex (MainActivity WebView host),
+    launcher icon, META-INF JAR signature, APK Sig Block 42, and assets/public/.
     """
+    from android_apk_builder import build_signed_android_apk
+
     ver_clean = version.lstrip('v')
     ver_code = compute_android_version_code(ver_clean)
     offline_html = create_offline_desktop_index_html(ver_clean, 'android', 'arm64-v8a')
-    dex_bytes = build_valid_dex_bytes()
 
-    android_manifest = f"""<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.cubspiele.emulator"
-    android:versionCode="{ver_code}"
-    android:versionName="{ver_clean}"
-    android:installLocation="auto">
-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <application
-        android:label="Cub Spiele.Com"
-        android:icon="@mipmap/ic_launcher"
-        android:hardwareAccelerated="true"
-        android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
-        <activity
-            android:name="com.cubspiele.emulator.MainActivity"
-            android:exported="true"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-            android:launchMode="singleTask">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
-""".encode('utf-8')
+    cap_cfg_path = os.path.join(ROOT_DIR, 'capacitor.config.json')
+    cap_cfg_bytes = None
+    if os.path.exists(cap_cfg_path):
+        with open(cap_cfg_path, 'rb') as cf:
+            cap_cfg_bytes = cf.read()
 
-    # Minimal valid RES_TABLE_TYPE (0x0002) resources.arsc header
-    resources_arsc = struct.pack('<HHII', 0x0002, 12, 12, 0)
-
-    manifest_entries = []
-
-    def add_apk_entry(zf: zipfile.ZipFile, arcname: str, data: bytes, compress: bool = True):
-        zi = zipfile.ZipInfo(arcname)
-        zi.date_time = (2026, 11, 14, 19, 45, 0)
-        zi.compress_type = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
-        zf.writestr(zi, data)
-        b64_sha = base64.b64encode(hashlib.sha256(data).digest()).decode('ascii')
-        manifest_entries.append((arcname, b64_sha))
-
-    with zipfile.ZipFile(apk_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        add_apk_entry(zf, 'AndroidManifest.xml', android_manifest, compress=True)
-        add_apk_entry(zf, 'resources.arsc', resources_arsc, compress=False)
-        add_apk_entry(zf, 'classes.dex', dex_bytes, compress=True)
-        add_apk_entry(zf, 'res/mipmap-xxxhdpi-v4/ic_launcher.png', icon_192_png, compress=False)
-        add_apk_entry(zf, 'assets/public/index.html', offline_html.encode('utf-8'), compress=True)
-
-        cap_cfg_path = os.path.join(ROOT_DIR, 'capacitor.config.json')
-        if os.path.exists(cap_cfg_path):
-            with open(cap_cfg_path, 'rb') as cf:
-                add_apk_entry(zf, 'assets/capacitor.config.json', cf.read(), compress=True)
-
-        for full_p, rel_p in iter_dist_app_files():
-            with open(full_p, 'rb') as df:
-                add_apk_entry(zf, f'assets/public/{rel_p}', df.read(), compress=True)
-
-        mf_lines = [
-            'Manifest-Version: 1.0',
-            f'Created-By: Cub Spiele.Com Android Release Builder {ver_clean}',
-            ''
-        ]
-        for name, sha in manifest_entries:
-            mf_lines.append(f'Name: {name}')
-            mf_lines.append(f'SHA-256-Digest: {sha}')
-            mf_lines.append('')
-        mf_bytes = '\r\n'.join(mf_lines).encode('utf-8')
-        zf.writestr('META-INF/MANIFEST.MF', mf_bytes)
-
-        sf_digest = base64.b64encode(hashlib.sha256(mf_bytes).digest()).decode('ascii')
-        sf_bytes = (
-            'Signature-Version: 1.0\r\n'
-            'Created-By: 1.0 (Cub Spiele.Com)\r\n'
-            f'SHA-256-Digest-Manifest: {sf_digest}\r\n\r\n'
-        ).encode('utf-8')
-        zf.writestr('META-INF/CERT.SF', sf_bytes)
+    build_signed_android_apk(
+        apk_path=apk_path,
+        icon_192_png=icon_192_png,
+        version_code=ver_code,
+        version_name=ver_clean,
+        offline_html=offline_html,
+        capacitor_cfg_bytes=cap_cfg_bytes,
+        dist_files=list(iter_dist_app_files()),
+    )
 
 
 def main():

@@ -105,13 +105,6 @@
     "desc": "21:7CDA slot 0 ID $B745"
   },
   {
-    "name": "20:42FC A during the intro crawl starts the game",
-    "offset": "0x0402FC",
-    "old": "3880020b500500d6055800de",
-    "new": "b0d3500100d3325818d3d802",
-    "desc": "20:42FC A during the intro crawl starts the game"
-  },
-  {
     "name": "20:4391 Load saved password from slot 0x0449+0x2D and pre-fill $020B..$0212",
     "offset": "0x040391",
     "old": "78ffff3b80020b3b80020d3b80020f3b800211c0233980020b7804480002495470690000113808502a01d608c18039880341d817780449c2014954706900002d7a0341c5083860396275fa",
@@ -294,18 +287,18 @@
     "desc": "22:7DD2 Mist transform Carry check and 80-frame duration helper"
   },
   {
-    "name": "22:7913 Reduce Mist MP drain to 1 MP every 8th frame",
+    "name": "22:7913 Reduce Mist MP drain to 1 MP every 6th frame",
     "offset": "0x045913",
     "old": "81d00d38880274520201",
-    "new": "85d00d38880274520101",
-    "desc": "22:7913 Reduce Mist MP drain to 1 MP every 8th frame"
+    "new": "84d00d38880274520101",
+    "desc": "22:7913 Reduce Mist MP drain to 1 MP every 6th frame"
   },
   {
-    "name": "22:793C Reduce Bat MP drain to 1 MP every 8th frame",
+    "name": "22:793C Reduce Bat MP drain to 1 MP every 6th frame",
     "offset": "0x04593C",
     "old": "81d00d38880274520201",
-    "new": "85d00d38880274520101",
-    "desc": "22:793C Reduce Bat MP drain to 1 MP every 8th frame"
+    "new": "84d00d38880274520101",
+    "desc": "22:793C Reduce Bat MP drain to 1 MP every 6th frame"
   },
   {
     "name": "29:8007 (Act 02 Walk Start): remove 4-frame startup freeze and set dx=+5",

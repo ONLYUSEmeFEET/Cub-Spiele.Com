@@ -14,5 +14,7 @@ desktop.ini
 .env*
 !.env.example
 tools/cv_patch/work/
+__pycache__/
+*.pyc
 *.tgc
 *.cgstate

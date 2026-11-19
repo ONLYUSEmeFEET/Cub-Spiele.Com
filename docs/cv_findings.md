@@ -149,7 +149,7 @@
       4. **Press `A` or `B` while in Bat form** (with `0x2F` Fire of Bat): shoots **Bat Fireball** (`Proj 0x06`, cost 4 MP)!
   - **Bat & Mist MP Drain (`22:78ED–$7964`):**
     - Currently drains `2 MP` (`SUB R1,#02h`) every 3rd frame (`RD0.#1`), which is ~40 MP/sec (drains full starting MP in 1.2 seconds!).
-    - Fix: Change `81 D0` (`BBC RD0,#1`, every 3rd frame) to `85 D0` (`BBC RD0,#5`, every 8th frame) and `52 02 01` (`SUB R1,#02h`) to `52 01 01` (`SUB R1,#01h`) at both `22:7913` (Mist) and `22:793C` (Bat), reducing MP drain by **5.3x** (~3.75 MP/sec), and increase un-upgraded Mist duration `$02FD` at `22:661D` from `0x23` (35 frames) to `0x50` (80 frames).
+    - Fix: Change `81 D0` (`BBC RD0,#1`, every 3rd frame) to `84 D0` (`BBC RD0,#4`, every 6th frame) and `52 02 01` (`SUB R1,#02h`) to `52 01 01` (`SUB R1,#01h`) at both `22:7913` (Mist) and `22:793C` (Bat), providing balanced, sustainable MP consumption (~10 MP/sec at 60Hz), and increase un-upgraded Mist duration `$02FD` at `22:661D` from `0x23` (35 frames) to `0x50` (80 frames).
 
 ### Bug 3: Broken Password System (`Bank 0x20: $43A4–$4694, $4AC8` & `Bank 0x21: $7BC7, $7BF3`)
 - **Root Cause Verified:**

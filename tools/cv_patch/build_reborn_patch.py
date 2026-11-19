@@ -96,19 +96,6 @@ def make_edits(orig: bytes) -> list[dict]:
     add(0x043C02, [0xB7, 0x45], "21:7C02 load: slot 0 ID $B745")
     add(0x043CDA, [0xB7, 0x45], "21:7CDA slot 0 ID $B745")
 
-    # Fix 1D: Press A to skip the intro crawl pages ("It was Richter Belmont, the legendary vampire
-    # hunter..."). The dialogue before it is untouched. In the crawl state (RD2 == 03h) the original
-    # code only accepted A once the last page was reached ($020B == 5). Now an A press starts the game
-    # once the crawl has begun (RD3 > 1; RD3 == 1 on the first crawl frame). RD3 is set to 18h
-    # (crawl complete) so the normal 20:4345 cleanup (CALL 41ABh when RD3 >= 18h) removes the crawl.
-    add(0x0402FC, [
-        0xB0, 0xD3,             # 42FC: MOV R0,RD3
-        0x50, 0x01, 0x00,       # 42FE: CMP R0,#01h
-        0xD3, 0x32,             # 4301: BR ULE,4335h (RD3 <= 1: ignore this A press)
-        0x58, 0x18, 0xD3,       # 4303: MOV RD3,#18h
-        0xD8, 0x02,             # 4306: BR T,430Ah   (start game)
-    ], "20:42FC A during the intro crawl starts the game")
-
     # Fix 1B: On Password Screen init (20:4391), read saved password from slot_0449 + 0x2D
     # (BIOS CALL 5470h already skips the 3-byte header) into $0341..$0348 AND pre-fill
     # $020B..$0212 with the saved password so a single A press loads the saved game!
@@ -316,18 +303,18 @@ def make_edits(orig: bytes) -> list[dict]:
     ], "22:7DD2 Mist transform Carry check and 80-frame duration helper")
 
     # Fix 3B: Reduce Bat & Mist MP drain from 2 MP every 3rd frame (~40 MP/s)
-    # to 1 MP every 8th frame (RD0.#5, ~7.5 MP/s) so Bat can reach high rooms at low level.
+    # to 1 MP every 6th frame (RD0.#4, ~10 MP/s) so Bat can navigate rooms while maintaining resource tension.
     add(0x045913, [
-        0x85, 0xD0, 0x0D,       # 7913: BBC RD0,#5,7923h (every 8th frame instead of 3rd)
+        0x84, 0xD0, 0x0D,       # 7913: BBC RD0,#4,7923h (every 6th frame instead of 8th)
         0x38, 0x88, 0x02, 0x74, # 7916: MOV R1,@0274h
         0x52, 0x01, 0x01,       # 791A: SUB R1,#01h (1 MP instead of 2)
-    ], "22:7913 Reduce Mist MP drain to 1 MP every 8th frame")
+    ], "22:7913 Reduce Mist MP drain to 1 MP every 6th frame")
 
     add(0x04593C, [
-        0x85, 0xD0, 0x0D,       # 793C: BBC RD0,#5,794Ch (every 8th frame instead of 3rd)
+        0x84, 0xD0, 0x0D,       # 793C: BBC RD0,#4,794Ch (every 6th frame instead of 8th)
         0x38, 0x88, 0x02, 0x74, # 793F: MOV R1,@0274h
         0x52, 0x01, 0x01,       # 7943: SUB R1,#01h (1 MP instead of 2)
-    ], "22:793C Reduce Bat MP drain to 1 MP every 8th frame")
+    ], "22:793C Reduce Bat MP drain to 1 MP every 6th frame")
 
     # =========================================================================
     # 4. ALUCARD MOVEMENT, JUMP, DOUBLE JUMP & BACKDASH PHYSICS (Bank 0x22 & 0x29)
@@ -596,12 +583,9 @@ def main():
     # Apply edits to build local patched ROM
     subprocess.run([sys.executable, cvpatch, "edits", ORIG_ROM, EDITS_JSON, PATCHED_ROM], check=True)
 
-    # Build versioned (v0.1) and canonical .bps / .ips patches and self-verify
+    # Build versioned (v0.1) .bps / .ips patches and self-verify
     versioned_base = os.path.join(PATCH_DIR, f"Castlevania - Symphony of the Night Reborn-v{REBORN_VERSION}")
-    canonical_base = os.path.join(PATCH_DIR, "Castlevania - Symphony of the Night Reborn")
     subprocess.run([sys.executable, cvpatch, "build", ORIG_ROM, PATCHED_ROM, versioned_base], check=True)
-    for ext in (".bps", ".ips"):
-        shutil.copy2(versioned_base + ext, canonical_base + ext)
 
     # Stage canonical .ips into public/patches/ for runtime auto-patching in Cub Spiele.Com
     os.makedirs(PUBLIC_PATCH_DIR, exist_ok=True)

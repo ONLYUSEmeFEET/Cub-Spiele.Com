@@ -17,9 +17,8 @@ In the original prototype, battery-backed NVRAM saving was incomplete and could 
 
 ## Changelog (v0.1)
 
-### Controls, Menus & Intro
+### Controls & Menus
 - **Inventory & Map Split**: Pressing **Pause** now opens the **Inventory** menu (`Equip / Spells / Relics / Familiars`), while **D + Pause** opens the **Map**.
-- **Intro Crawl Skip**: Pressing **A** during the intro text crawl jumps straight into gameplay (while keeping the opening Richter/Dracula dialogue intact).
 
 ### Room Item & Relic Spawning
 - **Smart Object Slot Allocator**: Room object loading reclaims collected/despawned (`0xFF`) slots before overwriting active slots, preventing item/heart collection hangs and missing pickups.
@@ -27,7 +26,7 @@ In the original prototype, battery-backed NVRAM saving was incomplete and could 
 
 ### Transformations (Bat & Mist)
 - **Streamlined Controls**: Press **D** to transform into **Bat** (automatically falling back to **Form of Mist** if you only have Mist). Press **Down + D** or double-tap **D** to trigger **Form of Mist**.
-- **Reduced MP Drain & Faster Flight**: Bat and Mist MP drain reduced to **1 MP every 8th frame**, Mist base duration extended to **80 frames**, and Bat/Mist movement speeds boosted.
+- **Balanced MP Drain & Faster Flight**: Bat and Mist MP drain balanced to **1 MP every 6th frame**, Mist base duration extended to **80 frames**, and Bat/Mist movement speeds boosted.
 
 ### Movement & Physics
 - **Walk Responsiveness**: Removed the 4-frame walk startup freeze and increased walk speed.
