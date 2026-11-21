@@ -1684,6 +1684,63 @@ export class GameComSystem {
     });
   }
 
+  private async fetchIpsPatchBytes(relPath: string, label: string): Promise<Uint8Array> {
+    const isValidIps = (bytes: Uint8Array) =>
+      bytes.length >= 8 &&
+      bytes[0] === 0x50 && // 'P'
+      bytes[1] === 0x41 && // 'A'
+      bytes[2] === 0x54 && // 'T'
+      bytes[3] === 0x43 && // 'C'
+      bytes[4] === 0x48;   // 'H'
+
+    const candidates = [relPath];
+    const encoded = encodeURI(relPath);
+    if (encoded !== relPath) candidates.push(encoded);
+
+    let lastStatus: string | number = 'network error';
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          if (isValidIps(bytes)) return bytes;
+          lastStatus = 'invalid IPS header';
+        } else {
+          lastStatus = res.status;
+        }
+      } catch (err) {
+        lastStatus = (err as Error)?.message || 'fetch failed';
+      }
+    }
+
+    // Fallback to XMLHttpRequest for file:// origins (e.g. packaged Electron BrowserWindow)
+    if (typeof XMLHttpRequest !== 'undefined') {
+      for (const url of candidates) {
+        try {
+          const xhrBytes = await new Promise<Uint8Array>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = () => {
+              if (xhr.response && (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300))) {
+                resolve(new Uint8Array(xhr.response));
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('XHR error'));
+            xhr.send();
+          });
+          if (isValidIps(xhrBytes)) return xhrBytes;
+        } catch (err) {
+          lastStatus = (err as Error)?.message || lastStatus;
+        }
+      }
+    }
+
+    throw new Error(`Failed to load ${label} auto-patch (${lastStatus}).`);
+  }
+
   public async loadOnlineRomEntry(
     entry: OnlineRomEntry,
     slot: 1 | 2 = 1
@@ -1699,24 +1756,29 @@ export class GameComSystem {
         (entry.autoPatchReborn && entry.gameId === 'sonicjamreborn') ||
         entry.gameId === 'sonicjamreborn';
 
-      if (isCastlevaniaReborn && cart.id !== 'castlevaniareborn' && cart.romData) {
-        const patchRes = await fetch('./patches/Castlevania - Symphony of the Night Reborn.ips');
-        if (!patchRes.ok) {
-          throw new Error(`Failed to load Reborn auto-patch (${patchRes.status}).`);
-        }
-        const patchBytes = new Uint8Array(await patchRes.arrayBuffer());
+      const alreadyCvReborn =
+        cart.headerGameId === 0xb745 ||
+        Boolean(cart.headerTitle && cart.headerTitle.toUpperCase().includes('CV REBORN'));
+      const alreadySonicReborn =
+        cart.headerGameId === 0xb747 ||
+        Boolean(cart.headerTitle && cart.headerTitle.toUpperCase().includes('SONIC REB'));
+
+      if (isCastlevaniaReborn && !alreadyCvReborn && cart.romData) {
+        const patchBytes = await this.fetchIpsPatchBytes(
+          './patches/Castlevania - Symphony of the Night Reborn.ips',
+          'Reborn'
+        );
         const patchedRom = applyIpsPatch(cart.romData, patchBytes);
         cart = loadCartridgeFromBuffer(
           patchedRom,
           'Castlevania - Symphony of the Night Reborn (v0.2).tgc',
           entry.downloadUrl
         );
-      } else if (isSonicReborn && cart.id !== 'sonicjamreborn' && cart.romData) {
-        const patchRes = await fetch('./patches/Sonic Jam Reborn.ips');
-        if (!patchRes.ok) {
-          throw new Error(`Failed to load Sonic Jam Reborn auto-patch (${patchRes.status}).`);
-        }
-        const patchBytes = new Uint8Array(await patchRes.arrayBuffer());
+      } else if (isSonicReborn && !alreadySonicReborn && cart.romData) {
+        const patchBytes = await this.fetchIpsPatchBytes(
+          './patches/Sonic Jam Reborn.ips',
+          'Sonic Jam Reborn'
+        );
         const patchedRom = applyIpsPatch(cart.romData, patchBytes);
         cart = loadCartridgeFromBuffer(
           patchedRom,

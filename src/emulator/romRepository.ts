@@ -415,7 +415,11 @@ export function loadPersistedRepositoryState(): PersistedRepositoryState {
           diskmanHighlights: known.diskmanHighlights,
           linkPlaySupport: known.linkPlaySupport,
           coverColor: known.coverColor,
-          coverAccent: known.coverAccent
+          coverAccent: known.coverAccent,
+          autoPatchReborn:
+            e.gameId === 'castlevaniareborn' || e.gameId === 'sonicjamreborn'
+              ? true
+              : e.autoPatchReborn
         };
       });
     return {

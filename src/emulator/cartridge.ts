@@ -768,10 +768,10 @@ export function resolveKnownGameFromFilename(rawName: string): KnownGame | null 
   if (upper.includes('SCRABBLE')) {
     return KNOWN_GAMECOM_GAMES.scrabble;
   }
-  if (upper.includes('SONIC JAM') && upper.includes('REBORN')) {
+  if ((upper.includes('SONIC JAM') || compact.includes('SONICJAM')) && upper.includes('REBORN')) {
     return KNOWN_GAMECOM_GAMES.sonicjamreborn;
   }
-  if (upper.includes('SONIC JAM')) {
+  if (upper.includes('SONIC JAM') || compact.includes('SONICJAM')) {
     return KNOWN_GAMECOM_GAMES.sonicjam;
   }
   if (upper.includes('TIGER CASINO') || upper.includes('CASINO')) {

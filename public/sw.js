@@ -5,6 +5,8 @@ const CORE_ASSETS = [
   './manifest.webmanifest',
   './bios/internal.bin',
   './bios/external.bin',
+  './patches/Castlevania - Symphony of the Night Reborn.ips',
+  './patches/Sonic Jam Reborn.ips',
   './assets/icon.ico',
   './assets/icon-192.png',
   './assets/icon-512.png'

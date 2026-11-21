@@ -1038,12 +1038,21 @@ def create_offline_desktop_index_html(version: str = '0.0.8', platform: str = 'w
         html = f.read()
 
     embedded_files = {}
-    for rel_path in [
+    embed_rel_paths = [
         'bios/internal.bin',
         'bios/external.bin',
         'roms/compete_test.bin',
         'patches/Castlevania - Symphony of the Night Reborn.ips',
-    ]:
+        'patches/Sonic Jam Reborn.ips',
+    ]
+    patches_dir = os.path.join(PUBLIC_DIR, 'patches')
+    if os.path.isdir(patches_dir):
+        for fname in sorted(os.listdir(patches_dir)):
+            if fname.lower().endswith(('.ips', '.bps')):
+                rel_p = f'patches/{fname}'
+                if rel_p not in embed_rel_paths:
+                    embed_rel_paths.append(rel_p)
+    for rel_path in embed_rel_paths:
         full_p = os.path.join(PUBLIC_DIR, rel_path)
         if os.path.exists(full_p):
             with open(full_p, 'rb') as bf:
@@ -1095,8 +1104,16 @@ window.gamecomDesktop = window.gamecomDesktop || {{
       if (res && res.ok) return res;
     }} catch (e) {{}}
     const urlStr = typeof input === 'string' ? input : (input && input.url) || '';
+    let decodedPath = urlStr.split('?')[0].split('#')[0];
+    try {{ decodedPath = decodeURIComponent(decodedPath); }} catch (e) {{}}
     for (const key of Object.keys(EMBEDDED_B64)) {{
-      if (urlStr === key || urlStr.endsWith(key.replace(/^\\.\\//, '/'))) {{
+      const suffix = key.replace(/^\\.\\//, '/');
+      if (
+        urlStr === key ||
+        decodedPath === key ||
+        urlStr.endsWith(suffix) ||
+        decodedPath.endsWith(suffix)
+      ) {{
         const binStr = atob(EMBEDDED_B64[key]);
         const bytes = new Uint8Array(binStr.length);
         for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
@@ -1107,7 +1124,13 @@ window.gamecomDesktop = window.gamecomDesktop || {{
       const xhr = new XMLHttpRequest();
       xhr.open('GET', urlStr, true);
       xhr.responseType = 'arraybuffer';
-      xhr.onload = () => resolve(new Response(xhr.response, {{ status: xhr.status || 200 }}));
+      xhr.onload = () => {{
+        if (!xhr.response || (xhr.status >= 400)) {{
+          reject(new TypeError('Failed to fetch (' + xhr.status + '): ' + urlStr));
+          return;
+        }}
+        resolve(new Response(xhr.response, {{ status: xhr.status || 200 }}));
+      }};
       xhr.onerror = () => reject(new TypeError('Failed to fetch: ' + urlStr));
       xhr.send();
     }});
