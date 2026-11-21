@@ -14,7 +14,7 @@ import struct
 import zipfile
 import zlib
 
-VERSION = "0.1"
+VERSION = "0.2"
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ORIG_ZIP = os.path.join(ROOT, "roms", "NOINTRO Game.com", "Sonic Jam (USA).zip")
 PATCHED_ROM = os.path.join(ROOT, "tools", "sonic_patch", "work", "Sonic Jam Reborn.tgc")
@@ -135,10 +135,15 @@ def apply_edits(orig: bytes) -> bytearray:
         "98613b"
         "00e2"
         "5802e4"
-        "b0e1"
-        "558000"
-        "561600"
-        "b8e1"
+        "8aea08"
+        "8bea0d"
+        "8aec02"
+        "d808"
+        "aaec"
+        "5896e1"
+        "98613b"
+        "a2ec"
+        "5816e1"
         "98613b"
     )
     assert all(b in (0x00, 0xFF) for b in rom[0x41F7D : 0x41F7D + len(glide_code)])
@@ -233,44 +238,105 @@ def apply_edits(orig: bytes) -> bytearray:
     assert rom[0x52740:0x52746] == bytes.fromhex("2fea0c966839")
     rom[0x52743] = 0x98  # JMP Z, 6839h -> JMP T, 6839h
 
-    # 11. 2-bpp LCD Readability: boost foreground sprite/ring/hazard contrast via DMPL (R3B = 0xF8) in 4ADAh
-    assert rom[0x40B43:0x40B47] == bytes.fromhex("3e484653")
-    rom[0x40B43:0x40B47] = bytes.fromhex("985fd0ff")
-    pal_code = bytes.fromhex("7a5fdc" "1e02" "58f83b" "3e484653" "58e43bf8")
-    assert all(b in (0x00, 0xFF) for b in rom[0x41FD0 : 0x41FD0 + len(pal_code)])
-    rom[0x41FD0 : 0x41FD0 + len(pal_code)] = pal_code
+    # 11. 2-bpp LCD Readability: boost non-player foreground contrast via DMPL (R3B = 0xF8) in 4ADAh,
+    #     while keeping player sprites (marked via @02E2h = 1 at 0x4A123/0x4A126) at 0xE4 so Knuckles'
+    #     gray body, light muzzle/gloves, and sprite details match his full 4-shade palette.
+    assert rom[0x4A123:0x4A129] == bytes.fromhex("9862c04962c0")
+    rom[0x4A123:0x4A129] = bytes.fromhex("987f40497f40")
+    pdraw_hook = bytes.fromhex("0e00c001398002e20f009862c0")
+    assert all(b in (0x00, 0xFF) for b in rom[0x4BF40 : 0x4BF40 + len(pdraw_hook)])
+    rom[0x4BF40 : 0x4BF40 + len(pdraw_hook)] = pdraw_hook
 
-    # 11. Custom S3&K Glide sprite for Knuckles (47x24 on LCD, transposed 24x47 in dmbr 0x50/0x51)
+    assert rom[0x40B43:0x40B47] == bytes.fromhex("3e484653")
+    rom[0x40B43:0x40B47] = bytes.fromhex("985fb8ff")
+    pal_code = bytes.fromhex(
+        "7a5fd7" "1e02"
+        "388002e2" "1600" "d609"
+        "0000" "398002e2" "58e43b" "d803"
+        "58f83b"
+        "3e484653"
+        "58e43bf8"
+    )
+    assert all(b in (0x00, 0xFF) for b in rom[0x41FB8 : 0x41FB8 + len(pal_code)])
+    rom[0x41FB8 : 0x41FB8 + len(pal_code)] = pal_code
+
+    # 11b. Custom S3&K Glide sprite for Knuckles (47x24 on LCD, transposed 24x47 in dmbr 0x50)
+    #      Authentic 2-bpp palette: 3=black outline/pupil, 2=gray body/dreads/shoe, 1=light muzzle/gloves/chest
     rows0 = [
-        (0, "000000002ac0"), (1, "0000000095b0"), (2, "0000000245b0"), (3, "0000000255b0"),
-        (4, "0000000696b0"), (5, "00000007eab0"), (6, "0000000fcdc0"), (7, "0000001f3fc0"),
-        (8, "0000001f3f00"), (9, "0000203afb00"), (10, "00009826fc00"), (11, "000258996000"),
-        (12, "00025a596000"), (13, "02096969a000"), (14, "0989696a6000"), (15, "09a565696000"),
-        (16, "25a565a58000"), (17, "25a5a5a58000"), (18, "259595960000"), (19, "259596960000"),
-        (20, "955556568000"), (21, "9555565a8000"), (22, "955559598000"), (23, "955559596000"),
-        (24, "9555556a5800"), (25, "5555556afc00"), (26, "55555568ffc0"), (27, "555557e8fffc"),
-        (28, "55d557fbffff"), (29, "546bd7fb03ff"), (30, "956c37ff00ff"), (31, "955707fc00ff"),
-        (32, "255b03fc300c"), (33, "255603fc3c0f"), (34, "0956ffff3033"), (35, "0255bff970fc"),
-        (36, "00956ff25fc0"), (37, "00297ff0fff0"), (38, "00000fc33cfc"), (39, "000003c300ff"),
-        (40, "0000000300ff"), (41, "0000000c3fff"), (42, "0000000c3f3f"), (43, "00000003003f"),
-        (44, "00000000c03c"), (45, "00000000cfff"), (46, "0000000030f3"),
-    ]
-    rows1 = [
-        (2, "000000003000"), (6, "000000003000"), (7, "00000000c000"), (8, "00000000c000"),
-        (26, "000000030000"), (27, "000000030000"), (29, "03000000fc00"), (30, "0003c000ff00"),
-        (31, "0000f003ff00"), (32, "0000fc03cff0"), (33, "0000fc03c3f0"), (34, "00000000cfcc"),
-        (35, "000000000f00"), (38, "00000000c300"), (39, "00000000ff00"), (40, "00000000ff00"),
-        (41, "00000003c000"), (42, "00000003c0c0"), (43, "00000000ffc0"), (44, "000000003fc0"),
-        (45, "000000003000"), (46, "000000000f0c"),
+        (0, "00000000eaf0"), (1, "000000039af0"), (2, "00000003aaf0"), (3, "00000007ebf0"),
+        (4, "000000077ff0"), (5, "0000000955c0"), (6, "000000195ec0"), (7, "0000001a5f00"),
+        (8, "0000302faf00"), (9, "0000ec3bac00"), (10, "0003aceeb000"), (11, "0003afaeb000"),
+        (12, "030ebebef000"), (13, "0ecebebfb000"), (14, "0efababeb000"), (15, "3afabafac000"),
+        (16, "3afafafac000"), (17, "3aeaeaeb0000"), (18, "3aeaebeb0000"), (19, "eaaaababc000"),
+        (20, "eaaaabafc000"), (21, "eaaaaeaec000"), (22, "eaaaaeaeb000"), (23, "eaaaaabfac00"),
+        (24, "aaaaaabf5c00"), (25, "aaaaaabd7fc0"), (26, "aaaaa9bdd57c"), (27, "aa6aa96f5557"),
+        (28, "a8bd696f5557"), (29, "eab419dd5555"), (30, "eaa90965555d"), (31, "3aad0165555c"),
+        (32, "3aab01557557"), (33, "0eabf5697557"), (34, "03aad56eb574"), (35, "00eab563afc0"),
+        (36, "003e99a05ff0"), (37, "00000b8155dc"), (38, "000003c155d7"), (39, "0000000155d7"),
+        (40, "000000017f57"), (41, "000000015557"), (42, "000000035557"), (43, "00000000555c"),
+        (44, "00000000d7ff"), (45, "0000000035c7"), (46, "000000000fc0"),
     ]
     assert all(b == 0x00 for b in rom[0x140000:0x140C00])
-    assert all(b == 0x00 for b in rom[0x144000:0x144C00])
     for y, hx in rows0:
         b = bytes.fromhex(hx)
         rom[0x140000 + y * 64 : 0x140000 + y * 64 + len(b)] = b
-    for y, hx in rows1:
+
+    # 11c. Allow rings (including scattered rings during knockback/i-frames) to be collected while i-frames active
+    assert rom[0x48323:0x48335] == bytes.fromhex("b0df500c00d605501d00de06b0ed8c0001f8")
+    rom[0x48323:0x48335] = b"\xff" * 18
+
+    # 11d. "AJ RYAN" on Pre-Title Trademark Screen (0x4899F) & "REBORN" on Title Screen (0x52066/0x52089)
+    aj_rows = [
+        (0, "3ffc"), (1, "c300"), (2, "c300"), (3, "c300"), (4, "3ffc"), (5, "0000"),
+        (6, "00f0"), (7, "000c"), (8, "c00c"), (9, "fff0"), (10, "c000"), (11, "0000"),
+        (12, "0000"), (13, "0000"), (14, "0000"), (15, "0000"), (16, "fffc"), (17, "c300"),
+        (18, "c3c0"), (19, "c330"), (20, "3c0c"), (21, "0000"), (22, "f000"), (23, "0c00"),
+        (24, "03fc"), (25, "0c00"), (26, "f000"), (27, "0000"), (28, "3ffc"), (29, "c300"),
+        (30, "c300"), (31, "c300"), (32, "3ffc"), (33, "0000"), (34, "fffc"), (35, "3000"),
+        (36, "0c00"), (37, "0300"), (38, "fffc"),
+    ]
+    for y, hx in aj_rows:
         b = bytes.fromhex(hx)
-        rom[0x144000 + y * 64 : 0x144000 + y * 64 + len(b)] = b
+        rom[0x140000 + (64 + y) * 64 : 0x140000 + (64 + y) * 64 + len(b)] = b
+
+    reb_rows = [
+        (0, "ffffc0"), (1, "d555c0"), (2, "d555c0"), (3, "df7fc0"), (4, "df7c00"), (5, "df5c00"),
+        (6, "df5f00"), (7, "df7700"), (8, "df77c0"), (9, "f5fdc0"), (10, "35cdc0"), (11, "ffffc0"),
+        (12, "d555c0"), (13, "d555c0"), (14, "df7dc0"), (15, "df7dc0"), (16, "df7dc0"), (17, "df7dc0"),
+        (18, "df7dc0"), (19, "df7dc0"), (20, "dffdc0"), (21, "dc0dc0"), (22, "ffffc0"), (23, "d555c0"),
+        (24, "d555c0"), (25, "df7dc0"), (26, "df7dc0"), (27, "df7dc0"), (28, "df7dc0"), (29, "df7dc0"),
+        (30, "df7dc0"), (31, "f5d7c0"), (32, "35d700"), (33, "3fff00"), (34, "355700"), (35, "f557c0"),
+        (36, "dffdc0"), (37, "dc0dc0"), (38, "dc0dc0"), (39, "dc0dc0"), (40, "dc0dc0"), (41, "dffdc0"),
+        (42, "f557c0"), (43, "355700"), (44, "ffffc0"), (45, "d555c0"), (46, "d555c0"), (47, "df7fc0"),
+        (48, "df7c00"), (49, "df5c00"), (50, "df5f00"), (51, "df7700"), (52, "df77c0"), (53, "f5fdc0"),
+        (54, "35cdc0"), (55, "ffffc0"), (56, "d555c0"), (57, "d555c0"), (58, "f7ffc0"), (59, "37c000"),
+        (60, "3dc000"), (61, "0df000"), (62, "0f7000"), (63, "ff7fc0"), (64, "d555c0"), (65, "d555c0"),
+        (66, "ffffc0"),
+    ]
+    for y, hx in reb_rows:
+        b = bytes.fromhex(hx)
+        rom[0x140000 + (128 + y) * 64 : 0x140000 + (128 + y) * 64 + len(b)] = b
+
+    assert rom[0x4899F:0x489A2] == bytes.fromhex("4955bd")
+    rom[0x4899F:0x489A2] = bytes.fromhex("497f00")
+    tm_hook = bytes.fromhex(
+        "580035" "584036" "580637" "582638" "589339" "58503a" "58e43b" "58503c"
+        "58003d" "588234" "f1" "58023d" "588234" "f1"
+        "9855bd"
+    )
+    assert all(b in (0x00, 0xFF) for b in rom[0x49F00 : 0x49F00 + len(tm_hook)])
+    rom[0x49F00 : 0x49F00 + len(tm_hook)] = tm_hook
+
+    assert rom[0x52097:0x5209A] == bytes.fromhex("49633a")
+    rom[0x52097:0x5209A] = bytes.fromhex("497f00")
+    title_hook = bytes.fromhex(
+        "49633a"
+        "580035" "588036" "580837" "584238" "587839" "58423a" "58e43b" "58503c"
+        "58003d" "588234" "f1" "58023d" "588234" "f1"
+        "f8"
+    )
+    assert all(b in (0x00, 0xFF) for b in rom[0x53F00 : 0x53F00 + len(title_hook)])
+    rom[0x53F00 : 0x53F00 + len(title_hook)] = title_hook
 
     # Bank 0x22 sprite header at 0x45370 ($9370): 47x24 on LCD, src=(0,0), dmbr=0x50
     assert all(b in (0x00, 0xFF) for b in rom[0x45370:0x45375])
@@ -289,6 +355,10 @@ def apply_edits(orig: bytes) -> bytearray:
     assert rom[0x40011:0x4001C] == b"Sonic Jam\x042"
     rom[0x40011:0x4001A] = b"SONIC REB"
     rom[0x4001A:0x4001D] = bytes([0xB7, 0x3F, 0x53])
+    assert rom[0x400C0:0x400C2] == bytes([0x04, 0x32])
+    rom[0x400C0:0x400C2] = bytes([0xB7, 0x3F])
+    assert rom[0x402C9:0x402CB] == bytes([0x04, 0x32])
+    rom[0x402C9:0x402CB] = bytes([0xB7, 0x3F])
 
     return rom
 

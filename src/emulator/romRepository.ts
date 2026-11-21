@@ -184,7 +184,7 @@ export function ensureSonicRebornEntry(entries: OnlineRomEntry[]): OnlineRomEntr
       linkPlaySupport: rebornKnown.linkPlaySupport,
       coverColor: rebornKnown.coverColor,
       coverAccent: rebornKnown.coverAccent,
-      fileName: 'Sonic Jam Reborn (v0.1).tgc',
+      fileName: 'Sonic Jam Reborn (v0.2).tgc',
       downloadUrl: base.downloadUrl,
       fallbackUrl: base.fallbackUrl,
       repoUrl: base.repoUrl,
