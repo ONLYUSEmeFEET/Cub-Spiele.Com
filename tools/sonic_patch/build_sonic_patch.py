@@ -133,28 +133,49 @@ def apply_edits(orig: bytes) -> bytearray:
         "00e2"
         "58efe4"
         "98613b"
+        "8fe405"
         "00e2"
         "5802e4"
         "8aea08"
-        "8bea0d"
-        "8aec02"
-        "d808"
+        "8bea15"
+        "8aec0b"
+        "d819"
+        "8aec06"
+        "c003"
+        "398002e3"
         "aaec"
         "5896e1"
-        "98613b"
+        "d80e"
+        "82ec06"
+        "c003"
+        "398002e3"
         "a2ec"
         "5816e1"
+        "388002e3"
+        "1600"
+        "d606"
+        "0900"
+        "398002e3"
+        "b8e7"
         "98613b"
     )
     assert all(b in (0x00, 0xFF) for b in rom[0x41F7D : 0x41F7D + len(glide_code)])
     rom[0x41F7D : 0x41F7D + len(glide_code)] = glide_code
 
-    # Knuckles st 21 descriptor: Knuckles air sprite (8CC4) + custom release-to-fall table (9F40)
+    # Knuckles st 21 descriptor: attack flag RED=0xB0 (bit 5 set for jump-attack damage/bounce),
+    # custom S3&K Glide sprite (9F50), and custom release-to-fall table (9F40)
     assert rom[0x4ECEA:0x4ECF2] == bytes.fromhex("00908259826b82c1")
-    rom[0x4ECEA:0x4ECF2] = bytes.fromhex("00909f50826b9f40")
+    rom[0x4ECEA:0x4ECF2] = bytes.fromhex("00b09f50826b9f40")
+
+    # Bounce player upward (RE2=0, RE4=#E8h) when destroying a badnik midair (0x4D326 -> 0x41FEA)
+    assert rom[0x4D326:0x4D329] == bytes.fromhex("4949af")
+    rom[0x4D326:0x4D329] = bytes.fromhex("495fea")
+    bounce_hook = bytes.fromhex("8bec03" "9849af" "00e2" "58e8e4" "9849af")
+    assert all(b in (0x00, 0xFF) for b in rom[0x41FEA : 0x41FEA + len(bounce_hook)])
+    rom[0x41FEA : 0x41FEA + len(bounce_hook)] = bounce_hook
 
     assert all(b in (0x00, 0xFF) for b in rom[0x4FF40:0x4FF45])
-    rom[0x4FF40:0x4FF45] = bytes.fromhex("02a0085021")
+    rom[0x4FF40:0x4FF45] = bytes.fromhex("02a0088021")
 
     # 6. Trim Bank 0x24 Ring-loop CPU overhead (0x482B8 -> 0x49B16 coarse +/-64px early-out)
     assert rom[0x482B8:0x482BB] == bytes.fromhex("4afcf2")
@@ -238,52 +259,90 @@ def apply_edits(orig: bytes) -> bytearray:
     assert rom[0x52740:0x52746] == bytes.fromhex("2fea0c966839")
     rom[0x52743] = 0x98  # JMP Z, 6839h -> JMP T, 6839h
 
-    # 11. 2-bpp LCD Readability: boost non-player foreground contrast via DMPL (R3B = 0xF8) in 4ADAh,
-    #     while keeping player sprites (marked via @02E2h = 1 at 0x4A123/0x4A126) at 0xE4 so Knuckles'
-    #     gray body, light muzzle/gloves, and sprite details match his full 4-shade palette.
-    assert rom[0x4A123:0x4A129] == bytes.fromhex("9862c04962c0")
-    rom[0x4A123:0x4A129] = bytes.fromhex("987f40497f40")
-    pdraw_hook = bytes.fromhex("0e00c001398002e20f009862c0")
-    assert all(b in (0x00, 0xFF) for b in rom[0x4BF40 : 0x4BF40 + len(pdraw_hook)])
-    rom[0x4BF40 : 0x4BF40 + len(pdraw_hook)] = pdraw_hook
-
+    # 11. 2-bpp LCD Readability: boost foreground sprite/ring/hazard contrast via DMPL (R3B = 0xF8) in 4ADAh
     assert rom[0x40B43:0x40B47] == bytes.fromhex("3e484653")
-    rom[0x40B43:0x40B47] = bytes.fromhex("985fb8ff")
-    pal_code = bytes.fromhex(
-        "7a5fd7" "1e02"
-        "388002e2" "1600" "d609"
-        "0000" "398002e2" "58e43b" "d803"
-        "58f83b"
-        "3e484653"
-        "58e43bf8"
-    )
-    assert all(b in (0x00, 0xFF) for b in rom[0x41FB8 : 0x41FB8 + len(pal_code)])
-    rom[0x41FB8 : 0x41FB8 + len(pal_code)] = pal_code
+    rom[0x40B43:0x40B47] = bytes.fromhex("985fdaff")
+    pal_code = bytes.fromhex("7a5fe6" "1e02" "58f83b" "3e484653" "58e43bf8")
+    assert all(b in (0x00, 0xFF) for b in rom[0x41FDA : 0x41FDA + len(pal_code)])
+    rom[0x41FDA : 0x41FDA + len(pal_code)] = pal_code
 
-    # 11b. Custom S3&K Glide sprite for Knuckles (47x24 on LCD, transposed 24x47 in dmbr 0x50)
-    #      Authentic 2-bpp palette: 3=black outline/pupil, 2=gray body/dreads/shoe, 1=light muzzle/gloves/chest
+    # 11b. Custom S3&K Glide sprite for Knuckles (47x24 on LCD, transposed 24x47 in dmbr 0x50/0x51)
+    #      Dual-plane Sonic Jam palette: rows0 (1=light gray fur, 2=dark gray fur shading, 3=black outline)
+    #      + rows1 (dmbr 0x51 opaque white gloves, eye sclera, muzzle highlight & shoe highlight)
     rows0 = [
-        (0, "00000000eaf0"), (1, "000000039af0"), (2, "00000003aaf0"), (3, "00000007ebf0"),
-        (4, "000000077ff0"), (5, "0000000955c0"), (6, "000000195ec0"), (7, "0000001a5f00"),
-        (8, "0000302faf00"), (9, "0000ec3bac00"), (10, "0003aceeb000"), (11, "0003afaeb000"),
-        (12, "030ebebef000"), (13, "0ecebebfb000"), (14, "0efababeb000"), (15, "3afabafac000"),
-        (16, "3afafafac000"), (17, "3aeaeaeb0000"), (18, "3aeaebeb0000"), (19, "eaaaababc000"),
-        (20, "eaaaabafc000"), (21, "eaaaaeaec000"), (22, "eaaaaeaeb000"), (23, "eaaaaabfac00"),
-        (24, "aaaaaabf5c00"), (25, "aaaaaabd7fc0"), (26, "aaaaa9bdd57c"), (27, "aa6aa96f5557"),
-        (28, "a8bd696f5557"), (29, "eab419dd5555"), (30, "eaa90965555d"), (31, "3aad0165555c"),
-        (32, "3aab01557557"), (33, "0eabf5697557"), (34, "03aad56eb574"), (35, "00eab563afc0"),
-        (36, "003e99a05ff0"), (37, "00000b8155dc"), (38, "000003c155d7"), (39, "0000000155d7"),
-        (40, "000000017f57"), (41, "000000015557"), (42, "000000035557"), (43, "00000000555c"),
-        (44, "00000000d7ff"), (45, "0000000035c7"), (46, "000000000fc0"),
+        (0, "0000000095b0"), (1, "0000000245b0"), (2, "0000000255b0"), (3, "0000000696b0"),
+        (4, "000000076ab0"), (5, "0000000945c0"), (6, "000000191ec0"), (7, "0000001f1f00"),
+        (8, "0000202afb00"), (9, "00009826fc00"), (10, "00025899a000"), (11, "00029a99a000"),
+        (12, "0209a9a9a000"), (13, "098a6a6a6000"), (14, "09a666696000"), (15, "25a966a68000"),
+        (16, "25a9a9a98000"), (17, "2599999a0000"), (18, "2595aaa60000"), (19, "956566668000"),
+        (20, "9565666a8000"), (21, "955559998000"), (22, "955559996000"), (23, "9555566a5800"),
+        (24, "5555566a5c00"), (25, "555555687fc0"), (26, "599554a8d57c"), (27, "5a16942b5557"),
+        (28, "58a9642b0157"), (29, "9aa414cd0055"), (30, "96650824005d"), (31, "26a90024100c"),
+        (32, "259a00043407"), (33, "0956f0293013"), (34, "025590297074"), (35, "0095a0225fc0"),
+        (36, "002958a05ff0"), (37, "00000b8114dc"), (38, "000003c100d7"), (39, "0000000100d7"),
+        (40, "000000003f57"), (41, "000000001517"), (42, "000000030017"), (43, "00000000401c"),
+        (44, "00000000c7ff"), (45, "0000000030c3"), (46, "000000000fc0"),
+    ]
+    rows1 = [
+        (1, "000000003000"), (5, "000000003000"), (6, "00000000c000"), (7, "00000000c000"),
+        (25, "000000030000"), (26, "000003030000"), (27, "00c003c00000"), (28, "030003c0fc00"),
+        (29, "0003c330ff00"), (30, "0000f3c3ff00"), (31, "0000ffc3cff0"), (32, "0000fff3c3f0"),
+        (33, "00000fc0cfcc"), (34, "00000fc00f00"), (35, "00000fc00000"), (36, "000003000000"),
+        (37, "00000000c300"), (38, "00000000ff00"), (39, "00000000ff00"), (40, "00000003c000"),
+        (41, "00000003c0c0"), (42, "00000000ffc0"), (43, "000000003fc0"), (44, "000000003000"),
+        (45, "000000000f0c"),
     ]
     assert all(b == 0x00 for b in rom[0x140000:0x140C00])
+    assert all(b == 0x00 for b in rom[0x144000:0x144C00])
     for y, hx in rows0:
         b = bytes.fromhex(hx)
         rom[0x140000 + y * 64 : 0x140000 + y * 64 + len(b)] = b
+    for y, hx in rows1:
+        b = bytes.fromhex(hx)
+        rom[0x144000 + y * 64 : 0x144000 + y * 64 + len(b)] = b
 
-    # 11c. Allow rings (including scattered rings during knockback/i-frames) to be collected while i-frames active
-    assert rom[0x48323:0x48335] == bytes.fromhex("b0df500c00d605501d00de06b0ed8c0001f8")
-    rom[0x48323:0x48335] = b"\xff" * 18
+    # 11b-2. Front-facing S3&K Glide Turn sprite for Knuckles (32x23 on LCD, transposed at sy=196 in dmbr 0x50/0x51)
+    turn_rows0 = [
+        (0, "00281a180000"), (1, "009a59560000"), (2, "02696aaafa28"), (3, "02656a56e3cc"),
+        (4, "0965a56b002c"), (5, "099555ae0008"), (6, "099656ac3008"), (7, "25555aacf008"),
+        (8, "25556aac382c"), (9, "2555804b0ab0"), (10, "95550002c3c0"), (11, "955540000000"),
+        (12, "955557c08000"), (13, "555545408000"), (14, "5555558a8000"), (15, "5515558e8000"),
+        (16, "5555558a8000"), (17, "555545408000"), (18, "955557c08000"), (19, "955540000000"),
+        (20, "95550002c3c0"), (21, "2555804b0ab0"), (22, "25556aac382c"), (23, "25555aacf008"),
+        (24, "099656ac3008"), (25, "099555ae0008"), (26, "0965a56b002c"), (27, "02656a56e3cc"),
+        (28, "02696aaafa28"), (29, "009a59560000"), (30, "00281a160000"), (31, "000000a80000"),
+    ]
+    turn_rows1 = [
+        (0, "000000c00000"), (3, "000000000c30"), (4, "00000000ffc0"), (5, "00000000fff0"),
+        (6, "00000003cff0"), (7, "000000030ff0"), (8, "00000003c3c0"), (9, "00003f30f000"),
+        (10, "0000fffc3c00"), (11, "00003fff0000"), (12, "0000003f0000"), (13, "0000303f0000"),
+        (14, "000000300000"), (15, "00c000300000"), (16, "000000300000"), (17, "0000303f0000"),
+        (18, "0000003f0000"), (19, "00003fff0000"), (20, "0000fffc3c00"), (21, "00003f30f000"),
+        (22, "00000003c3c0"), (23, "000000030ff0"), (24, "00000003cff0"), (25, "00000000fff0"),
+        (26, "00000000ffc0"), (27, "000000000c30"), (30, "000000c00000"),
+    ]
+    for y, hx in turn_rows0:
+        b = bytes.fromhex(hx)
+        rom[0x140000 + (196 + y) * 64 : 0x140000 + (196 + y) * 64 + len(b)] = b
+    for y, hx in turn_rows1:
+        b = bytes.fromhex(hx)
+        rom[0x144000 + (196 + y) * 64 : 0x144000 + (196 + y) * 64 + len(b)] = b
+
+    # 11c. Allow scattered rings during active i-frames & keep lost rings on screen 3x longer (60 frames vs 20)
+    assert rom[0x48313:0x48316] == bytes.fromhex("501403")
+    rom[0x48314] = 0x3B  # 59 ticks (3x longer than 19)
+    assert rom[0x48323:0x4833E] == bytes.fromhex("b0df500c00d605501d00de06b0ed8c0001f8000255fe033aa263da")
+    rom[0x48323:0x4833E] = bytes.fromhex("497f30") + (b"\xff" * 24)
+    assert rom[0x4852F:0x48538] == bytes.fromhex("000255fe033aa263da")
+    rom[0x4852F:0x48538] = bytes.fromhex("497f30") + (b"\xff" * 6)
+    ring_lifetime_helper = bytes.fromhex(
+        "0002"
+        "500603" "d708"
+        "520603" "510202" "d8f3"
+        "b302" "0002" "3aa263da" "f8"
+    )
+    assert all(b in (0x00, 0xFF) for b in rom[0x49F30 : 0x49F30 + len(ring_lifetime_helper)])
+    rom[0x49F30 : 0x49F30 + len(ring_lifetime_helper)] = ring_lifetime_helper
 
     # 11d. "AJ RYAN" on Pre-Title Trademark Screen (0x4899F) & "REBORN" on Title Screen (0x52066/0x52089)
     aj_rows = [
@@ -338,13 +397,19 @@ def apply_edits(orig: bytes) -> bytearray:
     assert all(b in (0x00, 0xFF) for b in rom[0x53F00 : 0x53F00 + len(title_hook)])
     rom[0x53F00 : 0x53F00 + len(title_hook)] = title_hook
 
-    # Bank 0x22 sprite header at 0x45370 ($9370): 47x24 on LCD, src=(0,0), dmbr=0x50
-    assert all(b in (0x00, 0xFF) for b in rom[0x45370:0x45375])
+    # Bank 0x22 sprite headers:
+    # - 0x45370 ($9370): 47x24 side-facing Glide sprite at src=(0,0), dmbr=0x50
+    # - 0x45375 ($9375): 32x23 front-facing Glide Turn sprite at src=(0,196), dmbr=0x50
+    assert all(b in (0x00, 0xFF) for b in rom[0x45370:0x4537A])
     rom[0x45370:0x45375] = bytes.fromhex("2f18000050")
+    rom[0x45375:0x4537A] = bytes.fromhex("2017c40050")
 
-    # Bank 0x27 animation entry at 0x4FF50 ($9F50): ptr=9370, xOff=0x17, yOff=0x0C, dur=0x00
-    assert all(b in (0x00, 0xFF) for b in rom[0x4FF50:0x4FF55])
+    # Bank 0x27 animation entries at 0x4FF50 ($9F50):
+    # - RE7=0 ($9F50): side-facing Glide (ptr=9370, xOff=0x17, yOff=0x0C, dur=0x00)
+    # - RE7=1..2 ($9F55..$9F5E): front-facing Glide Turn (ptr=9375, xOff=0x10, yOff=0x0C, dur=0x00)
+    assert all(b in (0x00, 0xFF) for b in rom[0x4FF50:0x4FF5F])
     rom[0x4FF50:0x4FF55] = bytes.fromhex("9370170c00")
+    rom[0x4FF55:0x4FF5F] = bytes.fromhex("9375100c00") * 2
 
     # 12. Phase 4: Extend post-hit invulnerability frames (0x28 -> 0x4B, ~3.0s)
     assert rom[0x52EC1:0x52EC3] == bytes.fromhex("c328")
