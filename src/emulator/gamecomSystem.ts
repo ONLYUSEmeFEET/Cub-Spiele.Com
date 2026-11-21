@@ -1760,6 +1760,7 @@ export class GameComSystem {
         cart.headerGameId === 0xb745 ||
         Boolean(cart.headerTitle && cart.headerTitle.toUpperCase().includes('CV REBORN'));
       const alreadySonicReborn =
+        cart.headerGameId === 0xb73f ||
         cart.headerGameId === 0xb747 ||
         Boolean(cart.headerTitle && cart.headerTitle.toUpperCase().includes('SONIC REB'));
 

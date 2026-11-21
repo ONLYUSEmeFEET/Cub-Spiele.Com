@@ -284,10 +284,11 @@ def apply_edits(orig: bytes) -> bytearray:
     assert rom[0x52EC1:0x52EC3] == bytes.fromhex("c328")
     rom[0x52EC2] = 0x4B
 
-    # 13. Phase 5: Reborn header title ("SONIC REB") & isolated NVRAM Game ID ($B747)
+    # 13. Phase 5: Reborn header title ("SONIC REB"), isolated NVRAM Game ID ($B73F),
+    # and BIOS ID checksum ((0xB7 + 0x3F) & 0xFF) ^ 0xA5 = 0x53 (low nibble 3 = same BIOS security entry as orig cart)
     assert rom[0x40011:0x4001C] == b"Sonic Jam\x042"
     rom[0x40011:0x4001A] = b"SONIC REB"
-    rom[0x4001A:0x4001C] = bytes([0xB7, 0x47])
+    rom[0x4001A:0x4001D] = bytes([0xB7, 0x3F, 0x53])
 
     return rom
 

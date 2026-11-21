@@ -84,8 +84,8 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Platformer',
     description:
-      'Enhanced edition of Sonic Jam for Tiger Game.Com (v0.1). Features 2x ground acceleration, 4x air steering, +29px forward camera lead, A+B jump mapping, Knuckles Glide with S3&K sprite, 53 fixed solid-embedded rings, auto-ascend elevators, 2-bpp sprite contrast boost, extended i-frames, and isolated SONIC REB ($B747) NVRAM.',
-    gameIds: [0xb747],
+      'Enhanced edition of Sonic Jam for Tiger Game.Com (v0.1). Features 2x ground acceleration, 4x air steering, +29px forward camera lead, A+B jump mapping, Knuckles Glide with S3&K sprite, 53 fixed solid-embedded rings, auto-ascend elevators, 2-bpp sprite contrast boost, extended i-frames, and isolated SONIC REB ($B73F) NVRAM.',
+    gameIds: [0xb73f, 0xb747],
     headerMatches: ['SONIC REB', 'SONICJAMREBORN', 'SONIC JAM REBORN'],
     coverColor: '#1e3a8a',
     coverAccent: '#38bdf8',
@@ -97,7 +97,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     diskmanHighlights: [
       'Knuckles Glide with S3&K sprite, A+B Jump, 2x acceleration & 4x air control',
       '53 fixed embedded rings, auto-ascend elevators & +29px forward camera lead',
-      '100% SM8521 hardware-compatible v0.1 patch with isolated SONIC REB ($B747) NVRAM'
+      '100% SM8521 hardware-compatible v0.1 patch with isolated SONIC REB ($B73F) NVRAM'
     ]
   },
   castlevania: {
