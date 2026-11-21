@@ -94,15 +94,18 @@ def build_ips(src: bytes, dst: bytes) -> bytes:
 def apply_edits(orig: bytes) -> bytearray:
     rom = bytearray(orig)
 
-    # 1. Ground acceleration: every 4 frames instead of 8, +2 speed per tick
+    # 1. Ground acceleration (all characters): every 2 ticks instead of 8, +3 speed per step,
+    #    and higher initial Walk base speed (5..7 instead of 1..3) at shared table 0x4E0F9
     assert rom[0x52873:0x52876] == b"\x55\x07\x01"
-    rom[0x52874] = 0x03
+    rom[0x52874] = 0x01
     assert rom[0x52881:0x52888] == b"\x86\x00\x02\x08\x01\x08\x01"
-    rom[0x52883] = 0x00
+    rom[0x52881:0x52888] = bytes.fromhex("510301ffffffff")
+    assert rom[0x4E0F9:0x4E105] == bytes.fromhex("410043004300430000004300")
+    rom[0x4E0F9:0x4E105] = bytes.fromhex("450047004700470000004700")
 
-    # 2. Midair horizontal steering: every 4 frames instead of 16
+    # 2. Midair horizontal steering (all characters): every 2 ticks instead of 16
     assert rom[0x52994:0x52997] == b"\x55\x0f\x00"
-    rom[0x52995] = 0x03
+    rom[0x52995] = 0x01
 
     # 3. Forward camera lead (+29px forward vision: deadzone 68..88 instead of 83..117)
     for off in (0x47C4E, 0x47C66, 0x47C6F, 0x47C86):
@@ -267,19 +270,19 @@ def apply_edits(orig: bytes) -> bytearray:
     rom[0x41FDA : 0x41FDA + len(pal_code)] = pal_code
 
     # 11b. Custom S3&K Glide sprite for Knuckles (47x24 on LCD, transposed 24x47 in dmbr 0x50/0x51)
-    #      Dual-plane Sonic Jam palette: rows0 (1=light gray fur, 2=dark gray fur shading, 3=black outline)
-    #      + rows1 (dmbr 0x51 opaque white gloves, eye sclera, muzzle highlight & shoe highlight)
+    #      Darker Idle-matched Sonic Jam palette: rows0 (2=dark gray main fur, 1=light gray highlights/muzzle/glove shading, 3=black outlines/dreadlock lines)
+    #      + rows1 (dmbr 0x51 opaque white gloves, eye sclera, forehead highlight & shoe highlight)
     rows0 = [
         (0, "0000000095b0"), (1, "0000000245b0"), (2, "0000000255b0"), (3, "0000000696b0"),
-        (4, "000000076ab0"), (5, "0000000945c0"), (6, "000000191ec0"), (7, "0000001f1f00"),
-        (8, "0000202afb00"), (9, "00009826fc00"), (10, "00025899a000"), (11, "00029a99a000"),
-        (12, "0209a9a9a000"), (13, "098a6a6a6000"), (14, "09a666696000"), (15, "25a966a68000"),
-        (16, "25a9a9a98000"), (17, "2599999a0000"), (18, "2595aaa60000"), (19, "956566668000"),
-        (20, "9565666a8000"), (21, "955559998000"), (22, "955559996000"), (23, "9555566a5800"),
-        (24, "5555566a5c00"), (25, "555555687fc0"), (26, "599554a8d57c"), (27, "5a16942b5557"),
-        (28, "58a9642b0157"), (29, "9aa414cd0055"), (30, "96650824005d"), (31, "26a90024100c"),
-        (32, "259a00043407"), (33, "0956f0293013"), (34, "025590297074"), (35, "0095a0225fc0"),
-        (36, "002958a05ff0"), (37, "00000b8114dc"), (38, "000003c100d7"), (39, "0000000100d7"),
+        (4, "000000076ab0"), (5, "0000000945c0"), (6, "000000291ec0"), (7, "0000002f1f00"),
+        (8, "0000303afb00"), (9, "0000ec3bfc00"), (10, "0003aceef000"), (11, "0003efeef000"),
+        (12, "030efefef000"), (13, "0ecfbfbfb000"), (14, "0efbbbbeb000"), (15, "3afebbfbc000"),
+        (16, "3afefefec000"), (17, "3aeeeeef0000"), (18, "3aeafffb0000"), (19, "eababbbbc000"),
+        (20, "eababbbfc000"), (21, "d6aaaeeec000"), (22, "d6aaaeeeb000"), (23, "d6aaabbfac00"),
+        (24, "96aaabbfac00"), (25, "96aaaabc7fc0"), (26, "addaa8fcd57c"), (27, "af1be83f5557"),
+        (28, "acfeb8170157"), (29, "eff828cd0055"), (30, "e77a0c14005d"), (31, "37fe0014100c"),
+        (32, "3aef00043407"), (33, "0eabf0153013"), (34, "03aae0157074"), (35, "00eaf0125fc0"),
+        (36, "003eac505ff0"), (37, "00000fc114dc"), (38, "000003c100d7"), (39, "0000000100d7"),
         (40, "000000003f57"), (41, "000000001517"), (42, "000000030017"), (43, "00000000401c"),
         (44, "00000000c7ff"), (45, "0000000030c3"), (46, "000000000fc0"),
     ]
@@ -303,23 +306,22 @@ def apply_edits(orig: bytes) -> bytearray:
 
     # 11b-2. Front-facing S3&K Glide Turn sprite for Knuckles (32x23 on LCD, transposed at sy=196 in dmbr 0x50/0x51)
     turn_rows0 = [
-        (0, "00281a180000"), (1, "009a59560000"), (2, "02696aaafa28"), (3, "02656a56e3cc"),
-        (4, "0965a56b002c"), (5, "099555ae0008"), (6, "099656ac3008"), (7, "25555aacf008"),
-        (8, "25556aac382c"), (9, "2555804b0ab0"), (10, "95550002c3c0"), (11, "955540000000"),
-        (12, "955557c08000"), (13, "555545408000"), (14, "5555558a8000"), (15, "5515558e8000"),
-        (16, "5555558a8000"), (17, "555545408000"), (18, "955557c08000"), (19, "955540000000"),
-        (20, "95550002c3c0"), (21, "2555804b0ab0"), (22, "25556aac382c"), (23, "25555aacf008"),
-        (24, "099656ac3008"), (25, "099555ae0008"), (26, "0965a56b002c"), (27, "02656a56e3cc"),
-        (28, "02696aaafa28"), (29, "009a59560000"), (30, "00281a160000"), (31, "000000a80000"),
+        (0, "003c2f2c0000"), (1, "00efaeab0000"), (2, "03bebffff514"), (3, "03babfabd3cc"),
+        (4, "0ebafabf001c"), (5, "0eeaaafd0004"), (6, "0eebabdc3004"), (7, "3aaaafdcf004"),
+        (8, "3aaabffc341c"), (9, "3aa9d15f0570"), (10, "eaa94047c3c0"), (11, "eaa990150000"),
+        (12, "ea5a67d5c000"), (13, "a9565a55c000"), (14, "a55596dfc000"), (15, "a515aadfc000"),
+        (16, "a55596dfc000"), (17, "a9565a55c000"), (18, "ea5a67d5c000"), (19, "eaa990150000"),
+        (20, "eaa94047c3c0"), (21, "3aa9d15f0570"), (22, "3aaabffc341c"), (23, "3aaaafdcf004"),
+        (24, "0eebabdc3004"), (25, "0eeaaafd0004"), (26, "0ebafabf001c"), (27, "03babfabd3cc"),
+        (28, "03bebffff514"), (29, "00efaeab0000"), (30, "003c2f2b0000"), (31, "000000fc0000"),
     ]
     turn_rows1 = [
         (0, "000000c00000"), (3, "000000000c30"), (4, "00000000ffc0"), (5, "00000000fff0"),
-        (6, "00000003cff0"), (7, "000000030ff0"), (8, "00000003c3c0"), (9, "00003f30f000"),
-        (10, "0000fffc3c00"), (11, "00003fff0000"), (12, "0000003f0000"), (13, "0000303f0000"),
-        (14, "000000300000"), (15, "00c000300000"), (16, "000000300000"), (17, "0000303f0000"),
-        (18, "0000003f0000"), (19, "00003fff0000"), (20, "0000fffc3c00"), (21, "00003f30f000"),
-        (22, "00000003c3c0"), (23, "000000030ff0"), (24, "00000003cff0"), (25, "00000000fff0"),
-        (26, "00000000ffc0"), (27, "000000000c30"), (30, "000000c00000"),
+        (6, "00000003cff0"), (7, "000000030ff0"), (8, "00000003c3c0"), (9, "00000c00f000"),
+        (10, "00003f303c00"), (11, "00000fc00000"), (15, "00c000000000"), (19, "00000fc00000"),
+        (20, "00003f303c00"), (21, "00000c00f000"), (22, "00000003c3c0"), (23, "000000030ff0"),
+        (24, "00000003cff0"), (25, "00000000fff0"), (26, "00000000ffc0"), (27, "000000000c30"),
+        (30, "000000c00000"),
     ]
     for y, hx in turn_rows0:
         b = bytes.fromhex(hx)
@@ -328,21 +330,64 @@ def apply_edits(orig: bytes) -> bytearray:
         b = bytes.fromhex(hx)
         rom[0x144000 + (196 + y) * 64 : 0x144000 + (196 + y) * 64 + len(b)] = b
 
-    # 11c. Allow scattered rings during active i-frames & keep lost rings on screen 3x longer (60 frames vs 20)
+    # 11c. Allow scattered rings during active i-frames, keep lost rings on screen 3x longer (59 ticks),
+    #      give scattered rings a 30-step falling & multi-bouncing trajectory table at 0x49B40 ($7B40),
+    #      and animate their 4-frame spinning ring sprites via 0x49F30 ($7F30)
     assert rom[0x48313:0x48316] == bytes.fromhex("501403")
     rom[0x48314] = 0x3B  # 59 ticks (3x longer than 19)
     assert rom[0x48323:0x4833E] == bytes.fromhex("b0df500c00d605501d00de06b0ed8c0001f8000255fe033aa263da")
-    rom[0x48323:0x4833E] = bytes.fromhex("497f30") + (b"\xff" * 24)
+    rom[0x4832F:0x48335] = bytes.fromhex("500803df01f8")
+    rom[0x4833C:0x4833E] = bytes.fromhex("7b40")
     assert rom[0x4852F:0x48538] == bytes.fromhex("000255fe033aa263da")
-    rom[0x4852F:0x48538] = bytes.fromhex("497f30") + (b"\xff" * 6)
-    ring_lifetime_helper = bytes.fromhex(
-        "0002"
-        "500603" "d708"
-        "520603" "510202" "d8f3"
-        "b302" "0002" "3aa263da" "f8"
+    rom[0x48536:0x48538] = bytes.fromhex("7b40")
+
+    # Build 30-step pointer table ($7B40..$7B7B) + 34-row x 7-column falling/bouncing (dX, dY) table ($7B7C..$7D57)
+    x0 = [-6, 6, -2, -10, 10, -4, 4]
+    vx = [-2.4, 2.4, -0.9, -3.4, 3.4, -1.6, 1.6]
+    vy0 = [-14.0, -14.0, -17.0, -12.0, -12.0, -10.0, -10.0]
+    g = 5.2
+    floor_y = 14.0
+    col_trajs = []
+    for c in range(7):
+        y = -8.0
+        vy = vy0[c]
+        pts = []
+        for t in range(34):
+            dx = max(-115, min(115, int(round(x0[c] + vx[c] * t))))
+            if dx == 0:
+                dx = -1 if c % 2 == 0 else 1
+            dy = max(-115, min(115, int(round(y))))
+            pts.append((dx, dy))
+            y += vy
+            if y >= floor_y:
+                y = floor_y
+                vy = -abs(vy) * 0.75
+                if abs(vy) < 4.5:
+                    vy = -5.5
+            else:
+                vy += g
+        col_trajs.append(pts)
+
+    bounce_table = bytearray()
+    for s in range(30):
+        bounce_table += struct.pack(">H", 0x7B7C + s * 14)
+    for t in range(34):
+        for c in range(7):
+            dx, dy = col_trajs[c][t]
+            bounce_table += struct.pack("bb", dx, dy)
+    bounce_table += b"\x00\x00"
+    assert all(b in (0x00, 0xFF) for b in rom[0x49B40 : 0x49B40 + len(bounce_table)])
+    rom[0x49B40 : 0x49B40 + len(bounce_table)] = bounce_table
+
+    # Animate scattered rings through the 4 spinning ring frames ($8E06, $8E56, $827B, $8E51) at 0x4856F -> 0x49F30
+    assert rom[0x4856F:0x48574] == bytes.fromhex("7c8e510000")
+    rom[0x4856F:0x48574] = bytes.fromhex("497f30ffff")
+    ring_anim_helper = bytes.fromhex(
+        "38800272" "550600" "b300" "0002" "3aa27f42" "0000" "f8"
+        "8e06" "8e56" "827b" "8e51"
     )
-    assert all(b in (0x00, 0xFF) for b in rom[0x49F30 : 0x49F30 + len(ring_lifetime_helper)])
-    rom[0x49F30 : 0x49F30 + len(ring_lifetime_helper)] = ring_lifetime_helper
+    assert all(b in (0x00, 0xFF) for b in rom[0x49F30 : 0x49F30 + len(ring_anim_helper)])
+    rom[0x49F30 : 0x49F30 + len(ring_anim_helper)] = ring_anim_helper
 
     # 11d. "AJ RYAN" on Pre-Title Trademark Screen (0x4899F) & "REBORN" on Title Screen (0x52066/0x52089)
     aj_rows = [

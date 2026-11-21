@@ -84,7 +84,7 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
     year: 1998,
     genre: 'Platformer',
     description:
-      'Enhanced edition of Sonic Jam for Tiger Game.Com (v0.2). Features Reborn Title Screen & AJ Ryan credit screen, bidirectional Knuckles Glide (Left/Right) with jump-attack damage/bounce, front-facing S3&K turn transition frame & idle-matched dual-plane shading, ring collection during active i-frames with 3x longer scattered ring lifetime, 2x ground acceleration, 4x air steering, +29px forward camera lead, A+B jump mapping, 53 fixed solid-embedded rings, auto-ascend elevators, 2-bpp foreground contrast boost, extended i-frames, and isolated SONIC REB ($B73F) NVRAM.',
+      'Enhanced edition of Sonic Jam for Tiger Game.Com (v0.2). Features Reborn Title Screen & AJ Ryan credit screen, bidirectional Knuckles Glide (Left/Right) with jump-attack damage/bounce, front-facing S3&K turn transition frame & darker idle-matched dual-plane shading, ring collection during active i-frames with 3x longer falling/bouncing & spinning scattered rings, 4x ground acceleration & 8x air steering across all characters, +29px forward camera lead, A+B jump mapping, 53 fixed solid-embedded rings, auto-ascend elevators, 2-bpp foreground contrast boost, extended i-frames, and isolated SONIC REB ($B73F) NVRAM.',
     gameIds: [0xb73f, 0xb747],
     headerMatches: ['SONIC REB', 'SONICJAMREBORN', 'SONIC JAM REBORN'],
     coverColor: '#1e3a8a',
