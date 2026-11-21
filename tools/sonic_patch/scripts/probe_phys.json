@@ -1,0 +1,10 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"ram": "p0", "from": 192, "len": 64},
+  {"press": "right", "f": 5}, {"ram": "p1", "from": 192, "len": 64},
+  {"press": "right", "f": 5}, {"ram": "p2", "from": 192, "len": 64},
+  {"press": "right", "f": 5}, {"ram": "p3", "from": 192, "len": 64},
+  {"press": "a", "f": 3}, {"ram": "j1", "from": 192, "len": 64},
+  {"f": 5}, {"ram": "j2", "from": 192, "len": 64},
+  {"f": 5}, {"ram": "j3", "from": 192, "len": 64}
+]

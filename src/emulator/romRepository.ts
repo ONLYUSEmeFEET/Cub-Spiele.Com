@@ -159,6 +159,41 @@ export function ensureCastlevaniaRebornEntry(entries: OnlineRomEntry[]): OnlineR
   ];
 }
 
+export function ensureSonicRebornEntry(entries: OnlineRomEntry[]): OnlineRomEntry[] {
+  const hasReborn = entries.some((e) => e.gameId === 'sonicjamreborn');
+  if (hasReborn) return entries;
+
+  const base = entries.find((e) => e.gameId === 'sonicjam');
+  const rebornKnown = KNOWN_GAMECOM_GAMES.sonicjamreborn;
+  if (!base || !rebornKnown) return entries;
+
+  return [
+    ...entries,
+    {
+      gameId: rebornKnown.id,
+      title: rebornKnown.title,
+      publisher: rebornKnown.publisher,
+      year: rebornKnown.year,
+      genre: rebornKnown.genre,
+      description: rebornKnown.description,
+      partNumber: rebornKnown.partNumber,
+      labelImage: rebornKnown.labelImage,
+      diskmanUrl: rebornKnown.diskmanUrl,
+      manualUrl: rebornKnown.manualUrl,
+      diskmanHighlights: rebornKnown.diskmanHighlights,
+      linkPlaySupport: rebornKnown.linkPlaySupport,
+      coverColor: rebornKnown.coverColor,
+      coverAccent: rebornKnown.coverAccent,
+      fileName: 'Sonic Jam Reborn (v0.1).tgc',
+      downloadUrl: base.downloadUrl,
+      fallbackUrl: base.fallbackUrl,
+      repoUrl: base.repoUrl,
+      sizeBytes: base.sizeBytes,
+      autoPatchReborn: true
+    }
+  ];
+}
+
 export function deduplicateOnlineRomEntries(entries: OnlineRomEntry[]): OnlineRomEntry[] {
   const byGameId = new Map<string, OnlineRomEntry>();
   for (const entry of entries) {
@@ -173,7 +208,7 @@ export function deduplicateOnlineRomEntries(entries: OnlineRomEntry[]): OnlineRo
       }
     }
   }
-  return ensureCastlevaniaRebornEntry(Array.from(byGameId.values())).sort((a, b) =>
+  return ensureSonicRebornEntry(ensureCastlevaniaRebornEntry(Array.from(byGameId.values()))).sort((a, b) =>
     a.title.localeCompare(b.title)
   );
 }

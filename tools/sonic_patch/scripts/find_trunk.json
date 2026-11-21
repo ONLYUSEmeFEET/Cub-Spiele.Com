@@ -1,0 +1,10 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"poke": 252, "v": 13}, {"poke": 253, "v": 0},
+  {"poke": 248, "v": 12}, {"poke": 249, "v": 150},
+  {"f": 10}, {"shot": "s0_x3328"},
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"poke": 252, "v": 22}, {"poke": 253, "v": 160},
+  {"poke": 248, "v": 22}, {"poke": 249, "v": 50},
+  {"f": 10}, {"shot": "s0_x5792"}
+]

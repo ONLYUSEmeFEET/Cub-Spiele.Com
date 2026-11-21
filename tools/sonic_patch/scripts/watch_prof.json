@@ -1,0 +1,6 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"watch": [223, 185, 427, 591, 534], "n": 60, "sched": {"2": ["right"], "25": [], "30": ["a"], "40": []}},
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"pcprof": "stage1_prof", "n": 60, "sched": {"2": ["right"], "25": [], "30": ["a"], "40": []}}
+]

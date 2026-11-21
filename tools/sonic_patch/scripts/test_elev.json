@@ -1,0 +1,9 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"poke": 252, "v": 24}, {"poke": 253, "v": 80},
+  {"poke": 254, "v": 3}, {"poke": 255, "v": 160},
+  {"poke": 248, "v": 24}, {"poke": 249, "v": 0},
+  {"poke": 250, "v": 3}, {"poke": 251, "v": 80},
+  {"f": 15}, {"shot": "elev_idle"},
+  {"log": [223, 238, 252, 253, 254, 255]}
+]

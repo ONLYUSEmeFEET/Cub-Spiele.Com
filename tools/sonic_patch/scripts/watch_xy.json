@@ -1,0 +1,4 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"watch": [252, 253, 254, 255, 226, 228], "n": 40, "sched": {"2": ["right"], "20": ["right", "a"], "25": ["right"]}}
+]

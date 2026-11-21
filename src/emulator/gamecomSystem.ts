@@ -1692,11 +1692,14 @@ export class GameComSystem {
     try {
       const bytes = await fetchOnlineRomBytes(entry);
       let cart = loadCartridgeFromBuffer(bytes, entry.fileName, entry.downloadUrl);
-      if (
-        (entry.autoPatchReborn || entry.gameId === 'castlevaniareborn') &&
-        cart.id !== 'castlevaniareborn' &&
-        cart.romData
-      ) {
+      const isCastlevaniaReborn =
+        (entry.autoPatchReborn && entry.gameId === 'castlevaniareborn') ||
+        entry.gameId === 'castlevaniareborn';
+      const isSonicReborn =
+        (entry.autoPatchReborn && entry.gameId === 'sonicjamreborn') ||
+        entry.gameId === 'sonicjamreborn';
+
+      if (isCastlevaniaReborn && cart.id !== 'castlevaniareborn' && cart.romData) {
         const patchRes = await fetch('./patches/Castlevania - Symphony of the Night Reborn.ips');
         if (!patchRes.ok) {
           throw new Error(`Failed to load Reborn auto-patch (${patchRes.status}).`);
@@ -1706,6 +1709,18 @@ export class GameComSystem {
         cart = loadCartridgeFromBuffer(
           patchedRom,
           'Castlevania - Symphony of the Night Reborn (v0.2).tgc',
+          entry.downloadUrl
+        );
+      } else if (isSonicReborn && cart.id !== 'sonicjamreborn' && cart.romData) {
+        const patchRes = await fetch('./patches/Sonic Jam Reborn.ips');
+        if (!patchRes.ok) {
+          throw new Error(`Failed to load Sonic Jam Reborn auto-patch (${patchRes.status}).`);
+        }
+        const patchBytes = new Uint8Array(await patchRes.arrayBuffer());
+        const patchedRom = applyIpsPatch(cart.romData, patchBytes);
+        cart = loadCartridgeFromBuffer(
+          patchedRom,
+          'Sonic Jam Reborn (v0.1).tgc',
           entry.downloadUrl
         );
       }

@@ -1,0 +1,10 @@
+[
+  {"f": 650},
+  {"tap": [35, 35], "f": 13, "after": 0},
+  {"f": 1700}, {"shot": "title1"},
+  {"f": 600}, {"shot": "title2"},
+  {"press": "a", "f": 5}, {"f": 120}, {"shot": "menu1"},
+  {"press": "a", "f": 5}, {"f": 120}, {"shot": "menu2"},
+  {"press": "a", "f": 5}, {"f": 120}, {"shot": "menu3"},
+  {"press": "a", "f": 5}, {"f": 180}, {"shot": "stage1"}
+]

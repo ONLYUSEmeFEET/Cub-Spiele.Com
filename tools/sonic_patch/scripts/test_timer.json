@@ -1,0 +1,5 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"shot": "t_0s"},
+  {"f": 600}, {"shot": "t_10s"}
+]

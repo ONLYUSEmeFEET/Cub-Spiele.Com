@@ -1,0 +1,9 @@
+[
+  {"load": "tools/sonic_patch/work/char_select.json"},
+  {"press": "right", "f": 5}, {"f": 15},
+  {"press": "a", "f": 5}, {"f": 160},
+  {"press": "b", "f": 5}, {"f": 25},
+  {"log": [223, 224, 225, 228, 252, 253, 254, 255]},
+  {"press": "b", "f": 20}, {"shot": "knux_b_glide"},
+  {"log": [223, 224, 225, 228, 252, 253, 254, 255]}
+]

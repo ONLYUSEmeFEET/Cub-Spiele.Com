@@ -1,0 +1,7 @@
+[
+  {"load": "tools/sonic_patch/work/stage1.json"},
+  {"press": "right", "f": 90}, {"shot": "rings_s0_1"},
+  {"log": [252, 253, 254, 255, 248, 249, 250, 251]},
+  {"press": "right", "f": 60}, {"shot": "rings_s0_2"},
+  {"log": [252, 253, 254, 255]}
+]

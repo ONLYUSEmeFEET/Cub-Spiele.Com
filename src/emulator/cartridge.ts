@@ -77,6 +77,29 @@ export const KNOWN_GAMECOM_GAMES: Record<string, KnownGame> = {
       'Hidden giant rings unlock special bonus stages'
     ]
   },
+  sonicjamreborn: {
+    id: 'sonicjamreborn',
+    title: 'Sonic Jam Reborn',
+    publisher: 'Sega / Tiger Electronics · Reborn v0.1',
+    year: 1998,
+    genre: 'Platformer',
+    description:
+      'Enhanced edition of Sonic Jam for Tiger Game.Com (v0.1). Features 2x ground acceleration, 4x air steering, +29px forward camera lead, A+B jump mapping, Knuckles Glide with S3&K sprite, 53 fixed solid-embedded rings, auto-ascend elevators, 2-bpp sprite contrast boost, extended i-frames, and isolated SONIC REB ($B747) NVRAM.',
+    gameIds: [0xb747],
+    headerMatches: ['SONIC REB', 'SONICJAMREBORN', 'SONIC JAM REBORN'],
+    coverColor: '#1e3a8a',
+    coverAccent: '#38bdf8',
+    scoreUnit: 'Points',
+    labelImage: './assets/labels/sonicjam-reborn.jpg',
+    partNumber: 'Reborn v0.1',
+    diskmanUrl: 'https://www.diskman.com/presents/gamecom/sonic.htm',
+    manualUrl: 'https://www.diskman.com/presents/gamecom/scans/Sonic_Jam-gamecom_instructions.pdf',
+    diskmanHighlights: [
+      'Knuckles Glide with S3&K sprite, A+B Jump, 2x acceleration & 4x air control',
+      '53 fixed embedded rings, auto-ascend elevators & +29px forward camera lead',
+      '100% SM8521 hardware-compatible v0.1 patch with isolated SONIC REB ($B747) NVRAM'
+    ]
+  },
   castlevania: {
     id: 'castlevania',
     title: 'Castlevania: Symphony of the Night',
@@ -745,6 +768,9 @@ export function resolveKnownGameFromFilename(rawName: string): KnownGame | null 
   if (upper.includes('SCRABBLE')) {
     return KNOWN_GAMECOM_GAMES.scrabble;
   }
+  if (upper.includes('SONIC JAM') && upper.includes('REBORN')) {
+    return KNOWN_GAMECOM_GAMES.sonicjamreborn;
+  }
   if (upper.includes('SONIC JAM')) {
     return KNOWN_GAMECOM_GAMES.sonicjam;
   }
@@ -1098,7 +1124,7 @@ export function loadCartridgeFromBuffer(
   const byFilename = resolveKnownGameFromFilename(fileName);
   const matchedGame =
     resolveKnownGameByMd5(romMd5) ||
-    (byFilename?.id === 'castlevaniareborn' ? byFilename : null) ||
+    (byFilename?.id === 'castlevaniareborn' || byFilename?.id === 'sonicjamreborn' ? byFilename : null) ||
     resolveKnownGameByGameIdOrTitle(header.gameId, header.rawHeaderTitle) ||
     byFilename;
 

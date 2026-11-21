@@ -1,0 +1,14 @@
+[
+  {"load": "tools/sonic_patch/work/char_select.json"},
+  {"press": "a", "f": 5}, {"f": 120}, {"shot": "char_sonic"},
+  {"ram": "sonic_int", "from": 128, "len": 896},
+  {"load": "tools/sonic_patch/work/char_select.json"},
+  {"press": "right", "f": 5}, {"f": 15}, {"shot": "sel_2"},
+  {"press": "a", "f": 5}, {"f": 120}, {"shot": "char_2"},
+  {"ram": "char2_int", "from": 128, "len": 896},
+  {"load": "tools/sonic_patch/work/char_select.json"},
+  {"press": "right", "f": 5}, {"f": 15},
+  {"press": "right", "f": 5}, {"f": 15}, {"shot": "sel_3"},
+  {"press": "a", "f": 5}, {"f": 120}, {"shot": "char_3"},
+  {"ram": "char3_int", "from": 128, "len": 896}
+]
